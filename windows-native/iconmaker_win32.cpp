@@ -83,6 +83,7 @@ using namespace Gdiplus;
 #define ID_BTN_RESTORE_ONE  1072
 #define ID_BTN_RESTORE_ALL  1073
 #define ID_BTN_EXPORT       1074
+#define ID_BTN_ADMIN        1075
 
 enum BgPreset {
     PRESET_GOOGLE_WHITE = 0,
@@ -107,8 +108,9 @@ struct RoundStyle {
 
 struct AppEntry {
     std::wstring name;
-    std::wstring lnkPath;       // Shortcut path (.lnk) if from Start Menu / Desktop
-    std::wstring targetPath;    // Target .exe or image path
+    std::wstring lnkPath;                    // Primary shortcut path (.lnk)
+    std::vector<std::wstring> allLnkPaths;   // All shortcuts for this app (Desktop, Start Menu, Taskbar)
+    std::wstring targetPath;                 // Target .exe or image path
     std::wstring category;
     bool isApplied = false;
     Bitmap* origBitmap = nullptr;
@@ -730,10 +732,26 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
                     if (_wcsicmp(ext.c_str(), L".exe") != 0) continue;
                 }
 
-                // Avoid duplicates by title
+                // If an app with the same title or target .exe already exists, attach this .lnk to its allLnkPaths!
                 bool exists = false;
-                for (const auto& existing : g_allApps) {
-                    if (_wcsicmp(existing.name.c_str(), title.c_str()) == 0) {
+                for (auto& existing : g_allApps) {
+                    bool sameName = (_wcsicmp(existing.name.c_str(), title.c_str()) == 0);
+                    bool sameTarget = (!target.empty() && !existing.targetPath.empty() &&
+                                       _wcsicmp(existing.targetPath.c_str(), target.c_str()) == 0);
+                    if (sameName || sameTarget) {
+                        bool pathAlreadyAdded = false;
+                        for (const auto& p : existing.allLnkPaths) {
+                            if (_wcsicmp(p.c_str(), fullPath.c_str()) == 0) {
+                                pathAlreadyAdded = true;
+                                break;
+                            }
+                        }
+                        if (!pathAlreadyAdded) {
+                            existing.allLnkPaths.push_back(fullPath);
+                        }
+                        if (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+                            existing.isApplied = true;
+                        }
                         exists = true;
                         break;
                     }
@@ -743,10 +761,12 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
                 AppEntry entry;
                 entry.name = title;
                 entry.lnkPath = fullPath;
+                entry.allLnkPaths.push_back(fullPath);
                 entry.targetPath = target.empty() ? fullPath : target;
                 entry.category = categoryName;
                 entry.isApplied = (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos);
-                entry.origBitmap = LoadHighResIcon(entry.lnkPath, entry.targetPath);
+                // Always load the original icon from the .exe targetPath so already-applied .lnk icons don't overwrite the source
+                entry.origBitmap = LoadHighResIcon(entry.targetPath, entry.lnkPath);
                 g_allApps.push_back(entry);
             }
         }
@@ -761,16 +781,26 @@ static void ScanInstalledWindowsApps() {
     }
     g_allApps.clear();
 
+    // 1. Scan Taskbar Pinned shortcuts (%APPDATA%\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar)
+    wchar_t appData[MAX_PATH] = {0};
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
+        std::wstring taskbarDir = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
+        if (GetFileAttributesW(taskbarDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            ScanDirectoryForShortcuts(taskbarDir, L"Панель задач", 0);
+        }
+    }
+
+    // 2. Scan User & Public Desktop and Start Menu
     const int folders[] = {
         CSIDL_DESKTOPDIRECTORY,
-        CSIDL_COMMON_DESKTOPDIRECTORY,
         CSIDL_PROGRAMS,
+        CSIDL_COMMON_DESKTOPDIRECTORY,
         CSIDL_COMMON_PROGRAMS
     };
     const wchar_t* labels[] = {
         L"Рабочий стол",
-        L"Общий Рабочий стол",
         L"Меню «Пуск»",
+        L"Общий Рабочий стол",
         L"Программы Windows"
     };
 
@@ -818,57 +848,113 @@ static void RefreshFilteredList() {
     InvalidatePreview();
 }
 
-static bool ApplyRoundIconToEntry(AppEntry& app) {
+static uint32_t g_iconRevCounter = 1;
+
+static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) {
     std::wstring root = GetAppDataRoot();
     std::wstring safe = SanitizeFileName(app.name);
-    std::wstring icoPath = root + L"\\icons\\" + safe + L".ico";
+    std::wstring iconsDir = root + L"\\icons";
+
+    // Remove previous revision .ico files for this app so disk stays clean
+    WIN32_FIND_DATAW fd;
+    HANDLE hFind = FindFirstFileW((iconsDir + L"\\" + safe + L"*.ico").c_str(), &fd);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            DeleteFileW((iconsDir + L"\\" + fd.cFileName).c_str());
+        } while (FindNextFileW(hFind, &fd));
+        FindClose(hFind);
+    }
+
+    // Use a unique filename revision so Windows Explorer icon cache reloads immediately!
+    wchar_t revSuffix[64];
+    wsprintfW(revSuffix, L"_%u_%u.ico", (unsigned)(GetTickCount() & 0xFFFF), ++g_iconRevCounter);
+    std::wstring icoPath = iconsDir + L"\\" + safe + revSuffix;
 
     Bitmap* master = RenderGoogleRoundIcon(app.origBitmap, g_style, 512);
     bool saved = SaveMultiSizeIco(master, icoPath);
     delete master;
     if (!saved) return false;
 
-    if (!app.lnkPath.empty() && GetFileAttributesW(app.lnkPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        std::wstring backupLnk = root + L"\\backup\\" + safe + L".lnk.bak";
+    if (app.allLnkPaths.empty() && !app.lnkPath.empty()) {
+        app.allLnkPaths.push_back(app.lnkPath);
+    }
+
+    int updatedCount = 0;
+    bool permissionDenied = false;
+
+    for (size_t idx = 0; idx < app.allLnkPaths.size(); ++idx) {
+        const std::wstring& lnk = app.allLnkPaths[idx];
+        if (lnk.empty() || GetFileAttributesW(lnk.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
+
+        wchar_t bakName[MAX_PATH];
+        wsprintfW(bakName, L"%s_%u.lnk.bak", safe.c_str(), (unsigned)idx);
+        std::wstring backupLnk = root + L"\\backup\\" + bakName;
         if (GetFileAttributesW(backupLnk.c_str()) == INVALID_FILE_ATTRIBUTES) {
-            CopyFileW(app.lnkPath.c_str(), backupLnk.c_str(), TRUE);
+            CopyFileW(lnk.c_str(), backupLnk.c_str(), TRUE);
         }
-        if (SetShortcutIconLocation(app.lnkPath, icoPath)) {
-            app.isApplied = true;
-            return true;
+
+        // Clear read-only attribute if set
+        DWORD attrs = GetFileAttributesW(lnk.c_str());
+        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_READONLY)) {
+            SetFileAttributesW(lnk.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY);
+        }
+
+        if (SetShortcutIconLocation(lnk, icoPath)) {
+            SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, lnk.c_str(), NULL);
+            updatedCount++;
+        } else {
+            permissionDenied = true;
         }
     }
 
-    // Fallback: create a shortcut on the user's Desktop with the round icon
-    wchar_t desktopDir[MAX_PATH] = {0};
-    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopDir))) {
-        std::wstring deskLnk = std::wstring(desktopDir) + L"\\" + safe + L".lnk";
-        IShellLinkW* psl = nullptr;
-        if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) && psl) {
-            psl->SetPath(app.targetPath.c_str());
-            psl->SetIconLocation(icoPath.c_str(), 0);
-            IPersistFile* ppf = nullptr;
-            if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
-                ppf->Save(deskLnk.c_str(), TRUE);
-                ppf->Release();
-                app.lnkPath = deskLnk;
-                app.isApplied = true;
+    // If a system-wide shortcut in C:\Users\Public\Desktop or C:\ProgramData couldn't be written without Admin,
+    // also create/update a shortcut directly on the user's personal Desktop so the round icon appears immediately!
+    if (updatedCount == 0) {
+        wchar_t desktopDir[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopDir))) {
+            std::wstring deskLnk = std::wstring(desktopDir) + L"\\" + safe + L".lnk";
+            IShellLinkW* psl = nullptr;
+            if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) && psl) {
+                psl->SetPath(app.targetPath.c_str());
+                psl->SetIconLocation(icoPath.c_str(), 0);
+                IPersistFile* ppf = nullptr;
+                if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
+                    if (SUCCEEDED(ppf->Save(deskLnk.c_str(), TRUE))) {
+                        app.allLnkPaths.push_back(deskLnk);
+                        SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, deskLnk.c_str(), NULL);
+                        updatedCount++;
+                    }
+                    ppf->Release();
+                }
+                psl->Release();
             }
-            psl->Release();
         }
     }
+
+    if (outNeedsAdmin && permissionDenied) {
+        *outNeedsAdmin = true;
+    }
+    app.isApplied = (updatedCount > 0);
     return app.isApplied;
 }
 
 static bool RestoreOriginalEntry(AppEntry& app) {
-    if (app.lnkPath.empty()) return false;
+    if (app.allLnkPaths.empty() && !app.lnkPath.empty()) {
+        app.allLnkPaths.push_back(app.lnkPath);
+    }
     std::wstring root = GetAppDataRoot();
     std::wstring safe = SanitizeFileName(app.name);
-    std::wstring backupLnk = root + L"\\backup\\" + safe + L".lnk.bak";
-    if (GetFileAttributesW(backupLnk.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        CopyFileW(backupLnk.c_str(), app.lnkPath.c_str(), FALSE);
-    } else if (!app.targetPath.empty()) {
-        SetShortcutIconLocation(app.lnkPath, app.targetPath);
+    for (size_t idx = 0; idx < app.allLnkPaths.size(); ++idx) {
+        const std::wstring& lnk = app.allLnkPaths[idx];
+        wchar_t bakName[MAX_PATH];
+        wsprintfW(bakName, L"%s_%u.lnk.bak", safe.c_str(), (unsigned)idx);
+        std::wstring backupLnk = root + L"\\backup\\" + bakName;
+        if (GetFileAttributesW(backupLnk.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            CopyFileW(backupLnk.c_str(), lnk.c_str(), FALSE);
+        } else if (!app.targetPath.empty()) {
+            SetShortcutIconLocation(lnk, app.targetPath);
+        }
+        SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, lnk.c_str(), NULL);
     }
     app.isApplied = false;
     return true;
@@ -1154,7 +1240,8 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             };
 
             // Header
-            mkLabel(L"IconMaker — Круглые иконки Google Pixel", 16, 14, 430, 28, g_fontTitle);
+            mkLabel(L"IconMaker — Круглые иконки Google Pixel", 16, 14, 380, 28, g_fontTitle);
+            mkBtn(L"🛡 Права Админа", ID_BTN_ADMIN, 404, 14, 128, 30);
             mkBtn(L"📌 Создать ярлыки", ID_BTN_INSTALL_SELF, 536, 14, 148, 30);
             mkBtn(L"Обновить список", ID_BTN_SCAN, 690, 14, 130, 30);
             mkBtn(L"+ Файл / .EXE…", ID_BTN_ADD_FILE, 826, 14, 130, 30);
@@ -1437,6 +1524,16 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             }
 
             switch (id) {
+                case ID_BTN_ADMIN: {
+                    wchar_t selfPath[MAX_PATH * 2] = {0};
+                    if (GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) {
+                        if ((INT_PTR)ShellExecuteW(hwnd, L"runas", selfPath, NULL, NULL, SW_SHOWNORMAL) > 32) {
+                            PostQuitMessage(0);
+                        }
+                    }
+                    break;
+                }
+
                 case ID_BTN_INSTALL_SELF:
                     InstallSelfAndShortcuts(hwnd, true);
                     break;
@@ -1514,15 +1611,20 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                 case ID_BTN_APPLY_ONE: {
                     if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
                         AppEntry& app = g_allApps[g_selectedAppIndex];
-                        if (ApplyRoundIconToEntry(app)) {
-                            SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+                        bool needsAdmin = false;
+                        if (ApplyRoundIconToEntry(app, &needsAdmin)) {
+                            SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
                             int curSel = (int)SendMessageW(g_hList, LB_GETCURSEL, 0, 0);
                             RefreshFilteredList();
-                            if (curSel >= 0) {
+                            if (curSel >= 0 && curSel < (int)g_filteredIndices.size()) {
                                 SendMessageW(g_hList, LB_SETCURSEL, curSel, 0);
                                 g_selectedAppIndex = g_filteredIndices[curSel];
                             }
-                            SetWindowTextW(g_hStatus, (L"Круглая иконка Google Pixel применена к " + app.name).c_str());
+                            std::wstring status = L"Применена круглая иконка к " + app.name;
+                            if (needsAdmin) {
+                                status += L" (для системных ярлыков в Общем Рабочем столе нажмите «🛡 Права Админа»)";
+                            }
+                            SetWindowTextW(g_hStatus, status.c_str());
                         }
                     }
                     break;
@@ -1532,15 +1634,26 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                     if (g_filteredIndices.empty()) break;
                     SendMessageW(g_hProgress, PBM_SETRANGE32, 0, (LPARAM)g_filteredIndices.size());
                     int count = 0;
+                    bool anyNeedsAdmin = false;
                     for (size_t i = 0; i < g_filteredIndices.size(); ++i) {
                         AppEntry& app = g_allApps[g_filteredIndices[i]];
-                        if (ApplyRoundIconToEntry(app)) count++;
+                        bool na = false;
+                        if (ApplyRoundIconToEntry(app, &na)) count++;
+                        if (na) anyNeedsAdmin = true;
                         SendMessageW(g_hProgress, PBM_SETPOS, i + 1, 0);
                     }
-                    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+                    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
                     RefreshFilteredList();
-                    wchar_t msg[160];
-                    wsprintfW(msg, L"Готово! Круглые иконки Google Pixel применены к %d приложениям.", count);
+                    wchar_t msg[384];
+                    if (anyNeedsAdmin) {
+                        wsprintfW(msg,
+                                  L"Круглые иконки применены к %d приложениям!\n\n"
+                                  L"Примечание: часть ярлыков находится в системной папке C:\\Users\\Public\\Desktop или C:\\ProgramData.\n"
+                                  L"Чтобы заменить их без создания копий, нажмите «🛡 Права Админа» вверху окна.",
+                                  count);
+                    } else {
+                        wsprintfW(msg, L"Готово! Круглые иконки Google Pixel применены к %d приложениям (Рабочий стол, Пуск и Панель задач).", count);
+                    }
                     SetWindowTextW(g_hStatus, msg);
                     MessageBoxW(hwnd, msg, L"IconMaker", MB_ICONINFORMATION);
                     break;
