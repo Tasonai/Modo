@@ -1,8 +1,8 @@
+import IconMakerKit
 import SwiftUI
 
-/// The Settings window (Command-Comma). One tab per topic, at most about
-/// six. Each tab is a grouped Form that sizes to its content, so the
-/// window grows to fit and shows no scroll bar it does not need.
+/// The Settings window (Command-Comma). Each tab is a grouped Form that sizes
+/// to its content so the window shows no unnecessary scroll bar.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -54,11 +54,27 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 }
 
 struct GeneralSettings: View {
-    @AppStorage("confirmDelete") private var confirmDelete = true
+    @Environment(AppModel.self) private var model
+    @AppStorage("scanSystemApps") private var scanSystemApps = true
+    @AppStorage("createAliasOnReadOnly") private var createAliasOnReadOnly = true
+    @AppStorage("exportIncludesICO") private var exportIncludesICO = true
 
     var body: some View {
-        Section("Items") {
-            Toggle("Ask before deleting items", isOn: $confirmDelete)
+        @Bindable var model = model
+        Section("Circular Icon Rendering") {
+            Picker("Default Surface Preset", selection: $model.style.backgroundStyle) {
+                ForEach(RoundBackgroundStyle.allCases) { preset in
+                    Text(preset.title).tag(preset)
+                }
+            }
+            Toggle("Automatically trim transparent icon margins", isOn: $model.style.autoTrim)
+            Toggle("Expand full-bleed square icons to fill circle", isOn: $model.style.fullBleedSquares)
+        }
+
+        Section("macOS Integration & Export") {
+            Toggle("Include /System/Applications when scanning", isOn: $scanSystemApps)
+            Toggle("Create ~/Applications/Round Icons alias for read-only apps", isOn: $createAliasOnReadOnly)
+            Toggle("Export multi-size Windows .ico alongside Apple .icns", isOn: $exportIncludesICO)
         }
     }
 }

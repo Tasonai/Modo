@@ -1,8 +1,9 @@
 import AppKit
+import IconMakerKit
 import SwiftData
 import SwiftUI
 
-// IconMaker
+// IconMaker — Native macOS Google Pixel & Material You Circular Icon Studio
 //   IconMaker                      the app
 //   APP_STORE=<file> IconMaker     use another database (tests, experiments)
 //   APP_SNAPSHOT=<dir> IconMaker   save a PNG of every sidebar page and Settings tab in light and dark mode, then quit
@@ -22,17 +23,26 @@ struct IconMakerApp: App {
                 .environment(model)
                 .themed()
                 .overlay { if GridOverlay.enabled { GridOverlay() } }
-                .frame(minWidth: 760, minHeight: 480)
+                .frame(minWidth: 840, minHeight: 520)
         }
         .modelContainer(model.container)
-        .defaultSize(width: 1100, height: 720)
+        .defaultSize(width: 1120, height: 720)
         .windowToolbarStyle(.unified)
         .commands {
             SidebarCommands()
             ToolbarCommands()
             CommandGroup(replacing: .newItem) {
-                Button("New Item") { model.addItem() }
+                Button("Add Custom App…") { model.addItem() }
                     .keyboardShortcut("n")
+                Button("Scan Installed Applications") { model.scanInstalledApplications() }
+                    .keyboardShortcut("r")
+            }
+            CommandMenu("Icons") {
+                ForEach(RoundBackgroundStyle.allCases) { preset in
+                    Button(preset.title) {
+                        model.style.backgroundStyle = preset
+                    }
+                }
             }
         }
 
@@ -47,14 +57,12 @@ struct IconMakerApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Started from a terminal, the process is not a foreground app yet.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// The self-test's result becomes the exit code, after a normal quit.
     func applicationWillTerminate(_ notification: Notification) {
         if SelfTest.requested { exit(SelfTest.exitCode) }
     }
@@ -62,7 +70,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 /// Where the data lives: ~/Library/Application Support/IconMaker/IconMaker.store
 enum Store {
-    /// True when APP_STORE points somewhere else (tests, snapshots, seed data).
     static var isOverridden: Bool {
         !(ProcessInfo.processInfo.environment["APP_STORE"] ?? "").isEmpty
     }
