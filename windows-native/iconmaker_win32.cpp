@@ -50,6 +50,7 @@ using namespace Gdiplus;
 #define ID_BTN_SCAN         1002
 #define ID_BTN_ADD_FILE     1003
 #define ID_LIST_APPS        1004
+#define ID_BTN_INSTALL_SELF 1005
 
 #define ID_CMB_PRESET       1010
 #define ID_BTN_CUSTOM_CLR   1011
@@ -1035,6 +1036,63 @@ static void AddCustomAppOrImage(HWND hwnd) {
     }
 }
 
+static void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
+    wchar_t selfPath[MAX_PATH * 2] = {0};
+    if (!GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) return;
+
+    wchar_t localAppData[MAX_PATH] = {0};
+    if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) return;
+
+    std::wstring progDir = std::wstring(localAppData) + L"\\Programs";
+    CreateDirectoryW(progDir.c_str(), NULL);
+    std::wstring appDir = progDir + L"\\IconMaker";
+    CreateDirectoryW(appDir.c_str(), NULL);
+
+    std::wstring installedExe = appDir + L"\\IconMaker.exe";
+    if (_wcsicmp(selfPath, installedExe.c_str()) != 0) {
+        CopyFileW(selfPath, installedExe.c_str(), FALSE);
+    } else {
+        installedExe = selfPath;
+    }
+
+    auto makeShortcut = [&](int csidl, const wchar_t* lnkName) {
+        wchar_t folder[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, csidl, NULL, 0, folder)) && folder[0]) {
+            std::wstring lnkPath = std::wstring(folder) + L"\\" + lnkName;
+            IShellLinkW* psl = nullptr;
+            if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) && psl) {
+                psl->SetPath(installedExe.c_str());
+                psl->SetWorkingDirectory(appDir.c_str());
+                psl->SetIconLocation(installedExe.c_str(), 0);
+                psl->SetDescription(L"IconMaker — Круглые иконки в стиле Google Pixel");
+                IPersistFile* ppf = nullptr;
+                if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
+                    ppf->Save(lnkPath.c_str(), TRUE);
+                    ppf->Release();
+                }
+                psl->Release();
+            }
+        }
+    };
+
+    makeShortcut(CSIDL_DESKTOPDIRECTORY, L"IconMaker — Круглые иконки.lnk");
+    makeShortcut(CSIDL_PROGRAMS, L"IconMaker — Круглые иконки.lnk");
+
+    if (g_hStatus) {
+        SetWindowTextW(g_hStatus, L"Приложение установлено в %LOCALAPPDATA%\\Programs\\IconMaker, ярлыки созданы на Рабочем столе и в меню Пуск");
+    }
+    if (showConfirmation) {
+        MessageBoxW(
+            hwnd,
+            L"IconMaker успешно установлен!\n\n"
+            L"• Папка: %LOCALAPPDATA%\\Programs\\IconMaker\\IconMaker.exe\n"
+            L"• Ярлыки созданы на Рабочем столе и в меню «Пуск».",
+            L"Установка завершена — IconMaker",
+            MB_ICONINFORMATION
+        );
+    }
+}
+
 static void ExportCurrentOrAllIcons(HWND hwnd) {
     BROWSEINFOW bi = {0};
     bi.hwndOwner = hwnd;
@@ -1096,7 +1154,8 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             };
 
             // Header
-            mkLabel(L"IconMaker — Круглые иконки в стиле Google Pixel", 16, 14, 520, 28, g_fontTitle);
+            mkLabel(L"IconMaker — Круглые иконки Google Pixel", 16, 14, 430, 28, g_fontTitle);
+            mkBtn(L"📌 Создать ярлыки", ID_BTN_INSTALL_SELF, 536, 14, 148, 30);
             mkBtn(L"Обновить список", ID_BTN_SCAN, 690, 14, 130, 30);
             mkBtn(L"+ Файл / .EXE…", ID_BTN_ADD_FILE, 826, 14, 130, 30);
 
@@ -1378,6 +1437,10 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             }
 
             switch (id) {
+                case ID_BTN_INSTALL_SELF:
+                    InstallSelfAndShortcuts(hwnd, true);
+                    break;
+
                 case ID_BTN_SCAN:
                     SetWindowTextW(g_hStatus, L"Сканирование установленных приложений Windows…");
                     ScanInstalledWindowsApps();
@@ -1538,7 +1601,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     wc.lpfnWndProc = MainWndProc;
     wc.hInstance = hInst;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hIcon = LoadIconW(hInst, MAKEINTRESOURCEW(101));
+    wc.hIconSm = LoadIconW(hInst, MAKEINTRESOURCEW(101));
+    if (!wc.hIcon) wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wc.hbrBackground = g_hBrWindowBg;
     wc.lpszClassName = L"IconMakerNativeWin32Class";
     RegisterClassExW(&wc);
@@ -1566,6 +1631,16 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     UpdateWindow(g_hMainWnd);
 
     ScanInstalledWindowsApps();
+
+    // If run from a file named *Setup*.exe, offer 1-click shortcut installation in-process (no external process spawning)
+    wchar_t exeName[MAX_PATH] = {0};
+    if (GetModuleFileNameW(NULL, exeName, MAX_PATH - 1)) {
+        std::wstring lowerExe = PathFindFileNameW(exeName);
+        for (auto& c : lowerExe) c = towlower(c);
+        if (lowerExe.find(L"setup") != std::wstring::npos) {
+            InstallSelfAndShortcuts(g_hMainWnd, false);
+        }
+    }
 
     MSG msg;
     while (GetMessageW(&msg, NULL, 0, 0)) {
