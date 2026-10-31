@@ -155,9 +155,9 @@ enum IconRenderer {
             )
         }
 
-        // 3. Foreground glyph placement inside the circular mask
+        // 3. Foreground glyph placement inside the circular mask (supports >100% zoom and X/Y pan)
         let fgScale: CGFloat = (style.fullBleedSquares && dominant.isSquareLike)
-            ? 1.04
+            ? max(CGFloat(style.iconScale), 1.04)
             : CGFloat(style.iconScale)
         let maxGlyphSpan = circleRect.width * fgScale
         let srcW = CGFloat(trimmedCG.width)
@@ -165,9 +165,11 @@ enum IconRenderer {
         let aspect = srcW / max(srcH, 1.0)
         let drawW = aspect >= 1.0 ? maxGlyphSpan : maxGlyphSpan * aspect
         let drawH = aspect >= 1.0 ? maxGlyphSpan / aspect : maxGlyphSpan
+        let shiftX = CGFloat(style.offsetX) * (circleRect.width * 0.5)
+        let shiftY = CGFloat(style.offsetY) * (circleRect.height * 0.5)
         let glyphRect = CGRect(
-            x: circleRect.midX - drawW * 0.5,
-            y: circleRect.midY - drawH * 0.5,
+            x: circleRect.midX + shiftX - drawW * 0.5,
+            y: circleRect.midY + shiftY - drawH * 0.5,
             width: drawW, // grid: ok bitmap glyph
             height: drawH // grid: ok bitmap glyph
         )

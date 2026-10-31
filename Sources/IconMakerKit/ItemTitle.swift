@@ -58,8 +58,12 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
 /// Value type holding all parameters for rendering a Google-style circular icon.
 public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var backgroundStyle: RoundBackgroundStyle
-    /// Foreground glyph scale inside the circular disc (0.50 ... 1.00).
+    /// Foreground glyph scale inside the circular disc (0.30 ... 2.50, i.e. 30% to 250%).
     public var iconScale: Double
+    /// Horizontal pan offset inside the circle (-1.0 ... 1.0, fraction of circle radius; negative = left, positive = right).
+    public var offsetX: Double
+    /// Vertical pan offset inside the circle (-1.0 ... 1.0, fraction of circle radius; negative = down, positive = up).
+    public var offsetY: Double
     /// Outer drop shadow intensity (0.0 ... 1.0).
     public var shadowIntensity: Double
     /// Adds a subtle drop shadow directly under the foreground glyph.
@@ -76,6 +80,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public init(
         backgroundStyle: RoundBackgroundStyle = .googleWhite,
         iconScale: Double = 0.68,
+        offsetX: Double = 0.0,
+        offsetY: Double = 0.0,
         shadowIntensity: Double = 0.45,
         innerShadow: Bool = true,
         fullBleedSquares: Bool = false,
@@ -84,13 +90,20 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         customHex: UInt32 = 0xE8F0FE
     ) {
         self.backgroundStyle = backgroundStyle
-        self.iconScale = min(max(iconScale, 0.50), 1.00)
+        self.iconScale = min(max(iconScale, 0.30), 2.50)
+        self.offsetX = min(max(offsetX, -1.0), 1.0)
+        self.offsetY = min(max(offsetY, -1.0), 1.0)
         self.shadowIntensity = min(max(shadowIntensity, 0.0), 1.0)
         self.innerShadow = innerShadow
         self.fullBleedSquares = fullBleedSquares
         self.monochromeTint = monochromeTint
         self.autoTrim = autoTrim
         self.customHex = customHex & 0xFFFFFF
+    }
+
+    public mutating func resetPosition() {
+        offsetX = 0.0
+        offsetY = 0.0
     }
 }
 

@@ -39,8 +39,14 @@ enum SelfTest {
                 check("circular Google icon renders at 256x256", Int(rendered.size.width) == 256)
 
                 model.style.backgroundStyle = .materialPastel
+                model.style.iconScale = 1.65
+                model.style.offsetX = 0.25
+                model.style.offsetY = -0.20
                 let pastelRendered = model.roundIcon(for: item)
-                check("Material You pastel style renders cleanly", Int(pastelRendered.size.height) == 256)
+                check("Material You pastel style with >100% zoom and X/Y pan renders cleanly",
+                      Int(pastelRendered.size.height) == 256 && model.style.iconScale == 1.65)
+                model.style.resetPosition()
+                model.style.iconScale = 0.68
 
                 model.applyRoundIcon(to: item)
                 check("applying circular icon marks item as applied", item.isApplied)

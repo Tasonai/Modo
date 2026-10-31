@@ -31,11 +31,22 @@ func colorMath() {
     #expect(MaterialRGB.parseHex("invalid") == nil)
 }
 
-@Test("RoundIconStyle clamps scale and shadow bounds")
+@Test("RoundIconStyle supports >100% scale and clamps scale, offsets, and shadow bounds")
 func styleClamping() {
-    let style = RoundIconStyle(iconScale: 1.5, shadowIntensity: -0.2)
-    #expect(style.iconScale == 1.0)
-    #expect(style.shadowIntensity == 0.0)
+    let zoomed = RoundIconStyle(iconScale: 1.85, offsetX: 0.4, offsetY: -0.35)
+    #expect(zoomed.iconScale == 1.85)
+    #expect(zoomed.offsetX == 0.4)
+    #expect(zoomed.offsetY == -0.35)
+
+    var clamped = RoundIconStyle(iconScale: 3.5, offsetX: -2.0, offsetY: 2.0, shadowIntensity: -0.2)
+    #expect(clamped.iconScale == 2.5)
+    #expect(clamped.offsetX == -1.0)
+    #expect(clamped.offsetY == 1.0)
+    #expect(clamped.shadowIntensity == 0.0)
+
+    clamped.resetPosition()
+    #expect(clamped.offsetX == 0.0)
+    #expect(clamped.offsetY == 0.0)
 }
 
 @Test("ICO binary header packs multi-size PNG entries")

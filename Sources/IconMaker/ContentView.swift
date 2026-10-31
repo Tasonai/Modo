@@ -269,6 +269,7 @@ private struct DetailInspectorView: View {
     @Environment(\.modelContext) private var context
     @Bindable var item: Item
     let allVisibleItems: [Item]
+    @State private var dragStartOffset: CGPoint?
 
     var body: some View {
         @Bindable var model = model
@@ -357,9 +358,24 @@ private struct DetailInspectorView: View {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 96, height: 96)
+                    .gesture(
+                        DragGesture(minimumDistance: 1)
+                            .onChanged { value in
+                                let base = dragStartOffset ?? CGPoint(x: model.style.offsetX, y: model.style.offsetY)
+                                if dragStartOffset == nil { dragStartOffset = base }
+                                let nx = min(max(base.x + Double(value.translation.width) / 48.0, -1.0), 1.0)
+                                let ny = min(max(base.y - Double(value.translation.height) / 48.0, -1.0), 1.0)
+                                model.style.offsetX = nx
+                                model.style.offsetY = ny
+                            }
+                            .onEnded { _ in
+                                dragStartOffset = nil
+                            }
+                    )
+                    .help("Drag inside the circle to pan icon (Left / Right / Up / Down)")
                 Text("Google Pixel Round")
                     .font(.callout.weight(.semibold))
-                Text(model.style.backgroundStyle.title)
+                Text("Drag to Pan · \(model.style.backgroundStyle.title)")
                     .font(.caption)
                     .foregroundStyle(Palette.accentText)
             }
@@ -384,17 +400,75 @@ private struct DetailInspectorView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 220)
+                .frame(width: 240)
             }
 
             LabeledContent("Glyph Scale (\(Int((model.style.iconScale * 100).rounded()))%)") {
-                Slider(value: $model.style.iconScale, in: 0.52...0.96)
-                    .frame(width: 220)
+                HStack(spacing: Space.sm) {
+                    Slider(value: $model.style.iconScale, in: 0.30...2.50)
+                        .frame(width: 176)
+                    Button("100%") { model.style.iconScale = 1.0 }
+                        .controlSize(.small)
+                    Button("135%") { model.style.iconScale = 1.35 }
+                        .controlSize(.small)
+                }
+            }
+
+            LabeledContent("Horizontal X (\(Int((model.style.offsetX * 100).rounded()))%)") {
+                HStack(spacing: Space.xs) {
+                    Button {
+                        model.style.offsetX = max(model.style.offsetX - 0.05, -1.0)
+                    } label: {
+                        Image(systemName: "arrow.left")
+                    }
+                    .controlSize(.small)
+                    .help("Move Left")
+
+                    Slider(value: $model.style.offsetX, in: -1.0...1.0)
+                        .frame(width: 160)
+
+                    Button {
+                        model.style.offsetX = min(model.style.offsetX + 0.05, 1.0)
+                    } label: {
+                        Image(systemName: "arrow.right")
+                    }
+                    .controlSize(.small)
+                    .help("Move Right")
+                }
+            }
+
+            LabeledContent("Vertical Y (\(Int((model.style.offsetY * 100).rounded()))%)") {
+                HStack(spacing: Space.xs) {
+                    Button {
+                        model.style.offsetY = max(model.style.offsetY - 0.05, -1.0)
+                    } label: {
+                        Image(systemName: "arrow.down")
+                    }
+                    .controlSize(.small)
+                    .help("Move Down")
+
+                    Slider(value: $model.style.offsetY, in: -1.0...1.0)
+                        .frame(width: 160)
+
+                    Button {
+                        model.style.offsetY = min(model.style.offsetY + 0.05, 1.0)
+                    } label: {
+                        Image(systemName: "arrow.up")
+                    }
+                    .controlSize(.small)
+                    .help("Move Up")
+
+                    Button("Center") {
+                        model.style.resetPosition()
+                    }
+                    .controlSize(.small)
+                    .disabled(abs(model.style.offsetX) < 0.005 && abs(model.style.offsetY) < 0.005)
+                }
             }
 
             LabeledContent("Elevation Shadow (\(Int((model.style.shadowIntensity * 100).rounded()))%)") {
                 Slider(value: $model.style.shadowIntensity, in: 0.0...1.0)
-                    .frame(width: 220)
+                    .frame(width: 240)
             }
 
             Divider()
