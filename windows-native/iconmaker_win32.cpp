@@ -66,10 +66,16 @@ struct RoundStyle {
 
 struct AppEntry {
     std::wstring name;
+    std::wstring searchKeywords;
     std::wstring lnkPath;
     std::vector<std::wstring> allLnkPaths;
     std::wstring targetPath;
     std::wstring category;
+    std::wstring systemClsid;
+    std::wstring defaultRestoreIcon;
+    bool isFileExplorer = false;
+    bool isRecycleBin = false;
+    bool isSystemPinnedTop = false;
     bool isApplied = false;
     Bitmap* origBitmap = nullptr;
     Bitmap* cachedThumb = nullptr; // 64x64 cached circular preview for the list
@@ -1016,13 +1022,64 @@ static void TouchFileModificationTime(const std::wstring& path) {
     }
 }
 
-static void RefreshWindowsExplorerIconCache() {
+static bool SetRegistryStringValue(HKEY hRoot, const std::wstring& subKey, const wchar_t* valueName, const std::wstring& val) {
+    HKEY hKey = NULL;
+    if (RegCreateKeyExW(hRoot, subKey.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
+        LONG rc = RegSetValueExW(hKey, valueName, 0, REG_SZ, (const BYTE*)val.c_str(), (DWORD)((val.size() + 1) * sizeof(wchar_t)));
+        RegCloseKey(hKey);
+        return rc == ERROR_SUCCESS;
+    }
+    return false;
+}
+
+static std::wstring GetRegistryStringValue(HKEY hRoot, const std::wstring& subKey, const wchar_t* valueName) {
+    HKEY hKey = NULL;
+    std::wstring out;
+    if (RegOpenKeyExW(hRoot, subKey.c_str(), 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        wchar_t buf[MAX_PATH * 2] = {0};
+        DWORD cb = sizeof(buf) - sizeof(wchar_t);
+        DWORD type = 0;
+        if (RegQueryValueExW(hKey, valueName, NULL, &type, (LPBYTE)buf, &cb) == ERROR_SUCCESS &&
+            (type == REG_SZ || type == REG_EXPAND_SZ)) {
+            out = buf;
+        }
+        RegCloseKey(hKey);
+    }
+    return out;
+}
+
+static void RefreshWindowsExplorerIconCache(bool restartExplorerForTaskbar = false) {
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
+    SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)L"ShellState", SMTO_ABORTIFHUNG, 500, NULL);
     wchar_t sysDir[MAX_PATH] = {0};
     if (GetSystemDirectoryW(sysDir, MAX_PATH)) {
         std::wstring ie4 = std::wstring(sysDir) + L"\\ie4uinit.exe";
         if (GetFileAttributesW(ie4.c_str()) != INVALID_FILE_ATTRIBUTES) {
             ShellExecuteW(NULL, L"open", ie4.c_str(), L"-show", NULL, SW_HIDE);
+        }
+    }
+    if (restartExplorerForTaskbar) {
+        HWND hTray = FindWindowW(L"Shell_TrayWnd", NULL);
+        if (hTray) {
+            DWORD pid = 0;
+            GetWindowThreadProcessId(hTray, &pid);
+            PostMessageW(hTray, WM_QUIT, 0, 0);
+            Sleep(450);
+            if (FindWindowW(L"Shell_TrayWnd", NULL) != NULL && pid != 0) {
+                HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pid);
+                if (hProc) {
+                    TerminateProcess(hProc, 0);
+                    WaitForSingleObject(hProc, 1000);
+                    CloseHandle(hProc);
+                }
+            }
+            Sleep(250);
+            if (FindWindowW(L"Shell_TrayWnd", NULL) == NULL) {
+                wchar_t winDir[MAX_PATH] = {0};
+                GetWindowsDirectoryW(winDir, MAX_PATH);
+                std::wstring expExe = std::wstring(winDir) + L"\\explorer.exe";
+                ShellExecuteW(NULL, L"open", expExe.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            }
         }
     }
 }
@@ -1069,6 +1126,11 @@ static bool ResolveShortcut(const std::wstring& lnkPath, std::wstring& outTarget
 }
 
 static bool SetShortcutIconLocation(const std::wstring& lnkPath, const std::wstring& icoPath) {
+    DWORD attrs = GetFileAttributesW(lnkPath.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM))) {
+        SetFileAttributesW(lnkPath.c_str(), attrs & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM));
+    }
+
     std::wstring ext = PathFindExtensionW(lnkPath.c_str());
     if (_wcsicmp(ext.c_str(), L".url") == 0) {
         BOOL ok1 = WritePrivateProfileStringW(L"InternetShortcut", L"IconFile", icoPath.c_str(), lnkPath.c_str());
@@ -1104,8 +1166,179 @@ static bool SetShortcutIconLocation(const std::wstring& lnkPath, const std::wstr
     return ok;
 }
 
+static Bitmap* LoadSystemDllIcon(const std::wstring& dllPath, int negResId, const std::wstring& fallbackDll, int fallbackIdx, const std::wstring& safeCacheName) {
+    std::wstring origCachePng = GetAppDataRoot() + L"\\backup\\" + safeCacheName + L"_orig.png";
+    if (GetFileAttributesW(origCachePng.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        Bitmap* cached = Bitmap::FromFile(origCachePng.c_str());
+        if (cached && cached->GetLastStatus() == Ok && cached->GetWidth() >= 16) {
+            return cached;
+        }
+        delete cached;
+    }
+    Bitmap* b = ExtractDirectPeOrIco256(dllPath, negResId);
+    if (!b && !fallbackDll.empty()) {
+        b = ExtractDirectPeOrIco256(fallbackDll, fallbackIdx);
+    }
+    if (!b) {
+        b = LoadHighResIcon(dllPath, fallbackDll, safeCacheName);
+    } else {
+        b->Save(origCachePng.c_str(), &g_pngClsid, NULL);
+    }
+    return b;
+}
+
+// Always add File Explorer (Проводник) and the 5 Windows System Desktop Icons at the top of the list
+static void AddBuiltInSystemEntries() {
+    wchar_t winDir[MAX_PATH] = {0};
+    GetWindowsDirectoryW(winDir, MAX_PATH);
+    std::wstring wDir = winDir[0] ? winDir : L"C:\\Windows";
+    std::wstring explorerExe = wDir + L"\\explorer.exe";
+    std::wstring imageresDll = wDir + L"\\System32\\imageres.dll";
+    std::wstring shell32Dll  = wDir + L"\\System32\\shell32.dll";
+
+    // 1. File Explorer (Проводник)
+    {
+        AppEntry fe;
+        fe.name = L"File Explorer (Проводник)";
+        fe.searchKeywords = L"file explorer проводник файловый менеджер папки windows explorer.exe";
+        fe.targetPath = explorerExe;
+        fe.category = L"Системный компонент Windows";
+        fe.systemClsid = L"{52205fd8-5dfb-447d-801a-d0b52f2e83e1}";
+        fe.defaultRestoreIcon = explorerExe + L",0";
+        fe.isFileExplorer = true;
+        fe.isSystemPinnedTop = true;
+
+        // Collect all known File Explorer .lnk locations across Taskbar, Start Menu, and Desktop
+        wchar_t appData[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
+            const wchar_t* relPaths[] = {
+                L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\File Explorer.lnk",
+                L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Проводник.lnk",
+                L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\Windows Explorer.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\File Explorer.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Проводник.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\Windows System\\File Explorer.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\Windows System\\Проводник.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\System Tools\\File Explorer.lnk"
+            };
+            for (const wchar_t* rp : relPaths) {
+                std::wstring p = std::wstring(appData) + rp;
+                if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                    fe.allLnkPaths.push_back(p);
+                    if (fe.lnkPath.empty()) fe.lnkPath = p;
+                    std::wstring t, cIcon;
+                    ResolveShortcut(p, t, cIcon);
+                    if (cIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+                }
+            }
+        }
+        wchar_t desk[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desk)) && desk[0]) {
+            const wchar_t* deskNames[] = { L"\\File Explorer.lnk", L"\\Проводник.lnk", L"\\File Explorer (Проводник).lnk" };
+            for (const wchar_t* dn : deskNames) {
+                std::wstring p = std::wstring(desk) + dn;
+                if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                    fe.allLnkPaths.push_back(p);
+                    if (fe.lnkPath.empty()) fe.lnkPath = p;
+                    std::wstring t, cIcon;
+                    ResolveShortcut(p, t, cIcon);
+                    if (cIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+                }
+            }
+        }
+        std::wstring regCur = GetRegistryStringValue(
+            HKEY_CURRENT_USER,
+            L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\DefaultIcon",
+            NULL
+        );
+        if (regCur.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+
+        fe.origBitmap = LoadSystemDllIcon(explorerExe, 0, shell32Dll, 4, L"System_FileExplorer");
+        g_allApps.push_back(fe);
+    }
+
+    // 2. The 5 Windows Desktop Shell CLSID Icons (This PC, Recycle Bin, User's Files, Control Panel, Network)
+    struct SysClsidDef {
+        const wchar_t* name;
+        const wchar_t* keywords;
+        const wchar_t* clsid;
+        int imageresNegId;
+        int shell32FallbackIdx;
+        const wchar_t* defaultIconStr;
+        const wchar_t* cacheKey;
+        bool isRecycleBin;
+    };
+    const SysClsidDef defs[] = {
+        {
+            L"Этот компьютер (This PC)",
+            L"this pc этот компьютер мой компьютер my computer",
+            L"{20D04FE0-3AEA-1069-A2D8-08002B30309D}",
+            -109, 15,
+            L"%SystemRoot%\\System32\\imageres.dll,-109",
+            L"System_ThisPC",
+            false
+        },
+        {
+            L"Корзина (Recycle Bin)",
+            L"recycle bin корзина мусорка",
+            L"{645FF040-5081-101B-9F08-00AA002F954E}",
+            -55, 31,
+            L"%SystemRoot%\\System32\\imageres.dll,-55",
+            L"System_RecycleBin",
+            true
+        },
+        {
+            L"Папка пользователя (User's Files)",
+            L"user files папка пользователя домашняя папка документы",
+            L"{59031A47-3F72-44A7-89C5-5595FE6B30EE}",
+            -123, 43,
+            L"%SystemRoot%\\System32\\imageres.dll,-123",
+            L"System_UserFiles",
+            false
+        },
+        {
+            L"Панель управления (Control Panel)",
+            L"control panel панель управления настройки",
+            L"{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}",
+            -27, 21,
+            L"%SystemRoot%\\System32\\imageres.dll,-27",
+            L"System_ControlPanel",
+            false
+        },
+        {
+            L"Сеть (Network)",
+            L"network сеть сетевое окружение",
+            L"{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}",
+            -25, 17,
+            L"%SystemRoot%\\System32\\imageres.dll,-25",
+            L"System_Network",
+            false
+        }
+    };
+
+    for (const auto& d : defs) {
+        AppEntry e;
+        e.name = d.name;
+        e.searchKeywords = d.keywords;
+        e.targetPath = imageresDll;
+        e.category = L"Значок Рабочего стола Windows";
+        e.systemClsid = d.clsid;
+        e.defaultRestoreIcon = d.defaultIconStr;
+        e.isRecycleBin = d.isRecycleBin;
+        e.isSystemPinnedTop = true;
+
+        std::wstring regKey = std::wstring(L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\") + d.clsid + L"\\DefaultIcon";
+        std::wstring curVal = GetRegistryStringValue(HKEY_CURRENT_USER, regKey, NULL);
+        if (curVal.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+            e.isApplied = true;
+        }
+        e.origBitmap = LoadSystemDllIcon(imageresDll, d.imageresNegId, shell32Dll, d.shell32FallbackIdx, d.cacheKey);
+        g_allApps.push_back(e);
+    }
+}
+
 static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& categoryName, int depth = 0, bool isDesktopOrTaskbar = false) {
-    if (depth > 3 || g_allApps.size() >= 160) return;
+    if (depth > 3 || g_allApps.size() >= 170) return;
     std::wstring pattern = dir + L"\\*";
     WIN32_FIND_DATAW fd;
     HANDLE hFind = FindFirstFileW(pattern.c_str(), &fd);
@@ -1132,6 +1365,26 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
 
                 std::wstring target, customIcon;
                 ResolveShortcut(fullPath, target, customIcon);
+
+                // Merge File Explorer / Проводник shortcuts into our built-in File Explorer entry
+                bool isExplorerLnk = (lowerTitle == L"file explorer" || lowerTitle == L"проводник" ||
+                                      lowerTitle == L"windows explorer" || lowerTitle == L"file explorer (проводник)");
+                if (!target.empty()) {
+                    std::wstring baseExe = PathFindFileNameW(target.c_str());
+                    if (_wcsicmp(baseExe.c_str(), L"explorer.exe") == 0) isExplorerLnk = true;
+                }
+                if (isExplorerLnk && !g_allApps.empty() && g_allApps[0].isFileExplorer) {
+                    bool already = false;
+                    for (const auto& p : g_allApps[0].allLnkPaths) {
+                        if (_wcsicmp(p.c_str(), fullPath.c_str()) == 0) { already = true; break; }
+                    }
+                    if (!already) g_allApps[0].allLnkPaths.push_back(fullPath);
+                    if (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+                        g_allApps[0].isApplied = true;
+                    }
+                    continue;
+                }
+
                 if (isLnk && !isDesktopOrTaskbar && !target.empty()) {
                     std::wstring ext = PathFindExtensionW(target.c_str());
                     if (_wcsicmp(ext.c_str(), L".exe") != 0) continue;
@@ -1192,7 +1445,7 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
                 g_allApps.push_back(entry);
             }
         }
-    } while (FindNextFileW(hFind, &fd) && g_allApps.size() < 160);
+    } while (FindNextFileW(hFind, &fd) && g_allApps.size() < 170);
 
     FindClose(hFind);
 }
@@ -1206,9 +1459,11 @@ static void RebuildFilteredList() {
 
     for (size_t i = 0; i < g_allApps.size(); ++i) {
         if (g_sidebarFilter == 1 && !g_allApps[i].isApplied) continue;
-        std::wstring lowerName = g_allApps[i].name;
-        for (auto& c : lowerName) c = towlower(c);
-        if (!q.empty() && lowerName.find(q) == std::wstring::npos) continue;
+        if (!q.empty()) {
+            std::wstring hay = g_allApps[i].name + L" " + g_allApps[i].searchKeywords + L" " + g_allApps[i].targetPath;
+            for (auto& c : hay) c = towlower(c);
+            if (hay.find(q) == std::wstring::npos) continue;
+        }
         g_filteredIndices.push_back((int)i);
     }
 
@@ -1231,6 +1486,10 @@ static void ScanInstalledWindowsApps() {
     }
     g_allApps.clear();
 
+    // 1. Always add File Explorer (Проводник) and Windows Desktop System Icons first
+    AddBuiltInSystemEntries();
+
+    // 2. Scan Taskbar, Desktop, and Start Menu shortcuts
     wchar_t appData[MAX_PATH] = {0};
     if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
         std::wstring taskbarDir = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
@@ -1261,6 +1520,8 @@ static void ScanInstalledWindowsApps() {
     }
 
     std::sort(g_allApps.begin(), g_allApps.end(), [](const AppEntry& a, const AppEntry& b) {
+        if (a.isSystemPinnedTop != b.isSystemPinnedTop) return a.isSystemPinnedTop;
+        if (a.isFileExplorer != b.isFileExplorer) return a.isFileExplorer;
         return _wcsicmp(a.name.c_str(), b.name.c_str()) < 0;
     });
 
@@ -1294,6 +1555,60 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
     int updatedCount = 0;
     bool permissionDenied = false;
 
+    // 1. Update Registry CLSID DefaultIcon if this is a Windows System Icon or File Explorer
+    if (!app.systemClsid.empty()) {
+        std::wstring icoWithIdx = icoPath + L",0";
+        std::wstring explorerClsidKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\" + app.systemClsid + L"\\DefaultIcon";
+        std::wstring classesClsidKey  = L"Software\\Classes\\CLSID\\" + app.systemClsid + L"\\DefaultIcon";
+
+        if (SetRegistryStringValue(HKEY_CURRENT_USER, explorerClsidKey, NULL, icoWithIdx)) {
+            updatedCount++;
+        }
+        if (app.isRecycleBin) {
+            SetRegistryStringValue(HKEY_CURRENT_USER, explorerClsidKey, L"empty", icoWithIdx);
+            SetRegistryStringValue(HKEY_CURRENT_USER, explorerClsidKey, L"full",  icoWithIdx);
+        }
+        if (SetRegistryStringValue(HKEY_CURRENT_USER, classesClsidKey, NULL, icoWithIdx)) {
+            updatedCount++;
+        }
+        if (app.isRecycleBin) {
+            SetRegistryStringValue(HKEY_CURRENT_USER, classesClsidKey, L"empty", icoWithIdx);
+            SetRegistryStringValue(HKEY_CURRENT_USER, classesClsidKey, L"full",  icoWithIdx);
+        }
+    }
+
+    // 2. Special handling for File Explorer (Проводник): ensure Taskbar & Start Menu shortcuts are updated
+    if (app.isFileExplorer) {
+        std::wstring icoWithIdx = icoPath + L",0";
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Applications\\explorer.exe\\DefaultIcon", NULL, icoWithIdx);
+
+        wchar_t appData[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
+            std::wstring tbDir = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
+            if (GetFileAttributesW(tbDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                std::wstring tbExplorerLnk = tbDir + L"\\File Explorer.lnk";
+                if (GetFileAttributesW(tbExplorerLnk.c_str()) == INVALID_FILE_ATTRIBUTES) {
+                    // Create Taskbar File Explorer shortcut if not present yet
+                    IShellLinkW* psl = nullptr;
+                    if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) && psl) {
+                        psl->SetPath(app.targetPath.c_str());
+                        psl->SetIconLocation(icoPath.c_str(), 0);
+                        IPersistFile* ppf = nullptr;
+                        if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
+                            if (SUCCEEDED(ppf->Save(tbExplorerLnk.c_str(), TRUE))) {
+                                app.allLnkPaths.push_back(tbExplorerLnk);
+                                updatedCount++;
+                            }
+                            ppf->Release();
+                        }
+                        psl->Release();
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Update all associated .lnk and .url shortcuts
     for (size_t idx = 0; idx < app.allLnkPaths.size(); ++idx) {
         const std::wstring& lnk = app.allLnkPaths[idx];
         if (lnk.empty() || GetFileAttributesW(lnk.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
@@ -1305,11 +1620,6 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
             CopyFileW(lnk.c_str(), backupLnk.c_str(), TRUE);
         }
 
-        DWORD attrs = GetFileAttributesW(lnk.c_str());
-        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_READONLY)) {
-            SetFileAttributesW(lnk.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY);
-        }
-
         if (SetShortcutIconLocation(lnk, icoPath)) {
             SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, lnk.c_str(), NULL);
             updatedCount++;
@@ -1318,7 +1628,7 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
         }
     }
 
-    if (updatedCount == 0 && !permissionDenied) {
+    if (updatedCount == 0 && !permissionDenied && app.systemClsid.empty()) {
         wchar_t desktopDir[MAX_PATH] = {0};
         if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopDir))) {
             std::wstring deskLnk = std::wstring(desktopDir) + L"\\" + safe + L".lnk";
@@ -1347,6 +1657,22 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
 }
 
 static bool RestoreOriginalEntry(AppEntry& app) {
+    if (!app.systemClsid.empty() && !app.defaultRestoreIcon.empty()) {
+        std::wstring explorerClsidKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\" + app.systemClsid + L"\\DefaultIcon";
+        std::wstring classesClsidKey  = L"Software\\Classes\\CLSID\\" + app.systemClsid + L"\\DefaultIcon";
+        SetRegistryStringValue(HKEY_CURRENT_USER, explorerClsidKey, NULL, app.defaultRestoreIcon);
+        SetRegistryStringValue(HKEY_CURRENT_USER, classesClsidKey,  NULL, app.defaultRestoreIcon);
+        if (app.isRecycleBin) {
+            SetRegistryStringValue(HKEY_CURRENT_USER, explorerClsidKey, L"empty", L"%SystemRoot%\\System32\\imageres.dll,-55");
+            SetRegistryStringValue(HKEY_CURRENT_USER, explorerClsidKey, L"full",  L"%SystemRoot%\\System32\\imageres.dll,-54");
+            SetRegistryStringValue(HKEY_CURRENT_USER, classesClsidKey,  L"empty", L"%SystemRoot%\\System32\\imageres.dll,-55");
+            SetRegistryStringValue(HKEY_CURRENT_USER, classesClsidKey,  L"full",  L"%SystemRoot%\\System32\\imageres.dll,-54");
+        }
+    }
+    if (app.isFileExplorer) {
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Applications\\explorer.exe\\DefaultIcon", NULL, app.defaultRestoreIcon);
+    }
+
     if (app.allLnkPaths.empty() && !app.lnkPath.empty()) {
         app.allLnkPaths.push_back(app.lnkPath);
     }
@@ -2178,7 +2504,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                 AppEntry& app = g_allApps[g_selectedAppIndex];
                 bool needsAdmin = false;
                 ApplyRoundIconToEntry(app, &needsAdmin);
-                RefreshWindowsExplorerIconCache();
+                RefreshWindowsExplorerIconCache(app.isFileExplorer);
                 g_statusText = L"✓ Единая круглая иконка Google Pixel применена к " + app.name;
                 InvalidateRect(hwnd, NULL, FALSE);
                 if (needsAdmin) {
@@ -2217,7 +2543,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                 InvalidateRect(hwnd, NULL, FALSE);
                 UpdateWindow(hwnd);
             }
-            RefreshWindowsExplorerIconCache();
+            RefreshWindowsExplorerIconCache(true);
             g_progressRatio = 0.0;
 
             if (anyNeedsAdmin) {
@@ -2240,7 +2566,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             }
 
             wchar_t msg[384];
-            wsprintfW(msg, L"Готово! Одинаковые круглые иконки Google Pixel (240px / 93.75%%) применены к %d приложениям.", count);
+            wsprintfW(msg, L"Готово! Одинаковые круглые иконки Google Pixel (240px / 93.75%%) применены к %d приложениям (включая File Explorer и значки Рабочего стола).", count);
             g_statusText = msg;
             InvalidateRect(hwnd, NULL, FALSE);
             MessageBoxW(hwnd, msg, L"IconMaker Studio", MB_ICONINFORMATION);
@@ -2251,7 +2577,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
                 AppEntry& app = g_allApps[g_selectedAppIndex];
                 RestoreOriginalEntry(app);
-                RefreshWindowsExplorerIconCache();
+                RefreshWindowsExplorerIconCache(app.isFileExplorer);
                 g_statusText = L"Восстановлена оригинальная иконка для " + app.name;
                 InvalidateRect(hwnd, NULL, FALSE);
             }
@@ -2262,7 +2588,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             for (auto& app : g_allApps) {
                 RestoreOriginalEntry(app);
             }
-            RefreshWindowsExplorerIconCache();
+            RefreshWindowsExplorerIconCache(true);
             g_statusText = L"Оригинальные иконки восстановлены для всех приложений";
             InvalidateRect(hwnd, NULL, FALSE);
             MessageBoxW(hwnd, L"Оригинальные иконки восстановлены для всех приложений!", L"IconMaker Studio", MB_ICONINFORMATION);
@@ -2584,7 +2910,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
             InvalidateRect(g_hMainWnd, NULL, FALSE);
             UpdateWindow(g_hMainWnd);
         }
-        RefreshWindowsExplorerIconCache();
+        RefreshWindowsExplorerIconCache(true);
         g_progressRatio = 0.0;
         wchar_t doneMsg[256];
         wsprintfW(doneMsg, L"Все системные и пользовательские ярлыки (%d шт.) обновлены до одинаковых кругов!", count);
