@@ -36,7 +36,7 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 208, max: 260)
         } content: {
             AppListView(items: visibleItems)
-                .navigationSplitViewColumnWidth(min: 280, ideal: 332, max: 440)
+                .navigationSplitViewColumnWidth(min: 280, ideal: 328, max: 420)
         } detail: {
             if let item = activeItem {
                 DetailInspectorView(item: item, allVisibleItems: visibleItems)
@@ -57,6 +57,16 @@ struct ContentView: View {
         .searchable(text: $model.search, prompt: "Search applications")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    EyedropperPicker.sampleScreenColor { hex in
+                        model.style.customHex = hex
+                        model.style.backgroundStyle = .customColor
+                    }
+                } label: {
+                    Label("Eyedropper", systemImage: "eyedropper.halffull")
+                }
+                .help("Pick circular background color from screen with Eyedropper")
+
                 Menu {
                     Picker("Background Style", selection: $model.style.backgroundStyle) {
                         ForEach(RoundBackgroundStyle.allCases) { preset in
@@ -80,7 +90,7 @@ struct ContentView: View {
                 Button {
                     exportFolderPicker(for: visibleItems)
                 } label: {
-                    Label("Export Pack", systemImage: "square.and.arrow.up")
+                    Label("Export Pack…", systemImage: "square.and.arrow.up")
                 }
                 .help("Export .icns, .ico, and 1024px .png icon pack (⌘E)")
                 .disabled(visibleItems.isEmpty)
@@ -153,7 +163,7 @@ private struct SidebarView: View {
                 }
             }
 
-            Section("Style Presets") {
+            Section("Surface Presets") {
                 ForEach(RoundBackgroundStyle.allCases) { preset in
                     Button {
                         model.style.backgroundStyle = preset
@@ -197,7 +207,7 @@ private struct AppListView: View {
             AppRowView(item: item)
                 .tag(item.id)
                 .contextMenu {
-                    Button(item.isApplied ? "Re-Apply Round Icon" : "Apply Round Icon") {
+                    Button(item.isApplied ? "Update Round Icon" : "Apply Round Icon") {
                         model.applyRoundIcon(to: item)
                     }
                     if item.isApplied {
@@ -211,7 +221,7 @@ private struct AppListView: View {
                         try? context.save()
                     }
                     Divider()
-                    Button("Remove from List", role: .destructive) {
+                    Button("Delete from Library", role: .destructive) {
                         if model.selection == item.id { model.selection = nil }
                         context.delete(item)
                         try? context.save()
@@ -271,6 +281,16 @@ private struct DetailInspectorView: View {
     let allVisibleItems: [Item]
     @State private var dragStartOffset: CGPoint?
 
+    private var customColorBinding: Binding<Color> {
+        Binding(
+            get: { EyedropperPicker.color(from: model.style.customHex) },
+            set: { newColor in
+                model.style.customHex = EyedropperPicker.hex(from: newColor)
+                model.style.backgroundStyle = .customColor
+            }
+        )
+    }
+
     var body: some View {
         @Bindable var model = model
         ScrollView {
@@ -329,7 +349,7 @@ private struct DetailInspectorView: View {
     }
 
     private var comparisonCard: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
         return HStack(spacing: Space.xxl) {
             Spacer(minLength: 0)
             VStack(spacing: Space.sm) {
@@ -388,9 +408,9 @@ private struct DetailInspectorView: View {
 
     private var styleControlsCard: some View {
         @Bindable var model = model
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
         return VStack(alignment: .leading, spacing: Space.md) {
-            Text("Google Pixel & Material You Style")
+            Text("Google Pixel & Material You Studio")
                 .font(.headline)
 
             LabeledContent("Surface Preset") {
@@ -403,14 +423,61 @@ private struct DetailInspectorView: View {
                 .frame(width: 240)
             }
 
+            LabeledContent("Color & Eyedropper") {
+                HStack(spacing: Space.sm) {
+                    Button {
+                        EyedropperPicker.sampleScreenColor { hex in
+                            model.style.customHex = hex
+                            model.style.backgroundStyle = .customColor
+                        }
+                    } label: {
+                        Label("Пипетка", systemImage: "eyedropper.halffull")
+                    }
+                    .controlSize(.small)
+                    .help("Pick any color from the icon or screen with macOS Eyedropper")
+
+                    ColorPicker("Custom Surface Color", selection: customColorBinding, supportsOpacity: false)
+                        .labelsHidden()
+                        .help("Choose custom surface color")
+
+                    Text(MaterialRGB(hex: model.style.customHex).hexString)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: Space.xs) {
+                        ForEach(ColorSwatchToken.presets.prefix(5)) { swatch in
+                            Button {
+                                model.style.customHex = swatch.hex
+                                model.style.backgroundStyle = .customColor
+                            } label: {
+                                Circle()
+                                    .fill(swatch.color)
+                                    .frame(width: 16, height: 16)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(.primary.opacity(model.style.customHex == swatch.hex ? 0.65 : 0.18),
+                                                          lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help(swatch.name)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
             LabeledContent("Glyph Scale (\(Int((model.style.iconScale * 100).rounded()))%)") {
                 HStack(spacing: Space.sm) {
                     Slider(value: $model.style.iconScale, in: 0.30...2.50)
                         .frame(width: 176)
                     Button("100%") { model.style.iconScale = 1.0 }
                         .controlSize(.small)
+                        .help("Set scale to 100%")
                     Button("135%") { model.style.iconScale = 1.35 }
                         .controlSize(.small)
+                        .help("Zoom icon to 135% inside circular mask")
                 }
             }
 
@@ -463,6 +530,7 @@ private struct DetailInspectorView: View {
                     }
                     .controlSize(.small)
                     .disabled(abs(model.style.offsetX) < 0.005 && abs(model.style.offsetY) < 0.005)
+                    .help("Center icon inside circle (0%, 0%)")
                 }
             }
 

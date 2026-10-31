@@ -28,7 +28,7 @@ struct AppearanceSettings: View {
 
 /// Sample preview window in the chosen accent showing IconMaker's sidebar and circular icon list.
 private struct AccentPreview: View {
-    private let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+    private let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
 
     var body: some View {
         HStack(spacing: 0) {
@@ -71,7 +71,7 @@ private struct AccentPreview: View {
             .padding(.horizontal, Space.sm)
             .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
             .background(selected ? Palette.accent : .clear,
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
     }
 
     private var content: some View {
