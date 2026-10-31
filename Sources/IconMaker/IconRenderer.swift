@@ -155,10 +155,14 @@ enum IconRenderer {
             )
         }
 
-        // 3. Foreground glyph placement inside the circular mask (supports >100% zoom and X/Y pan)
-        let fgScale: CGFloat = (style.fullBleedSquares && dominant.isSquareLike)
-            ? max(CGFloat(style.iconScale), 1.04)
-            : CGFloat(style.iconScale)
+        // 3. Foreground glyph placement inside the circular mask (supports >100% zoom, X/Y pan, and optical radius normalization)
+        let opticalFactor: CGFloat = style.autoTrim
+            ? min(max(0.50 / max(dominant.opticalRadiusNorm, 0.42), 0.72), 1.08)
+            : 1.0
+        var fgScale: CGFloat = CGFloat(style.iconScale) * opticalFactor
+        if style.fullBleedSquares && dominant.isSquareLike {
+            fgScale = max(fgScale, 1.36)
+        }
         let maxGlyphSpan = circleRect.width * fgScale
         let srcW = CGFloat(trimmedCG.width)
         let srcH = CGFloat(trimmedCG.height)
@@ -400,17 +404,35 @@ enum IconRenderer {
         var minY = h
         var maxX = 0
         var maxY = 0
-        let alphaThreshold: UInt8 = 28
+        var solidCount = 0
 
+        // Strip soft outer drop shadows (alpha < 108) so icons with shadows have the exact same tight bounds
         for y in 0..<h {
             let rowOffset = y * w * 4
             for x in 0..<w {
                 let a = pixels[rowOffset + x * 4 + 3]
-                if a > alphaThreshold {
+                if a >= 108 {
                     if x < minX { minX = x }
                     if x > maxX { maxX = x }
                     if y < minY { minY = y }
                     if y > maxY { maxY = y }
+                    solidCount += 1
+                }
+            }
+        }
+
+        if solidCount < 24 || minX >= maxX || minY >= maxY {
+            minX = w; minY = h; maxX = 0; maxY = 0
+            for y in 0..<h {
+                let rowOffset = y * w * 4
+                for x in 0..<w {
+                    let a = pixels[rowOffset + x * 4 + 3]
+                    if a > 28 {
+                        if x < minX { minX = x }
+                        if x > maxX { maxX = x }
+                        if y < minY { minY = y }
+                        if y > maxY { maxY = y }
+                    }
                 }
             }
         }
@@ -423,7 +445,7 @@ enum IconRenderer {
     private static func extractColors(
         from cgImage: CGImage,
         fallbackHex: UInt32
-    ) -> (dominant: MaterialRGB, edge: MaterialRGB, isSquareLike: Bool) {
+    ) -> (dominant: MaterialRGB, edge: MaterialRGB, isSquareLike: Bool, opticalRadiusNorm: CGFloat) {
         let sampleSize = 64
         var pixels = [UInt8](repeating: 0, count: sampleSize * sampleSize * 4)
         guard let ctx = CGContext(
@@ -436,7 +458,7 @@ enum IconRenderer {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
             let fb = MaterialRGB(hex: fallbackHex)
-            return (fb, fb, false)
+            return (fb, fb, false, 0.50)
         }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize)) // grid: ok sample rect
 
@@ -451,13 +473,21 @@ enum IconRenderer {
         var edgeCount = 0.0
 
         var opaqueCount = 0
+        var radii: [CGFloat] = []
+        radii.reserveCapacity(sampleSize * sampleSize)
+        let center = CGFloat(sampleSize - 1) * 0.5
 
         for y in 0..<sampleSize {
             for x in 0..<sampleSize {
                 let idx = (y * sampleSize + x) * 4
                 let a = pixels[idx + 3]
-                guard a > 64 else { continue }
+                guard a > 96 else { continue }
                 opaqueCount += 1
+
+                let dx = (CGFloat(x) - center) / CGFloat(sampleSize)
+                let dy = (CGFloat(y) - center) / CGFloat(sampleSize)
+                radii.append(hypot(dx, dy))
+
                 let r = Double(pixels[idx])
                 let g = Double(pixels[idx + 1])
                 let b = Double(pixels[idx + 2])
@@ -465,7 +495,6 @@ enum IconRenderer {
                 let maxC = max(r, g, b)
                 let minC = min(r, g, b)
                 let saturation = maxC > 0 ? (maxC - minC) / maxC : 0
-                // Weight saturated colors higher so Material You pastel picks vibrant brand hues
                 let weight = 0.25 + saturation * 2.5
                 totalR += r * weight
                 totalG += g * weight
@@ -503,7 +532,14 @@ enum IconRenderer {
             edge = dominant
         }
 
+        var opticalRadius: CGFloat = 0.50
+        if !radii.isEmpty {
+            radii.sort()
+            let idx96 = min(radii.count - 1, (radii.count * 96) / 100)
+            opticalRadius = min(max(radii[idx96], 0.42), 0.70)
+        }
+
         let fillRatio = Double(opaqueCount) / Double(sampleSize * sampleSize)
-        return (dominant, edge, fillRatio > 0.72)
+        return (dominant, edge, fillRatio > 0.72, opticalRadius)
     }
 }

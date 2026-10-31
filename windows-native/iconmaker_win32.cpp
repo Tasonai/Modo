@@ -271,7 +271,8 @@ static void DrawRoundRect(Graphics& g, RectF r, REAL radius, Color stroke, REAL 
     g.DrawPath(&pen, &path);
 }
 
-// Convert HICON to 32-bit RGBA GDI+ Bitmap
+// Convert HICON to 32-bit RGBA GDI+ Bitmap (properly reconstructing alpha for masked icons
+// and stripping SHIL_JUMBO 256x256 top-left corner padding when legacy 32/48px icons are returned)
 static Bitmap* BitmapFromHIcon32(HICON hIcon, int targetSize = 256) {
     if (!hIcon) return nullptr;
     ICONINFO ii = {0};
@@ -281,16 +282,20 @@ static Bitmap* BitmapFromHIcon32(HICON hIcon, int targetSize = 256) {
     GetObject(ii.hbmColor ? ii.hbmColor : ii.hbmMask, sizeof(bm), &bm);
     int w = bm.bmWidth > 0 ? bm.bmWidth : targetSize;
     int h = bm.bmHeight > 0 ? bm.bmHeight : targetSize;
+    if (!ii.hbmColor && ii.hbmMask) h /= 2;
+    if (w <= 0) w = targetSize;
+    if (h <= 0) h = targetSize;
 
     BITMAPINFO bmi = {0};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = w;
-    bmi.bmiHeader.biHeight = -h;
+    bmi.bmiHeader.biHeight = -h; // top-down
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
     std::vector<uint8_t> pixels(w * h * 4, 0);
+    std::vector<uint8_t> maskPixels(w * h * 4, 0);
     HDC hdc = GetDC(NULL);
     bool hasAlpha = false;
     if (ii.hbmColor) {
@@ -299,46 +304,141 @@ static Bitmap* BitmapFromHIcon32(HICON hIcon, int targetSize = 256) {
             if (pixels[i] != 0) { hasAlpha = true; break; }
         }
     }
-    ReleaseDC(NULL, hdc);
-
-    Bitmap* out = new Bitmap(w, h, PixelFormat32bppARGB);
-    if (hasAlpha) {
-        BitmapData bd;
-        Rect r(0, 0, w, h);
-        if (out->LockBits(&r, ImageLockModeWrite, PixelFormat32bppARGB, &bd) == Ok) {
-            for (int y = 0; y < h; ++y) {
-                memcpy((uint8_t*)bd.Scan0 + y * bd.Stride, pixels.data() + y * w * 4, w * 4);
-            }
-            out->UnlockBits(&bd);
+    if (!hasAlpha && ii.hbmMask) {
+        GetDIBits(hdc, ii.hbmMask, 0, h, maskPixels.data(), &bmi, DIB_RGB_COLORS);
+        for (int i = 0; i < w * h; ++i) {
+            bool transparent = (maskPixels[i * 4] > 128);
+            pixels[i * 4 + 3] = transparent ? 0 : 255;
         }
-    } else {
-        Graphics g(out);
-        g.Clear(Color(0, 0, 0, 0));
-        HDC memDC = g.GetHDC();
-        DrawIconEx(memDC, 0, 0, hIcon, w, h, 0, NULL, DI_NORMAL);
-        g.ReleaseHDC(memDC);
+        hasAlpha = true;
     }
+    ReleaseDC(NULL, hdc);
 
     if (ii.hbmColor) DeleteObject(ii.hbmColor);
     if (ii.hbmMask) DeleteObject(ii.hbmMask);
+
+    // Detect SHIL_JUMBO (256x256) bug where Windows places a 32x32 or 48x48 icon in the top-left corner
+    // and leaves the rest of the 256x256 canvas empty (or with a faint 1px tile frame).
+    if (w == 256 && h == 256) {
+        int topLeftOpaque = 0;
+        int restOpaque = 0;
+        for (int y = 2; y < 254; ++y) {
+            for (int x = 2; x < 254; ++x) {
+                uint8_t a = pixels[(y * w + x) * 4 + 3];
+                if (a > 48) {
+                    if (x < 72 && y < 72) topLeftOpaque++;
+                    else restOpaque++;
+                }
+            }
+        }
+        if (topLeftOpaque > 64 && restOpaque < 16) {
+            int cropDim = 64;
+            for (int y = 0; y < 72; ++y) {
+                for (int x = 0; x < 72; ++x) {
+                    if (pixels[(y * w + x) * 4 + 3] > 32) {
+                        cropDim = std::max({ cropDim, x + 2, y + 2 });
+                    }
+                }
+            }
+            cropDim = std::min(cropDim, 72);
+            Bitmap* cropped = new Bitmap(cropDim, cropDim, PixelFormat32bppARGB);
+            BitmapData cbd;
+            Rect cr(0, 0, cropDim, cropDim);
+            if (cropped->LockBits(&cr, ImageLockModeWrite, PixelFormat32bppARGB, &cbd) == Ok) {
+                for (int y = 0; y < cropDim; ++y) {
+                    memcpy((uint8_t*)cbd.Scan0 + y * cbd.Stride, pixels.data() + y * w * 4, cropDim * 4);
+                }
+                cropped->UnlockBits(&cbd);
+            }
+            return cropped;
+        }
+    }
+
+    Bitmap* out = new Bitmap(w, h, PixelFormat32bppARGB);
+    BitmapData bd;
+    Rect r(0, 0, w, h);
+    if (out->LockBits(&r, ImageLockModeWrite, PixelFormat32bppARGB, &bd) == Ok) {
+        for (int y = 0; y < h; ++y) {
+            memcpy((uint8_t*)bd.Scan0 + y * bd.Stride, pixels.data() + y * w * 4, w * 4);
+        }
+        out->UnlockBits(&bd);
+    }
     return out;
 }
 
-static Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fallbackPath) {
-    std::wstring ext = PathFindExtensionW(primaryPath.c_str());
+static Bitmap* ExtractDirectPeOrIco256(const std::wstring& filePath, int iconIndex = 0) {
+    if (filePath.empty() || GetFileAttributesW(filePath.c_str()) == INVALID_FILE_ATTRIBUTES) return nullptr;
+    HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+    if (!hUser32) return nullptr;
+    typedef UINT(WINAPI* PFN_PrivateExtractIconsW)(LPCWSTR, int, int, int, HICON*, UINT*, UINT, UINT);
+    PFN_PrivateExtractIconsW fnExtract = (PFN_PrivateExtractIconsW)GetProcAddress(hUser32, "PrivateExtractIconsW");
+    if (!fnExtract) return nullptr;
+
+    HICON hIcon = nullptr;
+    UINT iconId = 0;
+    if (fnExtract(filePath.c_str(), iconIndex, 256, 256, &hIcon, &iconId, 1, LR_DEFAULTCOLOR) > 0 && hIcon) {
+        Bitmap* bmp = BitmapFromHIcon32(hIcon, 256);
+        DestroyIcon(hIcon);
+        if (bmp && bmp->GetWidth() > 0) return bmp;
+        delete bmp;
+    }
+    return nullptr;
+}
+
+static Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fallbackPath, const std::wstring& safeAppName = L"") {
+    // 1. Always prefer the pristine cached original PNG in %LOCALAPPDATA%\IconMaker\backup\<SafeName>_orig.png
+    // so re-applying icons never shrinks an already-converted circular icon ("circle inside a circle").
+    std::wstring origCachePng;
+    if (!safeAppName.empty()) {
+        origCachePng = GetAppDataRoot() + L"\\backup\\" + safeAppName + L"_orig.png";
+        if (GetFileAttributesW(origCachePng.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            Bitmap* cachedOrig = Bitmap::FromFile(origCachePng.c_str());
+            if (cachedOrig && cachedOrig->GetLastStatus() == Ok && cachedOrig->GetWidth() >= 16) {
+                return cachedOrig;
+            }
+            delete cachedOrig;
+        }
+    }
+
+    auto saveToOrigCache = [&](Bitmap* b) -> Bitmap* {
+        if (b && !origCachePng.empty() && GetFileAttributesW(origCachePng.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            b->Save(origCachePng.c_str(), &g_pngClsid, NULL);
+        }
+        return b;
+    };
+
+    std::wstring cleanPrimary = primaryPath;
+    if (cleanPrimary.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+        cleanPrimary.clear();
+    }
+
+    std::wstring ext = PathFindExtensionW(cleanPrimary.c_str());
     for (auto& c : ext) c = towlower(c);
     if (ext == L".png" || ext == L".bmp" || ext == L".jpg" || ext == L".jpeg") {
-        Bitmap* bmp = Bitmap::FromFile(primaryPath.c_str());
-        if (bmp && bmp->GetLastStatus() == Ok && bmp->GetWidth() > 0) return bmp;
+        Bitmap* bmp = Bitmap::FromFile(cleanPrimary.c_str());
+        if (bmp && bmp->GetLastStatus() == Ok && bmp->GetWidth() > 0) return saveToOrigCache(bmp);
         delete bmp;
     }
 
-    const std::wstring& pathToUse = (!primaryPath.empty() && GetFileAttributesW(primaryPath.c_str()) != INVALID_FILE_ATTRIBUTES)
-        ? primaryPath
+    // 2. Direct 256x256 PE/ICO resource extraction via PrivateExtractIconsW (avoids SHIL_JUMBO top-left bug!)
+    if (!cleanPrimary.empty()) {
+        if (Bitmap* directBmp = ExtractDirectPeOrIco256(cleanPrimary, 0)) {
+            return saveToOrigCache(directBmp);
+        }
+    }
+
+    const std::wstring& pathToUse = (!cleanPrimary.empty() && GetFileAttributesW(cleanPrimary.c_str()) != INVALID_FILE_ATTRIBUTES)
+        ? cleanPrimary
         : fallbackPath;
 
+    if (!pathToUse.empty() && pathToUse.find(L"\\IconMaker\\icons\\") == std::wstring::npos) {
+        if (Bitmap* directBmp2 = ExtractDirectPeOrIco256(pathToUse, 0)) {
+            return saveToOrigCache(directBmp2);
+        }
+    }
+
     SHFILEINFOW sfi = {0};
-    if (SHGetFileInfoW(pathToUse.c_str(), 0, &sfi, sizeof(sfi), SHGFI_SYSICONINDEX)) {
+    if (!pathToUse.empty() && SHGetFileInfoW(pathToUse.c_str(), 0, &sfi, sizeof(sfi), SHGFI_SYSICONINDEX)) {
         IImageList* pImgList = nullptr;
         static const GUID kIID_IImageList = { 0x46eb5926, 0x582e, 0x4017, { 0x9f, 0xdf, 0xe8, 0x99, 0x8d, 0xaa, 0x09, 0x50 } };
         if (SUCCEEDED(SHGetImageList(SHIL_JUMBO, kIID_IImageList, (void**)&pImgList)) && pImgList) {
@@ -347,38 +447,40 @@ static Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstri
                 Bitmap* bmp = BitmapFromHIcon32(hIcon, 256);
                 DestroyIcon(hIcon);
                 pImgList->Release();
-                if (bmp) return bmp;
+                if (bmp) return saveToOrigCache(bmp);
             }
             pImgList->Release();
         }
     }
 
     HICON hLarge = nullptr;
-    if (ExtractIconExW(pathToUse.c_str(), 0, &hLarge, NULL, 1) > 0 && hLarge) {
+    if (!pathToUse.empty() && ExtractIconExW(pathToUse.c_str(), 0, &hLarge, NULL, 1) > 0 && hLarge) {
         Bitmap* bmp = BitmapFromHIcon32(hLarge, 128);
         DestroyIcon(hLarge);
-        if (bmp) return bmp;
+        if (bmp) return saveToOrigCache(bmp);
     }
 
-    if (SHGetFileInfoW(pathToUse.c_str(), 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_LARGEICON) && sfi.hIcon) {
+    if (!pathToUse.empty() && SHGetFileInfoW(pathToUse.c_str(), 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_LARGEICON) && sfi.hIcon) {
         Bitmap* bmp = BitmapFromHIcon32(sfi.hIcon, 128);
         DestroyIcon(sfi.hIcon);
-        if (bmp) return bmp;
+        if (bmp) return saveToOrigCache(bmp);
     }
 
     Bitmap* synth = new Bitmap(256, 256, PixelFormat32bppARGB);
     Graphics g(synth);
     g.SetSmoothingMode(SmoothingModeHighQuality);
     SolidBrush bg(Color(255, 26, 115, 232));
-    g.FillEllipse(&bg, 24, 24, 208, 208);
+    g.FillEllipse(&bg, 16, 16, 224, 224);
     return synth;
 }
 
+// Shadow-aware tight crop: strips soft drop shadows (alpha < 108) and 1-2px outer box artifacts
+// so every icon's bounding box reflects its true solid visual core.
 static Bitmap* TrimTransparentEdges(Bitmap* src) {
     if (!src) return nullptr;
     int w = (int)src->GetWidth();
     int h = (int)src->GetHeight();
-    if (w <= 16 || h <= 16) return src->Clone(0, 0, w, h, PixelFormat32bppARGB);
+    if (w <= 12 || h <= 12) return src->Clone(0, 0, w, h, PixelFormat32bppARGB);
 
     BitmapData bd;
     Rect r(0, 0, w, h);
@@ -386,17 +488,29 @@ static Bitmap* TrimTransparentEdges(Bitmap* src) {
         return src->Clone(0, 0, w, h, PixelFormat32bppARGB);
     }
 
-    int minX = w, minY = h, maxX = -1, maxY = -1;
-    for (int y = 0; y < h; ++y) {
-        const uint8_t* row = (const uint8_t*)bd.Scan0 + y * bd.Stride;
-        for (int x = 0; x < w; ++x) {
-            if (row[x * 4 + 3] > 28) {
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+    auto findBounds = [&](uint8_t alphaThreshold, int inset, int& minX, int& minY, int& maxX, int& maxY) -> int {
+        minX = w; minY = h; maxX = -1; maxY = -1;
+        int count = 0;
+        for (int y = inset; y < h - inset; ++y) {
+            const uint8_t* row = (const uint8_t*)bd.Scan0 + y * bd.Stride;
+            for (int x = inset; x < w - inset; ++x) {
+                if (row[x * 4 + 3] >= alphaThreshold) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                    count++;
+                }
             }
         }
+        return count;
+    };
+
+    int minX = w, minY = h, maxX = -1, maxY = -1;
+    int inset = (w >= 64 && h >= 64) ? 2 : 0;
+    int solidCount = findBounds(108, inset, minX, minY, maxX, maxY);
+    if (solidCount < 24 || (maxX - minX) < 8 || (maxY - minY) < 8) {
+        findBounds(28, 0, minX, minY, maxX, maxY);
     }
     src->UnlockBits(&bd);
 
@@ -410,17 +524,27 @@ struct ExtractedColors {
     Color dominant;
     Color edge;
     bool isSquareLike;
+    bool isAlreadyCircular;
+    double opticalRadiusNorm; // 0.50 = circle, ~0.60 = squircle, ~0.69 = full square
+    double minRadialCover;    // minimum solid radius across cardinal + diagonal directions
 };
 
 static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
-    ExtractedColors res = { Color(255, 26, 115, 232), Color(255, 240, 244, 249), false };
+    ExtractedColors res = {
+        Color(255, 26, 115, 232),
+        Color(255, 240, 244, 249),
+        false,
+        false,
+        0.50,
+        0.50
+    };
     if (!src) return res;
 
     const int S = 64;
     Bitmap sample(S, S, PixelFormat32bppARGB);
     {
         Graphics g(&sample);
-        g.SetInterpolationMode(InterpolationModeBilinear);
+        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
         g.DrawImage(src, Rect(0, 0, S, S));
     }
 
@@ -431,6 +555,14 @@ static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
     double totR = 0, totG = 0, totB = 0, totW = 0;
     double edgR = 0, edgG = 0, edgB = 0, edgN = 0;
     int opaqueCount = 0;
+    int cornerOpaque = 0;
+    int innerDiscTotal = 0;
+    int innerDiscOpaque = 0;
+    std::vector<double> radii;
+    radii.reserve(S * S);
+
+    const double cx = (S - 1) * 0.5;
+    const double cy = (S - 1) * 0.5;
 
     for (int y = 0; y < S; ++y) {
         const uint8_t* row = (const uint8_t*)bd.Scan0 + y * bd.Stride;
@@ -439,8 +571,22 @@ static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
             uint8_t g = row[x * 4 + 1];
             uint8_t rv = row[x * 4 + 2];
             uint8_t a = row[x * 4 + 3];
-            if (a < 64) continue;
+
+            double dx = (x - cx) / (double)S;
+            double dy = (y - cy) / (double)S;
+            double dist = std::sqrt(dx * dx + dy * dy);
+
+            if (dist <= 0.44) {
+                innerDiscTotal++;
+                if (a >= 108) innerDiscOpaque++;
+            }
+            if ((x < 5 || x >= S - 5) && (y < 5 || y >= S - 5) && a >= 108) {
+                cornerOpaque++;
+            }
+
+            if (a < 96) continue;
             opaqueCount++;
+            radii.push_back(dist);
 
             double maxC = std::max({ (double)rv, (double)g, (double)b });
             double minC = std::min({ (double)rv, (double)g, (double)b });
@@ -448,11 +594,33 @@ static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
             double w = 0.25 + sat * 2.5;
             totR += rv * w; totG += g * w; totB += b * w; totW += w;
 
-            if (x < 6 || x >= S - 6 || y < 6 || y >= S - 6) {
+            if (dist >= 0.36 && dist <= 0.50) {
                 edgR += rv; edgG += g; edgB += b; edgN += 1.0;
             }
         }
     }
+
+    // Measure solid radial extent in 8 directions (0, 45, 90, 135, 180, 225, 270, 315 deg)
+    const double dirs[8][2] = {
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+        {0.7071, 0.7071}, {-0.7071, 0.7071}, {0.7071, -0.7071}, {-0.7071, -0.7071}
+    };
+    double minDirR = 0.70;
+    for (int d = 0; d < 8; ++d) {
+        double maxRForDir = 0.0;
+        for (int step = 1; step <= 44; ++step) {
+            double rad = step * (0.70 / 44.0);
+            int px = (int)std::round(cx + dirs[d][0] * rad * S);
+            int py = (int)std::round(cy + dirs[d][1] * rad * S);
+            if (px < 0 || px >= S || py < 0 || py >= S) break;
+            const uint8_t* row = (const uint8_t*)bd.Scan0 + py * bd.Stride;
+            if (row[px * 4 + 3] >= 108) {
+                maxRForDir = rad;
+            }
+        }
+        minDirR = std::min(minDirR, maxRForDir);
+    }
+
     sample.UnlockBits(&bd);
 
     if (totW > 0) {
@@ -469,7 +637,19 @@ static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
     } else {
         res.edge = res.dominant;
     }
-    res.isSquareLike = (double(opaqueCount) / double(S * S)) > 0.72;
+
+    if (!radii.empty()) {
+        std::sort(radii.begin(), radii.end());
+        size_t idx96 = std::min(radii.size() - 1, (radii.size() * 96) / 100);
+        res.opticalRadiusNorm = std::clamp(radii[idx96], 0.42, 0.70);
+    }
+
+    double innerFill = innerDiscTotal > 0 ? (double)innerDiscOpaque / (double)innerDiscTotal : 0.0;
+    double totalFill = (double)opaqueCount / (double)(S * S);
+
+    res.isAlreadyCircular = (innerFill > 0.86 && cornerOpaque <= 4 && minDirR >= 0.42 && minDirR <= 0.54);
+    res.isSquareLike = (innerFill > 0.84 && totalFill > 0.68);
+    res.minRadialCover = std::clamp(minDirR, 0.36, 0.70);
     return res;
 }
 
@@ -502,18 +682,19 @@ static Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& sty
     g.SetPixelOffsetMode(PixelOffsetModeHighQuality);
     g.Clear(Color(0, 0, 0, 0));
 
+    // Strictly uniform outer circle geometry across all icon sizes (93.75% of canvas = 240x240 in 256x256)
     REAL dim = (REAL)canvasSize;
-    REAL margin = dim * 0.075f;
+    REAL margin = std::max(1.0f, std::round(dim * 0.03125f));
     RectF circleRect(margin, margin, dim - margin * 2.0f, dim - margin * 2.0f);
 
-    if (style.shadow > 0.01) {
-        int layers = 10;
-        REAL maxBlur = dim * (REAL)(0.045 * style.shadow);
-        REAL yOff = dim * (REAL)(0.018 * style.shadow);
+    if (style.shadow > 0.01 && canvasSize >= 32) {
+        int layers = 6;
+        REAL maxBlur = std::min(margin * 1.4f, dim * (REAL)(0.024 * style.shadow));
+        REAL yOff = std::min(margin * 0.45f, dim * (REAL)(0.008 * style.shadow));
         for (int i = layers; i >= 1; --i) {
             REAL t = (REAL)i / (REAL)layers;
             REAL expand = maxBlur * t;
-            BYTE alpha = (BYTE)std::clamp((int)(38.0 * style.shadow * (1.0 - t * 0.72)), 1, 120);
+            BYTE alpha = (BYTE)std::clamp((int)(34.0 * style.shadow * (1.0 - t * 0.72)), 1, 110);
             SolidBrush sb(Color(alpha, 0, 0, 0));
             RectF sr(circleRect.X - expand * 0.5f,
                      circleRect.Y - expand * 0.5f + yOff * t,
@@ -563,12 +744,31 @@ static Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& sty
     GraphicsState state = g.Save();
     g.SetClip(&clipPath, CombineModeReplace);
 
-    double effScale = (style.fullBleed && colors.isSquareLike)
-        ? std::max(style.scale, 1.04)
-        : style.scale;
-    REAL maxSpan = circleRect.Width * (REAL)effScale;
+    // Optical normalization: ensures squares, squircles, and circles have the exact same visual radius
+    double opticalFactor = style.autoTrim
+        ? std::clamp(0.50 / std::max(0.42, colors.opticalRadiusNorm), 0.72, 1.08)
+        : 1.0;
+
+    double effScale = style.scale * opticalFactor;
+    if (style.fullBleed && (colors.isSquareLike || colors.isAlreadyCircular)) {
+        double bleedCover = colors.isAlreadyCircular
+            ? (0.515 / std::max(0.42, colors.minRadialCover))
+            : std::max(1.36, 0.525 / std::max(0.36, colors.minRadialCover));
+        effScale = std::max(effScale, bleedCover);
+    }
+
     REAL srcW = (REAL)std::max(1u, trimmed->GetWidth());
     REAL srcH = (REAL)std::max(1u, trimmed->GetHeight());
+    REAL diagNorm = 1.0f;
+    if (!style.fullBleed) {
+        // Normalize aspect ratio so wide, tall, and square icons have equal bounding diagonal
+        REAL ar = std::max(srcW / srcH, srcH / srcW);
+        if (ar > 1.05f) {
+            diagNorm = std::clamp(std::sqrt(2.0f / (1.0f + 1.0f / (ar * ar))), 1.0f, 1.22f);
+        }
+    }
+
+    REAL maxSpan = circleRect.Width * (REAL)effScale * diagNorm;
     REAL aspect = srcW / srcH;
     REAL drawW = (aspect >= 1.0f) ? maxSpan : maxSpan * aspect;
     REAL drawH = (aspect >= 1.0f) ? maxSpan / aspect : maxSpan;
@@ -579,7 +779,7 @@ static Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& sty
     REAL cy = circleRect.Y + circleRect.Height * 0.5f + shiftY;
     RectF glyphRect(cx - drawW * 0.5f, cy - drawH * 0.5f, drawW, drawH);
 
-    if (style.innerShadow && !(style.fullBleed && colors.isSquareLike)) {
+    if (style.innerShadow && !(style.fullBleed && (colors.isSquareLike || colors.isAlreadyCircular))) {
         ColorMatrix shadowMat = {
             0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -643,18 +843,11 @@ static Bitmap* GetAppThumb(AppEntry& app) {
     return app.cachedThumb;
 }
 
-static bool EncodeBitmapToPngBytes(Bitmap* master, int targetSize, std::vector<uint8_t>& outBytes) {
-    Bitmap scaled(targetSize, targetSize, PixelFormat32bppARGB);
-    {
-        Graphics g(&scaled);
-        g.SetSmoothingMode(SmoothingModeHighQuality);
-        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
-        g.DrawImage(master, Rect(0, 0, targetSize, targetSize));
-    }
-
+static bool EncodeBitmapToPngBytes(Bitmap* bmp, std::vector<uint8_t>& outBytes) {
+    if (!bmp) return false;
     IStream* pStream = nullptr;
     if (FAILED(CreateStreamOnHGlobal(NULL, TRUE, &pStream)) || !pStream) return false;
-    if (scaled.Save(pStream, &g_pngClsid, NULL) != Ok) {
+    if (bmp->Save(pStream, &g_pngClsid, NULL) != Ok) {
         pStream->Release();
         return false;
     }
@@ -672,12 +865,73 @@ static bool EncodeBitmapToPngBytes(Bitmap* master, int targetSize, std::vector<u
     return !outBytes.empty();
 }
 
-static bool SaveMultiSizeIco(Bitmap* master, const std::wstring& icoPath) {
-    const int sizes[] = { 256, 128, 64, 48, 32, 16 };
-    const int count = 6;
-    std::vector<std::vector<uint8_t>> pngFrames(count);
+// Encodes a rendered square ARGB Bitmap into a standard Windows uncompressed 32-bpp ICO DIB frame
+// (BITMAPINFOHEADER + bottom-up BGRA XOR bitmap + 1-bpp AND mask).
+// Windows Explorer (user32/shell32) requires uncompressed DIB frames for sizes < 256 so it never
+// falls back to drawing a small 32/48px icon unscaled inside a larger desktop slot!
+static bool EncodeBitmapToDibFrame(Bitmap* bmp, std::vector<uint8_t>& outBytes) {
+    if (!bmp) return false;
+    int sz = (int)bmp->GetWidth();
+    if (sz <= 0 || (int)bmp->GetHeight() != sz) return false;
+
+    BitmapData bd;
+    Rect r(0, 0, sz, sz);
+    if (bmp->LockBits(&r, ImageLockModeRead, PixelFormat32bppARGB, &bd) != Ok) return false;
+
+    int xorStride = sz * 4;
+    int xorBytes = xorStride * sz;
+    int andStride = ((sz + 31) / 32) * 4;
+    int andBytes = andStride * sz;
+
+    outBytes.resize(sizeof(BITMAPINFOHEADER) + xorBytes + andBytes, 0);
+
+    BITMAPINFOHEADER bih = {0};
+    bih.biSize = sizeof(BITMAPINFOHEADER);
+    bih.biWidth = sz;
+    bih.biHeight = sz * 2; // XOR height + AND height
+    bih.biPlanes = 1;
+    bih.biBitCount = 32;
+    bih.biCompression = BI_RGB;
+    bih.biSizeImage = (DWORD)(xorBytes + andBytes);
+    memcpy(outBytes.data(), &bih, sizeof(bih));
+
+    uint8_t* xorDst = outBytes.data() + sizeof(BITMAPINFOHEADER);
+    uint8_t* andDst = xorDst + xorBytes;
+
+    for (int y = 0; y < sz; ++y) {
+        int srcY = (sz - 1) - y; // bottom-up
+        const uint8_t* srcRow = (const uint8_t*)bd.Scan0 + srcY * bd.Stride;
+        uint8_t* dstRow = xorDst + y * xorStride;
+        uint8_t* maskRow = andDst + y * andStride;
+        memcpy(dstRow, srcRow, xorStride);
+        for (int x = 0; x < sz; ++x) {
+            uint8_t alpha = srcRow[x * 4 + 3];
+            if (alpha < 12) {
+                maskRow[x >> 3] |= (uint8_t)(0x80 >> (x & 7));
+            }
+        }
+    }
+
+    bmp->UnlockBits(&bd);
+    return true;
+}
+
+static bool SaveMultiSizeIco(Bitmap* sourceOrigBitmap, const RoundStyle& style, const std::wstring& icoPath) {
+    if (!sourceOrigBitmap) return false;
+    const int sizes[] = { 256, 128, 96, 64, 48, 40, 32, 24, 16 };
+    const int count = (int)(sizeof(sizes) / sizeof(sizes[0]));
+    std::vector<std::vector<uint8_t>> frames(count);
+
     for (int i = 0; i < count; ++i) {
-        if (!EncodeBitmapToPngBytes(master, sizes[i], pngFrames[i])) return false;
+        Bitmap* rendered = RenderGoogleRoundIcon(sourceOrigBitmap, style, sizes[i]);
+        bool ok = false;
+        if (sizes[i] >= 256) {
+            ok = EncodeBitmapToPngBytes(rendered, frames[i]);
+        } else {
+            ok = EncodeBitmapToDibFrame(rendered, frames[i]);
+        }
+        delete rendered;
+        if (!ok) return false;
     }
 
     HANDLE hFile = CreateFileW(icoPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -694,7 +948,7 @@ static bool SaveMultiSizeIco(Bitmap* master, const std::wstring& icoPath) {
         entry[1] = (sizes[i] >= 256) ? 0 : (uint8_t)sizes[i];
         entry[4] = 1; entry[5] = 0;
         entry[6] = 32; entry[7] = 0;
-        uint32_t len = (uint32_t)pngFrames[i].size();
+        uint32_t len = (uint32_t)frames[i].size();
         memcpy(entry + 8, &len, 4);
         memcpy(entry + 12, &offset, 4);
         WriteFile(hFile, entry, 16, &written, NULL);
@@ -702,14 +956,91 @@ static bool SaveMultiSizeIco(Bitmap* master, const std::wstring& icoPath) {
     }
 
     for (int i = 0; i < count; ++i) {
-        WriteFile(hFile, pngFrames[i].data(), (DWORD)pngFrames[i].size(), &written, NULL);
+        WriteFile(hFile, frames[i].data(), (DWORD)frames[i].size(), &written, NULL);
     }
 
     CloseHandle(hFile);
     return true;
 }
 
+static void SaveStyleConfig() {
+    std::wstring cfgPath = GetAppDataRoot() + L"\\style.cfg";
+    wchar_t buf[64];
+    wsprintfW(buf, L"%d", (int)g_style.preset);
+    WritePrivateProfileStringW(L"Style", L"Preset", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)std::round(g_style.scale * 1000.0));
+    WritePrivateProfileStringW(L"Style", L"ScaleMilli", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)std::round(g_style.offsetX * 1000.0));
+    WritePrivateProfileStringW(L"Style", L"OffsetXMilli", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)std::round(g_style.offsetY * 1000.0));
+    WritePrivateProfileStringW(L"Style", L"OffsetYMilli", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)std::round(g_style.shadow * 1000.0));
+    WritePrivateProfileStringW(L"Style", L"ShadowMilli", buf, cfgPath.c_str());
+    WritePrivateProfileStringW(L"Style", L"AutoTrim", g_style.autoTrim ? L"1" : L"0", cfgPath.c_str());
+    WritePrivateProfileStringW(L"Style", L"InnerShadow", g_style.innerShadow ? L"1" : L"0", cfgPath.c_str());
+    WritePrivateProfileStringW(L"Style", L"FullBleed", g_style.fullBleed ? L"1" : L"0", cfgPath.c_str());
+    WritePrivateProfileStringW(L"Style", L"Monochrome", g_style.monochrome ? L"1" : L"0", cfgPath.c_str());
+    wsprintfW(buf, L"%u", (unsigned)g_style.customColor);
+    WritePrivateProfileStringW(L"Style", L"CustomColor", buf, cfgPath.c_str());
+}
+
+static void LoadStyleConfig() {
+    std::wstring cfgPath = GetAppDataRoot() + L"\\style.cfg";
+    if (GetFileAttributesW(cfgPath.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+    g_style.preset = (BgPreset)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Preset", 0, cfgPath.c_str()), 0, 4);
+    int sc = (int)GetPrivateProfileIntW(L"Style", L"ScaleMilli", 680, cfgPath.c_str());
+    g_style.scale = std::clamp(sc / 1000.0, 0.30, 2.50);
+    int ox = (int)GetPrivateProfileIntW(L"Style", L"OffsetXMilli", 0, cfgPath.c_str());
+    g_style.offsetX = std::clamp(ox / 1000.0, -1.0, 1.0);
+    int oy = (int)GetPrivateProfileIntW(L"Style", L"OffsetYMilli", 0, cfgPath.c_str());
+    g_style.offsetY = std::clamp(oy / 1000.0, -1.0, 1.0);
+    int sh = (int)GetPrivateProfileIntW(L"Style", L"ShadowMilli", 450, cfgPath.c_str());
+    g_style.shadow = std::clamp(sh / 1000.0, 0.0, 1.0);
+    g_style.autoTrim = GetPrivateProfileIntW(L"Style", L"AutoTrim", 1, cfgPath.c_str()) != 0;
+    g_style.innerShadow = GetPrivateProfileIntW(L"Style", L"InnerShadow", 1, cfgPath.c_str()) != 0;
+    g_style.fullBleed = GetPrivateProfileIntW(L"Style", L"FullBleed", 0, cfgPath.c_str()) != 0;
+    g_style.monochrome = GetPrivateProfileIntW(L"Style", L"Monochrome", 0, cfgPath.c_str()) != 0;
+    g_style.customColor = (COLORREF)GetPrivateProfileIntW(L"Style", L"CustomColor", (INT)RGB(26, 115, 232), cfgPath.c_str());
+}
+
+static void TouchFileModificationTime(const std::wstring& path) {
+    HANDLE h = CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h != INVALID_HANDLE_VALUE) {
+        SYSTEMTIME st;
+        FILETIME ft;
+        GetSystemTime(&st);
+        SystemTimeToFileTime(&st, &ft);
+        SetFileTime(h, NULL, &ft, &ft);
+        CloseHandle(h);
+    }
+}
+
+static void RefreshWindowsExplorerIconCache() {
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
+    wchar_t sysDir[MAX_PATH] = {0};
+    if (GetSystemDirectoryW(sysDir, MAX_PATH)) {
+        std::wstring ie4 = std::wstring(sysDir) + L"\\ie4uinit.exe";
+        if (GetFileAttributesW(ie4.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            ShellExecuteW(NULL, L"open", ie4.c_str(), L"-show", NULL, SW_HIDE);
+        }
+    }
+}
+
 static bool ResolveShortcut(const std::wstring& lnkPath, std::wstring& outTarget, std::wstring& outCustomIcon) {
+    std::wstring ext = PathFindExtensionW(lnkPath.c_str());
+    if (_wcsicmp(ext.c_str(), L".url") == 0) {
+        wchar_t iconFile[MAX_PATH] = {0};
+        GetPrivateProfileStringW(L"InternetShortcut", L"IconFile", L"", iconFile, MAX_PATH, lnkPath.c_str());
+        if (iconFile[0]) {
+            wchar_t expanded[MAX_PATH] = {0};
+            ExpandEnvironmentStringsW(iconFile, expanded, MAX_PATH);
+            outCustomIcon = expanded;
+            outTarget = expanded;
+        }
+        return true;
+    }
+
     IShellLinkW* psl = nullptr;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) || !psl) {
         return false;
@@ -734,10 +1065,22 @@ static bool ResolveShortcut(const std::wstring& lnkPath, std::wstring& outTarget
         ppf->Release();
     }
     psl->Release();
-    return !outTarget.empty();
+    return !outTarget.empty() || !outCustomIcon.empty();
 }
 
 static bool SetShortcutIconLocation(const std::wstring& lnkPath, const std::wstring& icoPath) {
+    std::wstring ext = PathFindExtensionW(lnkPath.c_str());
+    if (_wcsicmp(ext.c_str(), L".url") == 0) {
+        BOOL ok1 = WritePrivateProfileStringW(L"InternetShortcut", L"IconFile", icoPath.c_str(), lnkPath.c_str());
+        BOOL ok2 = WritePrivateProfileStringW(L"InternetShortcut", L"IconIndex", L"0", lnkPath.c_str());
+        WritePrivateProfileStringW(NULL, NULL, NULL, lnkPath.c_str());
+        if (ok1 && ok2) {
+            TouchFileModificationTime(lnkPath);
+            return true;
+        }
+        return false;
+    }
+
     IShellLinkW* psl = nullptr;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) || !psl) {
         return false;
@@ -755,11 +1098,14 @@ static bool SetShortcutIconLocation(const std::wstring& lnkPath, const std::wstr
         ppf->Release();
     }
     psl->Release();
+    if (ok) {
+        TouchFileModificationTime(lnkPath);
+    }
     return ok;
 }
 
-static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& categoryName, int depth = 0) {
-    if (depth > 3 || g_allApps.size() >= 140) return;
+static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& categoryName, int depth = 0, bool isDesktopOrTaskbar = false) {
+    if (depth > 3 || g_allApps.size() >= 160) return;
     std::wstring pattern = dir + L"\\*";
     WIN32_FIND_DATAW fd;
     HANDLE hFind = FindFirstFileW(pattern.c_str(), &fd);
@@ -769,10 +1115,12 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
         if (wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0) continue;
         std::wstring fullPath = dir + L"\\" + fd.cFileName;
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            ScanDirectoryForShortcuts(fullPath, categoryName, depth + 1);
+            ScanDirectoryForShortcuts(fullPath, categoryName, depth + 1, isDesktopOrTaskbar);
         } else {
             std::wstring fname = fd.cFileName;
-            if (fname.size() > 4 && _wcsicmp(fname.c_str() + fname.size() - 4, L".lnk") == 0) {
+            bool isLnk = (fname.size() > 4 && _wcsicmp(fname.c_str() + fname.size() - 4, L".lnk") == 0);
+            bool isUrl = (fname.size() > 4 && _wcsicmp(fname.c_str() + fname.size() - 4, L".url") == 0);
+            if (isLnk || (isUrl && isDesktopOrTaskbar)) {
                 std::wstring title = fname.substr(0, fname.size() - 4);
                 std::wstring lowerTitle = title;
                 for (auto& c : lowerTitle) c = towlower(c);
@@ -784,7 +1132,7 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
 
                 std::wstring target, customIcon;
                 ResolveShortcut(fullPath, target, customIcon);
-                if (!target.empty()) {
+                if (isLnk && !isDesktopOrTaskbar && !target.empty()) {
                     std::wstring ext = PathFindExtensionW(target.c_str());
                     if (_wcsicmp(ext.c_str(), L".exe") != 0) continue;
                 }
@@ -818,14 +1166,33 @@ static void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstrin
                 entry.name = title;
                 entry.lnkPath = fullPath;
                 entry.allLnkPaths.push_back(fullPath);
-                entry.targetPath = target.empty() ? fullPath : target;
+                std::wstring iconSource = (!customIcon.empty() && customIcon.find(L"\\IconMaker\\icons\\") == std::wstring::npos)
+                    ? customIcon
+                    : (target.empty() ? fullPath : target);
+                entry.targetPath = target.empty() ? iconSource : target;
                 entry.category = categoryName;
                 entry.isApplied = (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos);
-                entry.origBitmap = LoadHighResIcon(entry.targetPath, entry.lnkPath);
+
+                // If shortcut already has an IconMaker icon and we have a .bak shortcut, resolve original icon from .bak
+                std::wstring safe = SanitizeFileName(entry.name);
+                if (entry.isApplied) {
+                    std::wstring bak0 = GetAppDataRoot() + L"\\backup\\" + safe + L"_0.lnk.bak";
+                    if (GetFileAttributesW(bak0.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                        std::wstring bTarget, bIcon;
+                        ResolveShortcut(bak0, bTarget, bIcon);
+                        if (!bIcon.empty() && bIcon.find(L"\\IconMaker\\icons\\") == std::wstring::npos) {
+                            iconSource = bIcon;
+                        } else if (!bTarget.empty()) {
+                            iconSource = bTarget;
+                        }
+                    }
+                }
+
+                entry.origBitmap = LoadHighResIcon(iconSource, entry.lnkPath, safe);
                 g_allApps.push_back(entry);
             }
         }
-    } while (FindNextFileW(hFind, &fd) && g_allApps.size() < 140);
+    } while (FindNextFileW(hFind, &fd) && g_allApps.size() < 160);
 
     FindClose(hFind);
 }
@@ -868,27 +1235,28 @@ static void ScanInstalledWindowsApps() {
     if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
         std::wstring taskbarDir = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
         if (GetFileAttributesW(taskbarDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
-            ScanDirectoryForShortcuts(taskbarDir, L"Панель задач", 0);
+            ScanDirectoryForShortcuts(taskbarDir, L"Панель задач", 0, true);
         }
     }
 
     const int folders[] = {
         CSIDL_DESKTOPDIRECTORY,
-        CSIDL_PROGRAMS,
         CSIDL_COMMON_DESKTOPDIRECTORY,
+        CSIDL_PROGRAMS,
         CSIDL_COMMON_PROGRAMS
     };
     const wchar_t* labels[] = {
         L"Рабочий стол",
-        L"Меню «Пуск»",
         L"Общий Рабочий стол",
+        L"Меню «Пуск»",
         L"Программы Windows"
     };
+    const bool isDesk[] = { true, true, false, false };
 
     for (int i = 0; i < 4; ++i) {
         wchar_t path[MAX_PATH] = {0};
         if (SUCCEEDED(SHGetFolderPathW(NULL, folders[i], NULL, 0, path)) && path[0]) {
-            ScanDirectoryForShortcuts(path, labels[i], 0);
+            ScanDirectoryForShortcuts(path, labels[i], 0, isDesk[i]);
         }
     }
 
@@ -917,10 +1285,7 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
     wsprintfW(revSuffix, L"_%u_%u.ico", (unsigned)(GetTickCount() & 0xFFFF), ++g_iconRevCounter);
     std::wstring icoPath = iconsDir + L"\\" + safe + revSuffix;
 
-    Bitmap* master = RenderGoogleRoundIcon(app.origBitmap, g_style, 512);
-    bool saved = SaveMultiSizeIco(master, icoPath);
-    delete master;
-    if (!saved) return false;
+    if (!SaveMultiSizeIco(app.origBitmap, g_style, icoPath)) return false;
 
     if (app.allLnkPaths.empty() && !app.lnkPath.empty()) {
         app.allLnkPaths.push_back(app.lnkPath);
@@ -953,7 +1318,7 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
         }
     }
 
-    if (updatedCount == 0) {
+    if (updatedCount == 0 && !permissionDenied) {
         wchar_t desktopDir[MAX_PATH] = {0};
         if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopDir))) {
             std::wstring deskLnk = std::wstring(desktopDir) + L"\\" + safe + L".lnk";
@@ -965,6 +1330,7 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
                 if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
                     if (SUCCEEDED(ppf->Save(deskLnk.c_str(), TRUE))) {
                         app.allLnkPaths.push_back(deskLnk);
+                        TouchFileModificationTime(deskLnk);
                         SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, deskLnk.c_str(), NULL);
                         updatedCount++;
                     }
@@ -976,8 +1342,8 @@ static bool ApplyRoundIconToEntry(AppEntry& app, bool* outNeedsAdmin = nullptr) 
     }
 
     if (outNeedsAdmin && permissionDenied) *outNeedsAdmin = true;
-    app.isApplied = (updatedCount > 0);
-    return app.isApplied;
+    app.isApplied = (updatedCount > 0 && !permissionDenied);
+    return updatedCount > 0;
 }
 
 static bool RestoreOriginalEntry(AppEntry& app) {
@@ -993,6 +1359,7 @@ static bool RestoreOriginalEntry(AppEntry& app) {
         std::wstring backupLnk = root + L"\\backup\\" + bakName;
         if (GetFileAttributesW(backupLnk.c_str()) != INVALID_FILE_ATTRIBUTES) {
             CopyFileW(backupLnk.c_str(), lnk.c_str(), FALSE);
+            TouchFileModificationTime(lnk);
         } else if (!app.targetPath.empty()) {
             SetShortcutIconLocation(lnk, app.targetPath);
         }
@@ -1113,7 +1480,7 @@ static void ExportCurrentOrAllIcons(HWND hwnd) {
             Bitmap* master1024 = RenderGoogleRoundIcon(app.origBitmap, g_style, 1024);
             std::wstring icoFile = dir + L"\\" + safe + L".ico";
             std::wstring pngFile = dir + L"\\" + safe + L".png";
-            SaveMultiSizeIco(master1024, icoFile);
+            SaveMultiSizeIco(app.origBitmap, g_style, icoFile);
             master1024->Save(pngFile.c_str(), &g_pngClsid, NULL);
             delete master1024;
         }
@@ -1694,6 +2061,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
         }
 
         case W_BTN_ADMIN: {
+            SaveStyleConfig();
             wchar_t selfPath[MAX_PATH * 2] = {0};
             if (GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) {
                 if ((INT_PTR)ShellExecuteW(hwnd, L"runas", selfPath, NULL, NULL, SW_SHOWNORMAL) > 32) {
@@ -1723,6 +2091,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
         case W_PRESET_3:
         case W_PRESET_4:
             g_style.preset = (BgPreset)(id - W_PRESET_0);
+            SaveStyleConfig();
             InvalidateAllThumbs();
             InvalidateRect(hwnd, NULL, FALSE);
             break;
@@ -1747,6 +2116,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             if (ChooseColorW(&cc)) {
                 g_style.customColor = cc.rgbResult;
                 g_style.preset = PRESET_CUSTOM_COLOR;
+                SaveStyleConfig();
                 InvalidateAllThumbs();
                 InvalidateRect(hwnd, NULL, FALSE);
             }
@@ -1763,55 +2133,70 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
         case W_SWATCH_7:
             g_style.customColor = kSwatchPalette[id - W_SWATCH_0];
             g_style.preset = PRESET_CUSTOM_COLOR;
+            SaveStyleConfig();
             InvalidateAllThumbs();
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 
-        case W_BTN_SC_68:  g_style.scale = 0.68; InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
-        case W_BTN_SC_100: g_style.scale = 1.00; InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
-        case W_BTN_SC_135: g_style.scale = 1.35; InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
-        case W_BTN_SC_175: g_style.scale = 1.75; InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_SC_68:  g_style.scale = 0.68; SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_SC_100: g_style.scale = 1.00; SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_SC_135: g_style.scale = 1.35; SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_SC_175: g_style.scale = 1.75; SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
 
         case W_BTN_LEFT:
             g_style.offsetX = std::clamp(g_style.offsetX - 0.05, -1.0, 1.0);
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_BTN_RIGHT:
             g_style.offsetX = std::clamp(g_style.offsetX + 0.05, -1.0, 1.0);
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_BTN_DOWN:
             g_style.offsetY = std::clamp(g_style.offsetY - 0.05, -1.0, 1.0);
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_BTN_UP:
             g_style.offsetY = std::clamp(g_style.offsetY + 0.05, -1.0, 1.0);
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_BTN_CENTER:
             g_style.offsetX = 0.0; g_style.offsetY = 0.0;
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
 
         case W_TOGGLE_AUTOTRIM:
             g_style.autoTrim = !g_style.autoTrim;
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_TOGGLE_INNERSHAD:
             g_style.innerShadow = !g_style.innerShadow;
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_TOGGLE_FULLBLEED:
             g_style.fullBleed = !g_style.fullBleed;
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_TOGGLE_MONO:
             g_style.monochrome = !g_style.monochrome;
-            InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
 
         case W_BTN_APPLY_ONE: {
             if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                SaveStyleConfig();
                 AppEntry& app = g_allApps[g_selectedAppIndex];
                 bool needsAdmin = false;
-                if (ApplyRoundIconToEntry(app, &needsAdmin)) {
-                    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
-                    g_statusText = L"✓ Круглая иконка Google Pixel применена к " + app.name;
-                    if (needsAdmin) {
-                        g_statusText += L" (для системных ярлыков нажмите «🛡 Права Админа»)";
+                ApplyRoundIconToEntry(app, &needsAdmin);
+                RefreshWindowsExplorerIconCache();
+                g_statusText = L"✓ Единая круглая иконка Google Pixel применена к " + app.name;
+                InvalidateRect(hwnd, NULL, FALSE);
+                if (needsAdmin) {
+                    int ans = MessageBoxW(
+                        hwnd,
+                        L"Этот ярлык находится в общей системной папке (Public Desktop / ProgramData).\n\n"
+                        L"Разрешить обновление с правами Администратора, чтобы иконка на Рабочем столе обновилась до единого круга?",
+                        L"IconMaker Studio — Системный ярлык",
+                        MB_YESNO | MB_ICONQUESTION
+                    );
+                    if (ans == IDYES) {
+                        wchar_t selfPath[MAX_PATH * 2] = {0};
+                        if (GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) {
+                            if ((INT_PTR)ShellExecuteW(hwnd, L"runas", selfPath, L"--apply-all-elevated", NULL, SW_SHOWNORMAL) > 32) {
+                                PostQuitMessage(0);
+                            }
+                        }
                     }
-                    InvalidateRect(hwnd, NULL, FALSE);
                 }
             }
             break;
@@ -1819,6 +2204,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
 
         case W_BTN_APPLY_ALL: {
             if (g_filteredIndices.empty()) break;
+            SaveStyleConfig();
             int count = 0;
             bool anyNeedsAdmin = false;
             for (size_t i = 0; i < g_filteredIndices.size(); ++i) {
@@ -1827,22 +2213,34 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                 if (ApplyRoundIconToEntry(app, &na)) count++;
                 if (na) anyNeedsAdmin = true;
                 g_progressRatio = (double)(i + 1) / (double)g_filteredIndices.size();
-                g_statusText = L"Применение круглых иконок: " + app.name;
+                g_statusText = L"Применение одинаковых круглых иконок: " + app.name;
                 InvalidateRect(hwnd, NULL, FALSE);
                 UpdateWindow(hwnd);
             }
-            SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
+            RefreshWindowsExplorerIconCache();
             g_progressRatio = 0.0;
-            wchar_t msg[384];
+
             if (anyNeedsAdmin) {
-                wsprintfW(msg,
-                          L"Круглые иконки применены к %d приложениям!\n\n"
-                          L"Часть ярлыков находится в общей папке C:\\Users\\Public\\Desktop или C:\\ProgramData.\n"
-                          L"Чтобы обновить их напрямую, нажмите «🛡 Права Админа» вверху окна.",
-                          count);
-            } else {
-                wsprintfW(msg, L"Готово! Круглые иконки Google Pixel применены к %d приложениям.", count);
+                int ans = MessageBoxW(
+                    hwnd,
+                    L"Часть ярлыков на Рабочем столе находится в общей папке C:\\Users\\Public\\Desktop (Chrome, Steam, Edge и др.).\n\n"
+                    L"Нажмите «Да», чтобы автоматически применить с правами Администратора и сделать АБСОЛЮТНО ВСЕ иконки одинаковыми кругами!",
+                    L"IconMaker Studio — Применить ко всем ярлыкам",
+                    MB_YESNO | MB_ICONQUESTION
+                );
+                if (ans == IDYES) {
+                    wchar_t selfPath[MAX_PATH * 2] = {0};
+                    if (GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) {
+                        if ((INT_PTR)ShellExecuteW(hwnd, L"runas", selfPath, L"--apply-all-elevated", NULL, SW_SHOWNORMAL) > 32) {
+                            PostQuitMessage(0);
+                            break;
+                        }
+                    }
+                }
             }
+
+            wchar_t msg[384];
+            wsprintfW(msg, L"Готово! Одинаковые круглые иконки Google Pixel (240px / 93.75%%) применены к %d приложениям.", count);
             g_statusText = msg;
             InvalidateRect(hwnd, NULL, FALSE);
             MessageBoxW(hwnd, msg, L"IconMaker Studio", MB_ICONINFORMATION);
@@ -1853,7 +2251,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
                 AppEntry& app = g_allApps[g_selectedAppIndex];
                 RestoreOriginalEntry(app);
-                SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
+                RefreshWindowsExplorerIconCache();
                 g_statusText = L"Восстановлена оригинальная иконка для " + app.name;
                 InvalidateRect(hwnd, NULL, FALSE);
             }
@@ -1864,7 +2262,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             for (auto& app : g_allApps) {
                 RestoreOriginalEntry(app);
             }
-            SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
+            RefreshWindowsExplorerIconCache();
             g_statusText = L"Оригинальные иконки восстановлены для всех приложений";
             InvalidateRect(hwnd, NULL, FALSE);
             MessageBoxW(hwnd, L"Оригинальные иконки восстановлены для всех приложений!", L"IconMaker Studio", MB_ICONINFORMATION);
@@ -2042,6 +2440,7 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             if (g_isDraggingStage) {
                 g_isDraggingStage = false;
                 ReleaseCapture();
+                SaveStyleConfig();
                 InvalidateAllThumbs();
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
@@ -2050,6 +2449,7 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 if (g_activeWidget == W_SLIDER_SCALE || g_activeWidget == W_SLIDER_OFFX ||
                     g_activeWidget == W_SLIDER_OFFY  || g_activeWidget == W_SLIDER_SHADOW) {
                     ReleaseCapture();
+                    SaveStyleConfig();
                 }
                 g_activeWidget = W_NONE;
                 InvalidateRect(hwnd, NULL, FALSE);
@@ -2069,6 +2469,7 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             } else {
                 double step = (delta > 0) ? 0.05 : -0.05;
                 g_style.scale = std::clamp(g_style.scale + step, 0.30, 2.50);
+                SaveStyleConfig();
                 InvalidateAllThumbs();
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
@@ -2117,7 +2518,7 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 }
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmdShow) {
-    (void)hPrev; (void)lpCmdLine;
+    (void)hPrev;
 
     SetProcessDPIAware();
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
@@ -2128,6 +2529,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     GdiplusStartupInput gsi;
     GdiplusStartup(&g_gdiplusToken, &gsi, NULL);
     GetPngEncoderClsid(&g_pngClsid);
+    LoadStyleConfig();
 
     WNDCLASSEXW wc = {0};
     wc.cbSize = sizeof(wc);
@@ -2173,12 +2575,30 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     ScanInstalledWindowsApps();
     InvalidateRect(g_hMainWnd, NULL, FALSE);
 
-    wchar_t exeName[MAX_PATH] = {0};
-    if (GetModuleFileNameW(NULL, exeName, MAX_PATH - 1)) {
-        std::wstring lowerExe = PathFindFileNameW(exeName);
-        for (auto& c : lowerExe) c = towlower(c);
-        if (lowerExe.find(L"setup") != std::wstring::npos) {
-            InstallSelfAndShortcuts(g_hMainWnd, false);
+    if (lpCmdLine && wcsstr(lpCmdLine, L"--apply-all-elevated") != nullptr) {
+        int count = 0;
+        for (size_t i = 0; i < g_allApps.size(); ++i) {
+            if (ApplyRoundIconToEntry(g_allApps[i], nullptr)) count++;
+            g_progressRatio = (double)(i + 1) / (double)std::max<size_t>(1, g_allApps.size());
+            g_statusText = L"Применение единых круглых иконок (Администратор): " + g_allApps[i].name;
+            InvalidateRect(g_hMainWnd, NULL, FALSE);
+            UpdateWindow(g_hMainWnd);
+        }
+        RefreshWindowsExplorerIconCache();
+        g_progressRatio = 0.0;
+        wchar_t doneMsg[256];
+        wsprintfW(doneMsg, L"Все системные и пользовательские ярлыки (%d шт.) обновлены до одинаковых кругов!", count);
+        g_statusText = doneMsg;
+        InvalidateRect(g_hMainWnd, NULL, FALSE);
+        MessageBoxW(g_hMainWnd, doneMsg, L"IconMaker Studio (Администратор)", MB_ICONINFORMATION);
+    } else {
+        wchar_t exeName[MAX_PATH] = {0};
+        if (GetModuleFileNameW(NULL, exeName, MAX_PATH - 1)) {
+            std::wstring lowerExe = PathFindFileNameW(exeName);
+            for (auto& c : lowerExe) c = towlower(c);
+            if (lowerExe.find(L"setup") != std::wstring::npos) {
+                InstallSelfAndShortcuts(g_hMainWnd, false);
+            }
         }
     }
 
