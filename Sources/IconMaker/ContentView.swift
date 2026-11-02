@@ -82,7 +82,7 @@ struct ContentView: View {
                 Button {
                     model.applyRoundIconsToAll(visibleItems)
                 } label: {
-                    Label("Apply All", systemImage: "checkmark.circle.badge.sparkles")
+                    Label(visibleItems.isEmpty ? "Apply All" : "Apply All (\(visibleItems.count))", systemImage: "checkmark.circle.badge.sparkles")
                 }
                 .help("Apply circular Google icons to all listed apps (⇧⌘A)")
                 .disabled(visibleItems.isEmpty)
@@ -227,6 +227,26 @@ private struct AppListView: View {
                         try? context.save()
                     }
                 }
+        }
+        .overlay {
+            if items.isEmpty {
+                VStack(spacing: Space.sm) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.title2)
+                        .foregroundStyle(.tertiary)
+                    Text("No Matching Apps")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    if !model.search.isEmpty {
+                        Button("Clear Search") {
+                            model.search = ""
+                        }
+                        .controlSize(.small)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
+            }
         }
     }
 }
@@ -378,6 +398,8 @@ private struct DetailInspectorView: View {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 96, height: 96)
+                    .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.86), value: model.style.offsetX)
+                    .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.86), value: model.style.offsetY)
                     .gesture(
                         DragGesture(minimumDistance: 1)
                             .onChanged { value in
@@ -392,10 +414,13 @@ private struct DetailInspectorView: View {
                                 dragStartOffset = nil
                             }
                     )
-                    .help("Drag inside the circle to pan icon (Left / Right / Up / Down)")
+                    .onTapGesture(count: 2) {
+                        model.style.resetPosition()
+                    }
+                    .help("Drag to pan icon · Double click to center")
                 Text("Google Pixel Round")
                     .font(.callout.weight(.semibold))
-                Text("Drag to Pan · \(model.style.backgroundStyle.title)")
+                Text("Drag to Pan · Double click to Center")
                     .font(.caption)
                     .foregroundStyle(Palette.accentText)
             }
@@ -431,7 +456,7 @@ private struct DetailInspectorView: View {
                             model.style.backgroundStyle = .customColor
                         }
                     } label: {
-                        Label("Пипетка", systemImage: "eyedropper.halffull")
+                        Label("Sample Color", systemImage: "eyedropper.halffull")
                     }
                     .controlSize(.small)
                     .help("Pick any color from the icon or screen with macOS Eyedropper")

@@ -2284,7 +2284,11 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     g.FillRectangle(&footBr, 0, clientH - 32, clientW, 32);
     g.DrawLine(&divPen, 0, clientH - 32, clientW, clientH - 32);
 
-    g.DrawString(g_statusText.c_str(), -1, &fSmall, RectF(16.0f, (REAL)(clientH - 32), (REAL)(clientW - 260), 32.0f), &sfVCenter, &mutedBr);
+    StringFormat sfTrimEllipsis;
+    sfTrimEllipsis.SetTrimming(StringTrimmingEllipsisCharacter);
+    sfTrimEllipsis.SetLineAlignment(StringAlignmentCenter);
+    sfTrimEllipsis.SetFormatFlags(StringFormatFlagsNoWrap);
+    g.DrawString(g_statusText.c_str(), -1, &fSmall, RectF(16.0f, (REAL)(clientH - 32), (REAL)(clientW - 260), 32.0f), &sfTrimEllipsis, &mutedBr);
 
     if (g_progressRatio > 0.001) {
         RectF progBg((REAL)(clientW - 220), (REAL)(clientH - 20), 200.0f, 8.0f);
@@ -2333,7 +2337,7 @@ static bool GetWidgetRect(WidgetID id, RectF& outRect) {
     return false;
 }
 
-static void UpdateSliderFromMouse(WidgetID id, int mouseX) {
+static void UpdateSliderFromMouse(WidgetID id, int mouseX, bool isFinalRelease = false) {
     RectF r;
     if (!GetWidgetRect(id, r)) return;
     double norm = std::clamp((double)(mouseX - (r.X + 6.0f)) / std::max(1.0, (double)(r.Width - 12.0f)), 0.0, 1.0);
@@ -2346,7 +2350,9 @@ static void UpdateSliderFromMouse(WidgetID id, int mouseX) {
     } else if (id == W_SLIDER_SHADOW) {
         g_style.shadow = norm;
     }
-    InvalidateAllThumbs();
+    if (isFinalRelease) {
+        InvalidateAllThumbs();
+    }
     InvalidateRect(g_hMainWnd, NULL, FALSE);
 }
 
@@ -2774,6 +2780,7 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             if (g_activeWidget != W_NONE) {
                 if (g_activeWidget == W_SLIDER_SCALE || g_activeWidget == W_SLIDER_OFFX ||
                     g_activeWidget == W_SLIDER_OFFY  || g_activeWidget == W_SLIDER_SHADOW) {
+                    UpdateSliderFromMouse(g_activeWidget, GET_X_LPARAM(lParam), true);
                     ReleaseCapture();
                     SaveStyleConfig();
                 }
@@ -2821,6 +2828,13 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
 
         case WM_KEYDOWN: {
+            // Global Ctrl+F shortcut to immediately focus and activate Search Box
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'F' || wParam == 'f')) {
+                g_searchFocused = true;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+
             if (!g_searchFocused && !g_filteredIndices.empty()) {
                 if (wParam == VK_DOWN || wParam == VK_UP) {
                     int pos = 0;
