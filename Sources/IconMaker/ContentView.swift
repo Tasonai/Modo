@@ -61,6 +61,9 @@ struct ContentView: View {
         .navigationTitle(model.sidebar.title)
         .navigationSubtitle("\(visibleItems.count) apps · \(model.style.backgroundStyle.title)")
         .searchable(text: $model.search, prompt: "Search applications")
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            handleDrop(providers: providers)
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -151,6 +154,18 @@ struct ContentView: View {
         if panel.runModal() == .OK, let url = panel.url {
             model.exportIconPack(for: targets, to: url)
         }
+    }
+
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        for provider in providers {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url = url, url.pathExtension == "app" else { return }
+                Task { @MainActor in
+                    self.model.addApplication(from: url)
+                }
+            }
+        }
+        return true
     }
 }
 

@@ -131,6 +131,44 @@ final class AppModel {
         return rendered
     }
 
+    /// Adds or imports an application by its file URL (e.g. via drag-and-drop or file picker)
+    func addApplication(from url: URL) {
+        let fullPath = url.path
+        let bundle = Bundle(url: url)
+        let displayName = (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? ItemTitle.clean(url.deletingPathExtension().lastPathComponent)
+        let bundleID = bundle?.bundleIdentifier ?? "com.custom.\(ItemTitle.clean(url.deletingPathExtension().lastPathComponent).lowercased())"
+        let category = fullPath.hasPrefix("/System") ? "macOS System App" : "Custom / Dropped Application"
+        
+        let palette: [Int] = [
+            0x1A73E8, 0xEA4335, 0x34A853, 0xFBBC04,
+            0x7B5CFF, 0x06B6D4, 0xE84A93, 0xF97316,
+        ]
+        let hex = palette[abs(displayName.hashValue) % palette.count]
+
+        let context = container.mainContext
+        let existing = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        if let match = existing.first(where: { $0.bundlePath == fullPath }) {
+            selection = match.id
+            statusMessage = "\(match.title) is already in library"
+            return
+        }
+
+        let item = Item(
+            title: displayName,
+            bundlePath: fullPath,
+            bundleIdentifier: bundleID,
+            categoryName: category,
+            symbolName: "app.dashed",
+            brandHex: hex
+        )
+        context.insert(item)
+        try? context.save()
+        selection = item.id
+        statusMessage = "Imported \(item.title)"
+    }
+
     /// Adds a custom sample application item (used by File > New Item and self-test).
     func addItem(
         title: String = "Custom App",
