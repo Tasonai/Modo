@@ -66,11 +66,22 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     }
 }
 
+/// Filter pills/tags for fast category filtering in the list
+enum AppCategoryFilter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case customized = "Customized"
+    case system = "System"
+    case thirdParty = "Third-Party"
+
+    var id: String { rawValue }
+}
+
 /// Shared UI and icon rendering state for the main window and menu commands.
 @Observable
 final class AppModel {
     let container: ModelContainer
     var sidebar: SidebarItem = .all
+    var categoryFilter: AppCategoryFilter = .all
     var selection: UUID?
     var search = ""
     var settingsTab: SettingsTab = .general

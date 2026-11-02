@@ -15,10 +15,16 @@ struct ContentView: View {
             case .applied: item.isApplied
             case .starred: item.isStarred
             }
+            let matchesFilter: Bool = switch model.categoryFilter {
+            case .all: true
+            case .customized: item.isApplied
+            case .system: item.bundlePath.hasPrefix("/System/") || item.categoryName.localizedCaseInsensitiveContains("System")
+            case .thirdParty: !item.bundlePath.hasPrefix("/System/")
+            }
             let matchesSearch = model.search.isEmpty
                 || item.title.localizedStandardContains(model.search)
                 || item.categoryName.localizedStandardContains(model.search)
-            return matchesSidebar && matchesSearch
+            return matchesSidebar && matchesFilter && matchesSearch
         }
     }
 
@@ -203,30 +209,64 @@ private struct AppListView: View {
 
     var body: some View {
         @Bindable var model = model
-        List(items, selection: $model.selection) { item in
-            AppRowView(item: item)
-                .tag(item.id)
-                .contextMenu {
-                    Button(item.isApplied ? "Update Round Icon" : "Apply Round Icon") {
-                        model.applyRoundIcon(to: item)
+        VStack(spacing: 0) {
+            // Quick Filter Pills (All, Customized, System, Third-Party)
+            HStack(spacing: Space.xs) {
+                ForEach(AppCategoryFilter.allCases) { filter in
+                    Button {
+                        withAnimation(.snappy(duration: 0.2)) {
+                            model.categoryFilter = filter
+                        }
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(.caption2.weight(model.categoryFilter == filter ? .semibold : .regular))
+                            .padding(.horizontal, Space.sm)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(model.categoryFilter == filter ? Palette.accent.opacity(0.18) : Color.clear)
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(model.categoryFilter == filter ? Palette.accent : Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                            .foregroundStyle(model.categoryFilter == filter ? Palette.accentText : Color.secondary)
                     }
-                    if item.isApplied {
-                        Button("Restore Original Icon") {
-                            model.restoreOriginalIcon(for: item)
+                    .buttonStyle(.plain)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, Space.md)
+            .padding(.vertical, Space.xs)
+            .background(.background.secondary.opacity(0.4))
+
+            Divider()
+
+            List(items, selection: $model.selection) { item in
+                AppRowView(item: item)
+                    .tag(item.id)
+                    .contextMenu {
+                        Button(item.isApplied ? "Update Round Icon" : "Apply Round Icon") {
+                            model.applyRoundIcon(to: item)
+                        }
+                        if item.isApplied {
+                            Button("Restore Original Icon") {
+                                model.restoreOriginalIcon(for: item)
+                            }
+                        }
+                        Divider()
+                        Button(item.isStarred ? "Remove from Favorites" : "Add to Favorites") {
+                            item.isStarred.toggle()
+                            try? context.save()
+                        }
+                        Divider()
+                        Button("Delete from Library", role: .destructive) {
+                            if model.selection == item.id { model.selection = nil }
+                            context.delete(item)
+                            try? context.save()
                         }
                     }
-                    Divider()
-                    Button(item.isStarred ? "Remove from Favorites" : "Add to Favorites") {
-                        item.isStarred.toggle()
-                        try? context.save()
-                    }
-                    Divider()
-                    Button("Delete from Library", role: .destructive) {
-                        if model.selection == item.id { model.selection = nil }
-                        context.delete(item)
-                        try? context.save()
-                    }
-                }
+            }
         }
         .overlay {
             if items.isEmpty {
@@ -415,6 +455,7 @@ private struct DetailInspectorView: View {
                             }
                     )
                     .onTapGesture(count: 2) {
+                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
                         model.style.resetPosition()
                     }
                     .help("Drag to pan icon · Double click to center")
@@ -551,6 +592,7 @@ private struct DetailInspectorView: View {
                     .help("Move Up")
 
                     Button("Center") {
+                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
                         model.style.resetPosition()
                     }
                     .controlSize(.small)
