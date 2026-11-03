@@ -1855,35 +1855,37 @@ static void DrawStudioPillButton(
     bool hovered = (g_hoveredWidget == id);
     bool pressed = (g_activeWidget == id);
 
-    // Fluent Design Dark Control Palette (Windows 11 specs)
+    // Monochromatic neutral dark palette (No harsh accent color)
     Color fill(255, 45, 45, 45);
     Color border(255, 68, 68, 68);
-    Color textClr(255, 255, 255, 255);
+    Color textClr(255, 230, 230, 230);
 
     if (isPrimary) {
-        // Windows 11 Primary Accent #0067C0
-        fill = pressed ? Color(255, 0, 90, 168)
-             : (hovered ? Color(255, 25, 120, 215) : Color(255, 0, 103, 192));
-        border = Color(255, 76, 161, 255);
-        textClr = Color(255, 255, 255, 255);
+        // High-contrast clean neutral white/light-gray fill for primary button
+        fill = pressed ? Color(255, 205, 205, 205)
+             : (hovered ? Color(255, 255, 255, 255) : Color(255, 235, 235, 235));
+        border = Color(255, 255, 255, 255);
+        textClr = Color(255, 20, 20, 20); // Dark text on light primary
     } else if (isSelected) {
-        // Subtle Selected Pill Accent
-        fill = Color(255, 0, 90, 168);
-        border = Color(255, 76, 161, 255);
+        // Subtle neutral dark-gray selection
+        fill = Color(255, 65, 65, 65);
+        border = Color(255, 120, 120, 120);
         textClr = Color(255, 255, 255, 255);
     } else if (isDanger) {
-        fill = hovered ? Color(255, 180, 40, 40) : Color(255, 140, 32, 32);
-        border = Color(255, 220, 70, 70);
-        textClr = Color(255, 255, 255, 255);
+        fill = hovered ? Color(255, 60, 48, 48) : Color(255, 48, 42, 42);
+        border = Color(255, 100, 75, 75);
+        textClr = Color(255, 220, 180, 180);
     } else if (pressed) {
         fill = Color(255, 38, 38, 38);
-        border = Color(255, 80, 80, 80);
+        border = Color(255, 75, 75, 75);
+        textClr = Color(255, 255, 255, 255);
     } else if (hovered) {
-        fill = Color(255, 54, 54, 54);
-        border = Color(255, 88, 88, 88);
+        fill = Color(255, 58, 58, 58);
+        border = Color(255, 95, 95, 95);
+        textClr = Color(255, 255, 255, 255);
     }
 
-    REAL rad = std::min(6.0f, r.Height * 0.5f); // Windows 11 4-6px corner radius
+    REAL rad = std::min(6.0f, r.Height * 0.5f);
     FillRoundRect(g, r, rad, fill);
     DrawRoundRect(g, r, rad, border, 1.0f);
 
@@ -1906,15 +1908,15 @@ static void DrawStudioSlider(
 
     bool hovered = (g_hoveredWidget == id || g_activeWidget == id);
 
-    // Track groove (Windows 11 Fluent Slider)
+    // Track groove (Clean Neutral Dark)
     RectF groove(trackRect.X, trackRect.Y + trackRect.Height * 0.5f - 2.5f, trackRect.Width, 5.0f);
-    FillRoundRect(g, groove, 2.5f, Color(255, 52, 52, 52));
-    DrawRoundRect(g, groove, 2.5f, Color(255, 72, 72, 72), 1.0f);
+    FillRoundRect(g, groove, 2.5f, Color(255, 50, 50, 50));
+    DrawRoundRect(g, groove, 2.5f, Color(255, 70, 70, 70), 1.0f);
 
-    // Active fill
+    // Active fill in neutral light gray
     REAL fillW = std::max(5.0f, (REAL)(groove.Width * v));
     RectF activeBar(groove.X, groove.Y, fillW, groove.Height);
-    FillRoundRect(g, activeBar, 2.5f, Color(255, 96, 205, 255)); // Win11 Accent Light
+    FillRoundRect(g, activeBar, 2.5f, Color(255, 180, 180, 180));
 
     // Thumb knob
     REAL thumbX = groove.X + (REAL)(groove.Width * v);
@@ -1926,7 +1928,7 @@ static void DrawStudioSlider(
 
     SolidBrush thumbBr(Color(255, 255, 255, 255));
     g.FillEllipse(&thumbBr, thumbX - thumbR, thumbY - thumbR, thumbR * 2.0f, thumbR * 2.0f);
-    Pen ringPen(Color(255, 0, 103, 192), 2.5f);
+    Pen ringPen(Color(255, 80, 80, 80), 1.5f);
     g.DrawEllipse(&ringPen, thumbX - thumbR, thumbY - thumbR, thumbR * 2.0f, thumbR * 2.0f);
 }
 
@@ -1941,16 +1943,17 @@ static void DrawStudioToggle(
     RegisterHit(id, rowRect);
     bool hovered = (g_hoveredWidget == id);
 
-    // Windows 11 ToggleSwitch (40x20 pill)
+    // Neutral monochrome ToggleSwitch (white/gray pill when ON)
     RectF pill(rowRect.X, rowRect.Y + (rowRect.Height - 20.0f) * 0.5f, 40.0f, 20.0f);
     Color pillFill = isOn
-        ? (hovered ? Color(255, 25, 120, 215) : Color(255, 0, 103, 192))
-        : (hovered ? Color(255, 55, 55, 55) : Color(255, 42, 42, 42));
+        ? (hovered ? Color(255, 240, 240, 240) : Color(255, 220, 220, 220))
+        : (hovered ? Color(255, 58, 58, 58) : Color(255, 45, 45, 45));
     FillRoundRect(g, pill, 10.0f, pillFill);
-    DrawRoundRect(g, pill, 10.0f, isOn ? Color(255, 96, 205, 255) : Color(255, 78, 78, 78), 1.0f);
+    DrawRoundRect(g, pill, 10.0f, isOn ? Color(255, 255, 255, 255) : Color(255, 80, 80, 80), 1.0f);
 
     REAL knobX = isOn ? (pill.GetRight() - 17.0f) : (pill.X + 3.0f);
-    SolidBrush knobBr(Color(255, 255, 255, 255));
+    Color knobColor = isOn ? Color(255, 20, 20, 20) : Color(255, 240, 240, 240);
+    SolidBrush knobBr(knobColor);
     g.FillEllipse(&knobBr, knobX, pill.Y + 3.0f, 14.0f, 14.0f);
 
     RectF textRect(pill.GetRight() + 12.0f, rowRect.Y, rowRect.Width - 52.0f, rowRect.Height);
@@ -1990,14 +1993,14 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     g.DrawLine(&divPen, 0, 56, clientW, 56);
 
     // Brand Logo Circle + Title
-    SolidBrush brandCircle(Color(255, 0, 103, 192)); // Windows 11 Accent Blue #0067C0
+    SolidBrush brandCircle(Color(255, 60, 60, 60)); // Neutral graphite emblem
     g.FillEllipse(&brandCircle, 18.0f, 14.0f, 28.0f, 28.0f);
-    SolidBrush innerWhite(Color(255, 255, 255, 255));
+    SolidBrush innerWhite(Color(255, 230, 230, 230));
     g.FillEllipse(&innerWhite, 25.0f, 21.0f, 14.0f, 14.0f);
 
     SolidBrush whiteBr(Color(255, 255, 255, 255));
     SolidBrush mutedBr(Color(255, 160, 160, 160));
-    SolidBrush accentBr(Color(255, 96, 205, 255)); // Fluent Accent Light
+    SolidBrush accentBr(Color(255, 220, 220, 220)); // Clean neutral light monochrome
 
     g.DrawString(L"IconMaker Studio", -1, &fLogo, PointF(54.0f, 12.0f), NULL, &whiteBr);
     g.DrawString(L"GOOGLE PIXEL & MATERIAL YOU ENGINE", -1, &fSmallBold, PointF(55.0f, 31.0f), NULL, &mutedBr);
@@ -2030,8 +2033,8 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     // Custom Search Box
     RectF searchRect(14.0f, 102.0f, 328.0f, 32.0f);
     RegisterHit(W_SEARCH_BOX, searchRect);
-    FillRoundRect(g, searchRect, 8.0f, Color(255, 14, 15, 18));
-    DrawRoundRect(g, searchRect, 8.0f, g_searchFocused ? Color(255, 26, 115, 232) : Color(255, 46, 49, 58), 1.2f);
+    FillRoundRect(g, searchRect, 6.0f, Color(255, 24, 24, 24));
+    DrawRoundRect(g, searchRect, 6.0f, g_searchFocused ? Color(255, 140, 140, 140) : Color(255, 60, 60, 60), 1.2f);
 
     StringFormat sfVCenter;
     sfVCenter.SetLineAlignment(StringAlignmentCenter);
@@ -2070,9 +2073,9 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         bool isHov = ((int)i == g_hoveredListRow);
 
         if (isSel) {
-            // Windows 11 Selected Item Fill #0067C0 with rounded pill outline
-            FillRoundRect(g, rowRect, 6.0f, Color(255, 0, 90, 168));
-            DrawRoundRect(g, rowRect, 6.0f, Color(255, 96, 205, 255), 1.0f);
+            // Neutral dark-gray selection with clean white/gray border
+            FillRoundRect(g, rowRect, 6.0f, Color(255, 60, 60, 60));
+            DrawRoundRect(g, rowRect, 6.0f, Color(255, 120, 120, 120), 1.0f);
         } else if (isHov) {
             FillRoundRect(g, rowRect, 6.0f, Color(255, 46, 46, 46));
         }
@@ -2097,11 +2100,11 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
         if (app.isApplied) {
             RectF badgeR(rowRect.GetRight() - 64.0f, rowRect.Y + 13.0f, 56.0f, 20.0f);
-            FillRoundRect(g, badgeR, 10.0f, Color(55, 52, 168, 83));
-            DrawRoundRect(g, badgeR, 10.0f, Color(160, 72, 204, 108), 1.0f);
+            FillRoundRect(g, badgeR, 10.0f, Color(255, 45, 45, 45));
+            DrawRoundRect(g, badgeR, 10.0f, Color(255, 85, 85, 85), 1.0f);
             StringFormat sfB; sfB.SetAlignment(StringAlignmentCenter); sfB.SetLineAlignment(StringAlignmentCenter);
-            SolidBrush greenText(Color(255, 126, 238, 154));
-            g.DrawString(L"ROUND", -1, &fSmallBold, badgeR, &sfB, &greenText);
+            SolidBrush neutralBadgeText(Color(255, 220, 220, 220));
+            g.DrawString(L"ROUND", -1, &fSmallBold, badgeR, &sfB, &neutralBadgeText);
         }
     }
 
@@ -2245,7 +2248,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         SolidBrush sbr(sc);
         g.FillEllipse(&sbr, sr);
         bool match = (g_style.customColor == kSwatchPalette[s] && g_style.preset == PRESET_CUSTOM_COLOR);
-        Pen sp(match ? Color(255, 96, 205, 255) : Color(120, 255, 255, 255), match ? 2.5f : 1.0f);
+        Pen sp(match ? Color(255, 255, 255, 255) : Color(120, 255, 255, 255), match ? 2.5f : 1.0f);
         g.DrawEllipse(&sp, sr);
     }
 
