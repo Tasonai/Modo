@@ -137,6 +137,8 @@ def main() -> None:
             "-fno-rtti",
             "-municode",
             str(WIN_DIR / "iconmaker_win32.cpp"),
+            str(WIN_DIR / "icon_engine.cpp"),
+            str(WIN_DIR / "shell_integration.cpp"),
             str(res_file),
             "-o",
             str(raw_exe),
