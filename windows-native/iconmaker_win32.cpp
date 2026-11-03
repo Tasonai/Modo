@@ -93,6 +93,8 @@ enum WidgetID {
     // Sidebar filter tabs
     W_TAB_ALL,
     W_TAB_APPLIED,
+    W_TAB_SYSTEM,
+    W_TAB_THIRDPARTY,
     W_APP_LIST_AREA,
     // Preview stage
     W_STAGE_ROUND_DRAG,
@@ -192,15 +194,24 @@ static Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& sty
 static void InvalidateAllThumbs();
 static void RebuildFilteredList();
 
-static void EnableDarkTitleBar(HWND hwnd) {
+static void EnableMicaAndImmersiveDarkMode(HWND hwnd) {
     HMODULE hDwm = LoadLibraryW(L"dwmapi.dll");
     if (hDwm) {
         typedef HRESULT(WINAPI* PFN_DwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
         PFN_DwmSetWindowAttribute fn = (PFN_DwmSetWindowAttribute)GetProcAddress(hDwm, "DwmSetWindowAttribute");
         if (fn) {
+            // Windows 11 Fluent dark mode
             BOOL dark = TRUE;
             fn(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));
             fn(hwnd, 19 /* older Win10 build */, &dark, sizeof(dark));
+
+            // Windows 11 Mica backdrop material (DWMWA_SYSTEMBACKDROP_TYPE = 38, DWMSBT_MAINWINDOW = 2)
+            DWORD backdropType = 2; // DWMSBT_MAINWINDOW (Mica)
+            fn(hwnd, 38, &backdropType, sizeof(backdropType));
+
+            // Windows 11 rounded window corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
+            DWORD cornerPref = 2;
+            fn(hwnd, 33, &cornerPref, sizeof(cornerPref));
         }
         FreeLibrary(hDwm);
     }
@@ -1458,9 +1469,13 @@ static void RebuildFilteredList() {
     g_filteredIndices.clear();
 
     for (size_t i = 0; i < g_allApps.size(); ++i) {
-        if (g_sidebarFilter == 1 && !g_allApps[i].isApplied) continue;
+        const auto& app = g_allApps[i];
+        if (g_sidebarFilter == 1 && !app.isApplied) continue;
+        if (g_sidebarFilter == 2 && !(app.isFileExplorer || app.isRecycleBin || !app.systemClsid.empty() || app.category.find(L"Windows") != std::wstring::npos)) continue;
+        if (g_sidebarFilter == 3 && (app.isFileExplorer || app.isRecycleBin || !app.systemClsid.empty() || app.category.find(L"Windows") != std::wstring::npos)) continue;
+
         if (!q.empty()) {
-            std::wstring hay = g_allApps[i].name + L" " + g_allApps[i].searchKeywords + L" " + g_allApps[i].targetPath;
+            std::wstring hay = app.name + L" " + app.searchKeywords + L" " + app.targetPath;
             for (auto& c : hay) c = towlower(c);
             if (hay.find(q) == std::wstring::npos) continue;
         }
@@ -1840,32 +1855,35 @@ static void DrawStudioPillButton(
     bool hovered = (g_hoveredWidget == id);
     bool pressed = (g_activeWidget == id);
 
-    Color fill(255, 38, 40, 48);
-    Color border(255, 58, 62, 74);
-    Color textClr(255, 232, 234, 240);
+    // Fluent Design Dark Control Palette (Windows 11 specs)
+    Color fill(255, 45, 45, 45);
+    Color border(255, 68, 68, 68);
+    Color textClr(255, 255, 255, 255);
 
     if (isPrimary) {
-        fill = pressed ? Color(255, 16, 98, 204)
-             : (hovered ? Color(255, 42, 132, 252) : Color(255, 26, 115, 232));
-        border = Color(255, 82, 158, 255);
+        // Windows 11 Primary Accent #0067C0
+        fill = pressed ? Color(255, 0, 90, 168)
+             : (hovered ? Color(255, 25, 120, 215) : Color(255, 0, 103, 192));
+        border = Color(255, 76, 161, 255);
         textClr = Color(255, 255, 255, 255);
     } else if (isSelected) {
-        fill = Color(255, 32, 72, 132);
-        border = Color(255, 66, 133, 244);
-        textClr = Color(255, 148, 198, 255);
+        // Subtle Selected Pill Accent
+        fill = Color(255, 0, 90, 168);
+        border = Color(255, 76, 161, 255);
+        textClr = Color(255, 255, 255, 255);
     } else if (isDanger) {
-        fill = hovered ? Color(255, 76, 32, 36) : Color(255, 44, 30, 34);
-        border = Color(255, 128, 52, 58);
-        textClr = Color(255, 255, 158, 158);
+        fill = hovered ? Color(255, 180, 40, 40) : Color(255, 140, 32, 32);
+        border = Color(255, 220, 70, 70);
+        textClr = Color(255, 255, 255, 255);
     } else if (pressed) {
-        fill = Color(255, 28, 30, 36);
-        border = Color(255, 82, 88, 104);
+        fill = Color(255, 38, 38, 38);
+        border = Color(255, 80, 80, 80);
     } else if (hovered) {
-        fill = Color(255, 48, 52, 62);
-        border = Color(255, 82, 88, 104);
+        fill = Color(255, 54, 54, 54);
+        border = Color(255, 88, 88, 88);
     }
 
-    REAL rad = std::min(8.0f, r.Height * 0.5f);
+    REAL rad = std::min(6.0f, r.Height * 0.5f); // Windows 11 4-6px corner radius
     FillRoundRect(g, r, rad, fill);
     DrawRoundRect(g, r, rad, border, 1.0f);
 
@@ -1888,27 +1906,27 @@ static void DrawStudioSlider(
 
     bool hovered = (g_hoveredWidget == id || g_activeWidget == id);
 
-    // Track groove
-    RectF groove(trackRect.X, trackRect.Y + trackRect.Height * 0.5f - 3.0f, trackRect.Width, 6.0f);
-    FillRoundRect(g, groove, 3.0f, Color(255, 22, 23, 28));
-    DrawRoundRect(g, groove, 3.0f, Color(255, 48, 52, 62), 1.0f);
+    // Track groove (Windows 11 Fluent Slider)
+    RectF groove(trackRect.X, trackRect.Y + trackRect.Height * 0.5f - 2.5f, trackRect.Width, 5.0f);
+    FillRoundRect(g, groove, 2.5f, Color(255, 52, 52, 52));
+    DrawRoundRect(g, groove, 2.5f, Color(255, 72, 72, 72), 1.0f);
 
     // Active fill
-    REAL fillW = std::max(6.0f, (REAL)(groove.Width * v));
+    REAL fillW = std::max(5.0f, (REAL)(groove.Width * v));
     RectF activeBar(groove.X, groove.Y, fillW, groove.Height);
-    FillRoundRect(g, activeBar, 3.0f, Color(255, 26, 115, 232));
+    FillRoundRect(g, activeBar, 2.5f, Color(255, 96, 205, 255)); // Win11 Accent Light
 
     // Thumb knob
     REAL thumbX = groove.X + (REAL)(groove.Width * v);
     REAL thumbY = groove.Y + groove.Height * 0.5f;
-    REAL thumbR = hovered ? 8.5f : 7.5f;
+    REAL thumbR = hovered ? 8.0f : 7.0f;
 
-    SolidBrush shadowBr(Color(110, 0, 0, 0));
+    SolidBrush shadowBr(Color(90, 0, 0, 0));
     g.FillEllipse(&shadowBr, thumbX - thumbR, thumbY - thumbR + 1.5f, thumbR * 2.0f, thumbR * 2.0f);
 
-    SolidBrush thumbBr(hovered ? Color(255, 255, 255, 255) : Color(255, 232, 238, 248));
+    SolidBrush thumbBr(Color(255, 255, 255, 255));
     g.FillEllipse(&thumbBr, thumbX - thumbR, thumbY - thumbR, thumbR * 2.0f, thumbR * 2.0f);
-    Pen ringPen(Color(255, 26, 115, 232), 2.0f);
+    Pen ringPen(Color(255, 0, 103, 192), 2.5f);
     g.DrawEllipse(&ringPen, thumbX - thumbR, thumbY - thumbR, thumbR * 2.0f, thumbR * 2.0f);
 }
 
@@ -1923,22 +1941,23 @@ static void DrawStudioToggle(
     RegisterHit(id, rowRect);
     bool hovered = (g_hoveredWidget == id);
 
-    RectF pill(rowRect.X, rowRect.Y + (rowRect.Height - 20.0f) * 0.5f, 36.0f, 20.0f);
+    // Windows 11 ToggleSwitch (40x20 pill)
+    RectF pill(rowRect.X, rowRect.Y + (rowRect.Height - 20.0f) * 0.5f, 40.0f, 20.0f);
     Color pillFill = isOn
-        ? (hovered ? Color(255, 42, 132, 252) : Color(255, 26, 115, 232))
-        : (hovered ? Color(255, 56, 60, 72) : Color(255, 40, 43, 52));
+        ? (hovered ? Color(255, 25, 120, 215) : Color(255, 0, 103, 192))
+        : (hovered ? Color(255, 55, 55, 55) : Color(255, 42, 42, 42));
     FillRoundRect(g, pill, 10.0f, pillFill);
-    DrawRoundRect(g, pill, 10.0f, isOn ? Color(255, 82, 158, 255) : Color(255, 68, 72, 84), 1.0f);
+    DrawRoundRect(g, pill, 10.0f, isOn ? Color(255, 96, 205, 255) : Color(255, 78, 78, 78), 1.0f);
 
     REAL knobX = isOn ? (pill.GetRight() - 17.0f) : (pill.X + 3.0f);
     SolidBrush knobBr(Color(255, 255, 255, 255));
     g.FillEllipse(&knobBr, knobX, pill.Y + 3.0f, 14.0f, 14.0f);
 
-    RectF textRect(pill.GetRight() + 10.0f, rowRect.Y, rowRect.Width - 46.0f, rowRect.Height);
+    RectF textRect(pill.GetRight() + 12.0f, rowRect.Y, rowRect.Width - 52.0f, rowRect.Height);
     StringFormat sf;
     sf.SetAlignment(StringAlignmentNear);
     sf.SetLineAlignment(StringAlignmentCenter);
-    SolidBrush tb(hovered ? Color(255, 255, 255, 255) : Color(255, 214, 218, 228));
+    SolidBrush tb(hovered ? Color(255, 255, 255, 255) : Color(255, 225, 225, 225));
     g.DrawString(label, -1, &font, textRect, &sf, &tb);
 }
 
@@ -1954,56 +1973,59 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     g_hitZones.clear();
 
     FontFamily ff(L"Segoe UI");
-    Font fLogo(&ff, 16.0f, FontStyleBold, UnitPixel);
+    Font fLogo(&ff, 15.0f, FontStyleBold, UnitPixel);
     Font fSection(&ff, 13.0f, FontStyleBold, UnitPixel);
     Font fBodyBold(&ff, 13.0f, FontStyleBold, UnitPixel);
-    Font fBody(&ff, 12.5f, FontStyleRegular, UnitPixel);
-    Font fSmall(&ff, 11.5f, FontStyleRegular, UnitPixel);
+    Font fBody(&ff, 12.0f, FontStyleRegular, UnitPixel);
+    Font fSmall(&ff, 11.0f, FontStyleRegular, UnitPixel);
     Font fSmallBold(&ff, 11.0f, FontStyleBold, UnitPixel);
 
-    // 1. Base DaVinci Dark Studio Canvas (#121316)
-    g.Clear(Color(255, 18, 19, 22));
+    // 1. Windows 11 Fluent Dark Mica Canvas (#202020 / RGB 32, 32, 32)
+    g.Clear(Color(255, 32, 32, 32));
 
-    // 2. Top Studio Header Bar (height: 54px, #191A1F)
-    SolidBrush topBarBr(Color(255, 25, 26, 31));
-    g.FillRectangle(&topBarBr, 0, 0, clientW, 54);
-    Pen divPen(Color(255, 42, 44, 52), 1.0f);
-    g.DrawLine(&divPen, 0, 54, clientW, 54);
+    // 2. Windows 11 CommandBar / Title Row (height: 56px, #2A2A2A with Fluent bottom divider)
+    SolidBrush topBarBr(Color(255, 40, 40, 40));
+    g.FillRectangle(&topBarBr, 0, 0, clientW, 56);
+    Pen divPen(Color(255, 54, 54, 54), 1.0f);
+    g.DrawLine(&divPen, 0, 56, clientW, 56);
 
     // Brand Logo Circle + Title
-    SolidBrush brandCircle(Color(255, 26, 115, 232));
-    g.FillEllipse(&brandCircle, 16.0f, 13.0f, 28.0f, 28.0f);
+    SolidBrush brandCircle(Color(255, 0, 103, 192)); // Windows 11 Accent Blue #0067C0
+    g.FillEllipse(&brandCircle, 18.0f, 14.0f, 28.0f, 28.0f);
     SolidBrush innerWhite(Color(255, 255, 255, 255));
-    g.FillEllipse(&innerWhite, 23.0f, 20.0f, 14.0f, 14.0f);
+    g.FillEllipse(&innerWhite, 25.0f, 21.0f, 14.0f, 14.0f);
 
-    SolidBrush whiteBr(Color(255, 242, 244, 248));
-    SolidBrush mutedBr(Color(255, 142, 148, 162));
-    SolidBrush accentBr(Color(255, 82, 158, 255));
+    SolidBrush whiteBr(Color(255, 255, 255, 255));
+    SolidBrush mutedBr(Color(255, 160, 160, 160));
+    SolidBrush accentBr(Color(255, 96, 205, 255)); // Fluent Accent Light
 
-    g.DrawString(L"IconMaker Studio", -1, &fLogo, PointF(52.0f, 11.0f), NULL, &whiteBr);
-    g.DrawString(L"GOOGLE PIXEL & MATERIAL YOU ENGINE", -1, &fSmallBold, PointF(53.0f, 30.0f), NULL, &mutedBr);
+    g.DrawString(L"IconMaker Studio", -1, &fLogo, PointF(54.0f, 12.0f), NULL, &whiteBr);
+    g.DrawString(L"GOOGLE PIXEL & MATERIAL YOU ENGINE", -1, &fSmallBold, PointF(55.0f, 31.0f), NULL, &mutedBr);
 
-    // Top-right studio buttons
-    DrawStudioPillButton(g, W_BTN_ADMIN,     RectF((REAL)(clientW - 552), 12.0f, 132.0f, 30.0f), L"🛡 Права Админа", fBody);
-    DrawStudioPillButton(g, W_BTN_SHORTCUTS, RectF((REAL)(clientW - 412), 12.0f, 136.0f, 30.0f), L"📌 Ярлыки на стол", fBody);
-    DrawStudioPillButton(g, W_BTN_RESCAN,    RectF((REAL)(clientW - 268), 12.0f, 118.0f, 30.0f), L"↻ Обновить", fBody);
-    DrawStudioPillButton(g, W_BTN_ADD_FILE,  RectF((REAL)(clientW - 142), 12.0f, 126.0f, 30.0f), L"+ Файл / .EXE…", fBody);
+    // Top-right Windows 11 CommandBar buttons
+    DrawStudioPillButton(g, W_BTN_ADMIN,     RectF((REAL)(clientW - 552), 13.0f, 132.0f, 30.0f), L"🛡 Права админа", fBody);
+    DrawStudioPillButton(g, W_BTN_SHORTCUTS, RectF((REAL)(clientW - 412), 13.0f, 136.0f, 30.0f), L"📌 Значки на стол", fBody);
+    DrawStudioPillButton(g, W_BTN_RESCAN,    RectF((REAL)(clientW - 268), 13.0f, 118.0f, 30.0f), L"↻ Обновить", fBody);
+    DrawStudioPillButton(g, W_BTN_ADD_FILE,  RectF((REAL)(clientW - 142), 13.0f, 126.0f, 30.0f), L"+ Добавить .exe…", fBody);
 
     // 3. Left Sidebar — Application Browser (x: 0..356)
     int sideW = 356;
-    SolidBrush sideBr(Color(255, 22, 23, 28));
-    g.FillRectangle(&sideBr, 0, 55, sideW, clientH - 55 - 32);
-    g.DrawLine(&divPen, sideW, 55, sideW, clientH - 32);
+    SolidBrush sideBr(Color(255, 36, 36, 36));
+    g.FillRectangle(&sideBr, 0, 57, sideW, clientH - 57 - 32);
+    g.DrawLine(&divPen, sideW, 57, sideW, clientH - 32);
 
-    // Filter tabs: All vs Applied
+    // 4 Category Pills (All, Applied, System, Third-Party)
     int appliedTotal = 0;
     for (const auto& a : g_allApps) if (a.isApplied) appliedTotal++;
-    wchar_t tabAllLbl[64], tabAppLbl[64];
+    wchar_t tabAllLbl[32], tabAppLbl[32];
     wsprintfW(tabAllLbl, L"Все (%d)", (int)g_allApps.size());
     wsprintfW(tabAppLbl, L"Круглые (%d)", appliedTotal);
 
-    DrawStudioPillButton(g, W_TAB_ALL,     RectF(14.0f, 66.0f, 160.0f, 28.0f), tabAllLbl, fBodyBold, false, g_sidebarFilter == 0);
-    DrawStudioPillButton(g, W_TAB_APPLIED, RectF(182.0f, 66.0f, 160.0f, 28.0f), tabAppLbl, fBodyBold, false, g_sidebarFilter == 1);
+    REAL pillW = (REAL)(sideW - 32 - 12) / 4.0f;
+    DrawStudioPillButton(g, W_TAB_ALL,        RectF(16.0f + 0 * (pillW + 4.0f), 66.0f, pillW, 26.0f), tabAllLbl,        fSmallBold, false, g_sidebarFilter == 0);
+    DrawStudioPillButton(g, W_TAB_APPLIED,    RectF(16.0f + 1 * (pillW + 4.0f), 66.0f, pillW, 26.0f), tabAppLbl,        fSmallBold, false, g_sidebarFilter == 1);
+    DrawStudioPillButton(g, W_TAB_SYSTEM,     RectF(16.0f + 2 * (pillW + 4.0f), 66.0f, pillW, 26.0f), L"Системные",    fSmallBold, false, g_sidebarFilter == 2);
+    DrawStudioPillButton(g, W_TAB_THIRDPARTY, RectF(16.0f + 3 * (pillW + 4.0f), 66.0f, pillW, 26.0f), L"Сторонние",   fSmallBold, false, g_sidebarFilter == 3);
 
     // Custom Search Box
     RectF searchRect(14.0f, 102.0f, 328.0f, 32.0f);
@@ -2048,10 +2070,11 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         bool isHov = ((int)i == g_hoveredListRow);
 
         if (isSel) {
-            FillRoundRect(g, rowRect, 8.0f, Color(255, 30, 56, 98));
-            DrawRoundRect(g, rowRect, 8.0f, Color(255, 58, 126, 232), 1.0f);
+            // Windows 11 Selected Item Fill #0067C0 with rounded pill outline
+            FillRoundRect(g, rowRect, 6.0f, Color(255, 0, 90, 168));
+            DrawRoundRect(g, rowRect, 6.0f, Color(255, 96, 205, 255), 1.0f);
         } else if (isHov) {
-            FillRoundRect(g, rowRect, 8.0f, Color(255, 32, 34, 42));
+            FillRoundRect(g, rowRect, 6.0f, Color(255, 46, 46, 46));
         }
 
         AppEntry& app = g_allApps[appIdx];
@@ -2092,14 +2115,14 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     g.Restore(listState);
 
-    // 4. Right Studio Inspector (x: 374 .. clientW - 18)
+    // 4. Right Windows 11 Card Inspector (x: 374 .. clientW - 18)
     REAL rx = 374.0f;
     REAL rw = (REAL)(clientW - 374 - 18);
 
-    // --- CARD 1: Interactive Node Preview Stage (y: 66, h: 204) ---
+    // --- CARD 1: Interactive Fluent Node Preview Stage (y: 66, h: 204) ---
     RectF stageCard(rx, 66.0f, rw, 204.0f);
-    FillRoundRect(g, stageCard, 12.0f, Color(255, 24, 25, 31));
-    DrawRoundRect(g, stageCard, 12.0f, Color(255, 44, 47, 58), 1.0f);
+    FillRoundRect(g, stageCard, 8.0f, Color(255, 43, 43, 43)); // Win11 Card Background
+    DrawRoundRect(g, stageCard, 8.0f, Color(255, 60, 60, 60), 1.0f); // 1px Card Stroke
 
     // Header inside Stage Card
     std::wstring selTitle = (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size())
@@ -2117,12 +2140,12 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     auto drawDarkCheckerWell = [&](REAL wx, REAL wy, REAL ww, REAL wh) {
         RectF wr(wx, wy, ww, wh);
-        FillRoundRect(g, wr, 12.0f, Color(255, 16, 17, 21));
+        FillRoundRect(g, wr, 8.0f, Color(255, 28, 28, 28));
         GraphicsPath cp;
-        AddRoundedRect(cp, wr, 12.0f);
+        AddRoundedRect(cp, wr, 8.0f);
         GraphicsState st = g.Save();
         g.SetClip(&cp);
-        SolidBrush c2(Color(255, 23, 25, 31));
+        SolidBrush c2(Color(255, 36, 36, 36));
         int step = 12;
         for (int y = 0; y < (int)wh; y += step) {
             for (int x = 0; x < (int)ww; x += step) {
@@ -2132,7 +2155,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             }
         }
         g.Restore(st);
-        DrawRoundRect(g, wr, 12.0f, Color(255, 50, 54, 66), 1.0f);
+        DrawRoundRect(g, wr, 8.0f, Color(255, 54, 54, 54), 1.0f);
     };
 
     REAL wellSize = 124.0f;
@@ -2163,15 +2186,15 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     // Center node arrow
     REAL midStageX = rx + rw * 0.5f;
-    FillRoundRect(g, RectF(midStageX - 44.0f, wellY + 42.0f, 88.0f, 36.0f), 18.0f, Color(255, 30, 33, 42));
-    DrawRoundRect(g, RectF(midStageX - 44.0f, wellY + 42.0f, 88.0f, 36.0f), 18.0f, Color(255, 62, 68, 84), 1.0f);
+    FillRoundRect(g, RectF(midStageX - 44.0f, wellY + 42.0f, 88.0f, 36.0f), 18.0f, Color(255, 36, 36, 36));
+    DrawRoundRect(g, RectF(midStageX - 44.0f, wellY + 42.0f, 88.0f, 36.0f), 18.0f, Color(255, 60, 60, 60), 1.0f);
     StringFormat sfMid; sfMid.SetAlignment(StringAlignmentCenter); sfMid.SetLineAlignment(StringAlignmentCenter);
     g.DrawString(L"➔  PIXEL", -1, &fSmallBold, RectF(midStageX - 44.0f, wellY + 42.0f, 88.0f, 36.0f), &sfMid, &accentBr);
 
     // --- CARD 2: Surface Presets & Eyedropper Color Bar (y: 280, h: 108) ---
     RectF colorCard(rx, 280.0f, rw, 108.0f);
-    FillRoundRect(g, colorCard, 12.0f, Color(255, 24, 25, 31));
-    DrawRoundRect(g, colorCard, 12.0f, Color(255, 44, 47, 58), 1.0f);
+    FillRoundRect(g, colorCard, 8.0f, Color(255, 43, 43, 43));
+    DrawRoundRect(g, colorCard, 8.0f, Color(255, 60, 60, 60), 1.0f);
 
     g.DrawString(L"ПОДЛОЖКА И ЦВЕТ (GOOGLE PIXEL / MATERIAL YOU)", -1, &fSmallBold, PointF(rx + 16.0f, 290.0f), NULL, &mutedBr);
 
@@ -2182,9 +2205,9 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         L"Adaptive Edge",
         L"Custom Color"
     };
-    REAL pillW = (rw - 32.0f - 4.0f * 6.0f) / 5.0f;
+    REAL presetPillW = (rw - 32.0f - 4.0f * 6.0f) / 5.0f;
     for (int p = 0; p < 5; ++p) {
-        RectF pr(rx + 16.0f + p * (pillW + 6.0f), 310.0f, pillW, 28.0f);
+        RectF pr(rx + 16.0f + p * (presetPillW + 6.0f), 310.0f, presetPillW, 28.0f);
         DrawStudioPillButton(g, (WidgetID)(W_PRESET_0 + p), pr, presetNames[p], fBody, false, (int)g_style.preset == p);
     }
 
@@ -2202,8 +2225,8 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     // Current Color Pill + HEX
     Color curC(255, GetRValue(g_style.customColor), GetGValue(g_style.customColor), GetBValue(g_style.customColor));
     RectF hexBox(rx + 272.0f, 348.0f, 106.0f, 28.0f);
-    FillRoundRect(g, hexBox, 8.0f, Color(255, 16, 17, 21));
-    DrawRoundRect(g, hexBox, 8.0f, Color(255, 52, 56, 68), 1.0f);
+    FillRoundRect(g, hexBox, 6.0f, Color(255, 30, 30, 30));
+    DrawRoundRect(g, hexBox, 6.0f, Color(255, 60, 60, 60), 1.0f);
     SolidBrush curSwBr(curC);
     g.FillEllipse(&curSwBr, hexBox.X + 8.0f, hexBox.Y + 5.0f, 18.0f, 18.0f);
     Pen swRing(Color(160, 255, 255, 255), 1.0f);
@@ -2222,14 +2245,14 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         SolidBrush sbr(sc);
         g.FillEllipse(&sbr, sr);
         bool match = (g_style.customColor == kSwatchPalette[s] && g_style.preset == PRESET_CUSTOM_COLOR);
-        Pen sp(match ? Color(255, 26, 115, 232) : Color(120, 255, 255, 255), match ? 2.2f : 1.0f);
+        Pen sp(match ? Color(255, 96, 205, 255) : Color(120, 255, 255, 255), match ? 2.5f : 1.0f);
         g.DrawEllipse(&sp, sr);
     }
 
     // --- CARD 3: Geometry, Zoom (30%..250%) & X/Y Pan Sliders (y: 398, h: 184) ---
     RectF geoCard(rx, 398.0f, rw, 184.0f);
-    FillRoundRect(g, geoCard, 12.0f, Color(255, 24, 25, 31));
-    DrawRoundRect(g, geoCard, 12.0f, Color(255, 44, 47, 58), 1.0f);
+    FillRoundRect(g, geoCard, 8.0f, Color(255, 43, 43, 43));
+    DrawRoundRect(g, geoCard, 8.0f, Color(255, 60, 60, 60), 1.0f);
 
     // Row 1: Scale (30% .. 250%)
     wchar_t lblBuf[128];
@@ -2261,10 +2284,10 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, 532.0f), NULL, &whiteBr);
     DrawStudioSlider(g, W_SLIDER_SHADOW, RectF(rx + 260.0f, 530.0f, rw - 280.0f, 22.0f), g_style.shadow);
 
-    // --- CARD 4: Studio Toggle Switches (y: 592, h: 68) ---
+    // --- CARD 4: Fluent Toggle Switches (y: 592, h: 68) ---
     RectF optCard(rx, 592.0f, rw, 68.0f);
-    FillRoundRect(g, optCard, 12.0f, Color(255, 24, 25, 31));
-    DrawRoundRect(g, optCard, 12.0f, Color(255, 44, 47, 58), 1.0f);
+    FillRoundRect(g, optCard, 8.0f, Color(255, 43, 43, 43));
+    DrawRoundRect(g, optCard, 8.0f, Color(255, 60, 60, 60), 1.0f);
 
     REAL halfW = (rw - 36.0f) * 0.5f;
     DrawStudioToggle(g, W_TOGGLE_AUTOTRIM,  RectF(rx + 16.0f,         600.0f, halfW, 24.0f), L"Авто-обрезка прозрачных полей", g_style.autoTrim, fBody);
@@ -2274,13 +2297,13 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     // --- ACTION DOCK (y: 672, h: 42) ---
     DrawStudioPillButton(g, W_BTN_APPLY_ONE,   RectF(rx,         672.0f, 200.0f, 40.0f), L"✓ Применить к выбранному", fSection, true);
-    DrawStudioPillButton(g, W_BTN_APPLY_ALL,   RectF(rx + 208.0f, 672.0f, 178.0f, 40.0f), L"⚡ Применить ко ВСЕМ",     fSection, false, true);
+    DrawStudioPillButton(g, W_BTN_APPLY_ALL,   RectF(rx + 208.0f, 672.0f, 178.0f, 40.0f), L"⚡ Применить ко всем",      fSection, false, true);
     DrawStudioPillButton(g, W_BTN_RESTORE_ONE, RectF(rx + 394.0f, 672.0f, 118.0f, 40.0f), L"↩ Оригинал",               fBodyBold);
     DrawStudioPillButton(g, W_BTN_RESTORE_ALL, RectF(rx + 520.0f, 672.0f, 112.0f, 40.0f), L"↺ Сброс всех",             fBodyBold, false, false, true);
     DrawStudioPillButton(g, W_BTN_EXPORT,      RectF(rx + 640.0f, 672.0f, rw - 640.0f, 40.0f), L"⬇ Экспорт",            fBodyBold);
 
     // 5. Bottom Status Bar (y: clientH - 32 .. clientH)
-    SolidBrush footBr(Color(255, 15, 16, 20));
+    SolidBrush footBr(Color(255, 28, 28, 28));
     g.FillRectangle(&footBr, 0, clientH - 32, clientW, 32);
     g.DrawLine(&divPen, 0, clientH - 32, clientW, clientH - 32);
 
@@ -2375,6 +2398,16 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             break;
         case W_TAB_APPLIED:
             g_sidebarFilter = 1;
+            RebuildFilteredList();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case W_TAB_SYSTEM:
+            g_sidebarFilter = 2;
+            RebuildFilteredList();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case W_TAB_THIRDPARTY:
+            g_sidebarFilter = 3;
             RebuildFilteredList();
             InvalidateRect(hwnd, NULL, FALSE);
             break;
@@ -2908,7 +2941,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
         NULL
     );
 
-    EnableDarkTitleBar(g_hMainWnd);
+    EnableMicaAndImmersiveDarkMode(g_hMainWnd);
     ShowWindow(g_hMainWnd, nCmdShow);
     UpdateWindow(g_hMainWnd);
 
