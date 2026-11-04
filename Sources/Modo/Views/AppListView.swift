@@ -121,7 +121,7 @@ struct AppRowView: View {
             Spacer(minLength: Space.sm)
 
             if item.isApplied {
-                Text("Round")
+                Text("Styled")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Palette.accentText)
                     .padding(.horizontal, Space.sm)

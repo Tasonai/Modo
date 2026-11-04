@@ -57,7 +57,7 @@ struct DetailInspectorView: View {
                     Text(item.title)
                         .font(.title2.weight(.semibold))
                     if item.isApplied {
-                        Label("Circular Icon Active", systemImage: "checkmark.seal.fill")
+                        Label("Modo Icon Active", systemImage: "checkmark.seal.fill")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Palette.accentText)
                             .padding(.horizontal, Space.sm)
@@ -90,7 +90,7 @@ struct DetailInspectorView: View {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 96, height: 96)
-                Text("Original Squircle")
+                Text("Original")
                     .font(.callout.weight(.medium))
                 Text("macOS Default")
                     .font(.caption)
@@ -132,7 +132,7 @@ struct DetailInspectorView: View {
                         model.style.resetPosition()
                     }
                     .help("Drag to pan icon · Double click to center")
-                Text("Google Pixel Round")
+                Text(model.activePackName)
                     .font(.callout.weight(.semibold))
                 Text("Drag to Pan · Double click to Center")
                     .font(.caption)
@@ -285,7 +285,7 @@ struct DetailInspectorView: View {
                         .help("Set scale to 100%")
                     Button("135%") { model.style.iconScale = 1.35 }
                         .controlSize(.small)
-                        .help("Zoom icon to 135% inside circular mask")
+                        .help("Zoom icon to 135% inside the icon shape")
                 }
             }
 

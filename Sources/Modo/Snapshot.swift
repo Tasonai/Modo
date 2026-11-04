@@ -1,5 +1,6 @@
 import AppKit
 import IOKit.pwr_mgt
+import ModoKit
 import SwiftUI
 
 /// Screenshot mode for agents.
@@ -30,6 +31,21 @@ enum Snapshot {
                                         IOPMAssertionLevel(kIOPMAssertionLevelOn), "Snapshots" as CFString, &awake)
             try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
             try? await Task.sleep(for: .seconds(1.5))
+            // APP_SNAPSHOT_PACKS=1 writes pack-<id>-<mode>.png for every icon pack, then quits.
+            if env["APP_SNAPSHOT_PACKS"] == "1" {
+                for mode in ["light", "dark"] {
+                    NSApp.appearance = NSAppearance(named: mode == "light" ? .aqua : .darkAqua)
+                    for pack in IconPack.allPacks {
+                        model.sidebar = .all
+                        model.applyPack(pack)
+                        try? await Task.sleep(for: .seconds(0.8))
+                        capture(to: "\(dir)/pack-\(pack.id)-\(mode).png")
+                    }
+                }
+                print("SNAPSHOT done \(dir)")
+                NSApp.terminate(nil)
+                return
+            }
             for mode in ["light", "dark"] {
                 NSApp.appearance = NSAppearance(named: mode == "light" ? .aqua : .darkAqua)
                 for page in SidebarItem.allCases where only?.contains(page.rawValue) ?? true {

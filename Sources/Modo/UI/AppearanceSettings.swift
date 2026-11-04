@@ -81,7 +81,7 @@ private struct AccentPreview: View {
                 Spacer()
                 Text("5 active").font(.caption).foregroundStyle(Palette.accentText)
             }
-            appRow("Google Chrome", applied: true, tag: "Round")
+            appRow("Google Chrome", applied: true, tag: "Styled")
             appRow("Visual Studio Code", applied: true, tag: "Pastel")
             Spacer(minLength: 0)
             HStack {

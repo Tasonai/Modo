@@ -74,7 +74,7 @@ struct ContentView: View {
                 } label: {
                     Label("Eyedropper", systemImage: "eyedropper.halffull")
                 }
-                .help("Pick circular background color from screen with Eyedropper")
+                .help("Pick background color from screen with Eyedropper")
 
                 Menu {
                     Picker("Background Style", selection: $model.style.backgroundStyle) {
@@ -86,14 +86,14 @@ struct ContentView: View {
                 } label: {
                     Label(model.style.backgroundStyle.title, systemImage: "paintpalette")
                 }
-                .help("Choose Google Pixel / Material You circular background preset")
+                .help("Choose surface preset")
 
                 Button {
                     model.applyRoundIconsToAll(visibleItems)
                 } label: {
                     Label(visibleItems.isEmpty ? "Apply All" : "Apply All (\(visibleItems.count))", systemImage: "checkmark.circle.badge.sparkles")
                 }
-                .help("Apply circular Google icons to all listed apps (⇧⌘A)")
+                .help("Apply the current Modo style to all listed apps (⇧⌘A)")
                 .disabled(visibleItems.isEmpty)
 
                 Button {
@@ -138,7 +138,7 @@ struct ContentView: View {
     private var emptyPrompt: String {
         if !model.search.isEmpty { return "Try a different application name or category." }
         return switch model.sidebar {
-        case .all: "Scan /Applications or add an app to preview Google Pixel circular icons."
+        case .all: "Scan /Applications or add an app to preview Modo icons."
         case .applied: "Select an app and click Apply Round Icon to convert its macOS icon."
         case .starred: "Star your favorite apps to keep them handy."
         }

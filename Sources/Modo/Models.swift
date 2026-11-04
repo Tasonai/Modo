@@ -52,7 +52,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .all: "All Apps"
-        case .applied: "Round Applied"
+        case .applied: "Styled"
         case .starred: "Favorites"
         }
     }
@@ -86,18 +86,34 @@ final class AppModel {
     var search = ""
     var settingsTab: SettingsTab = .general
     var statusMessage = "Ready"
-    var activePackId: String = "pixel_pure"
+    var activePackId: String = "pixel_pure" {
+        didSet {
+            if persistsPreferences { UserDefaults.standard.set(activePackId, forKey: Self.packKey) }
+        }
+    }
 
     var style: RoundIconStyle = RoundIconStyle() {
         didSet {
             roundCache.removeAll()
+            persistStyle()
+            // Manual tweaks leave the pack: the UI then reads "Custom Style".
+            if let pack = IconPack.allPacks.first(where: { $0.id == activePackId }), pack.style != style {
+                activePackId = Self.customPackId
+            }
         }
+    }
+
+    static let customPackId = "custom"
+
+    /// Display name of the active pack, or "Custom Style" after manual edits.
+    var activePackName: String {
+        IconPack.allPacks.first(where: { $0.id == activePackId })?.name ?? "Custom Style"
     }
 
     /// Selects and activates an icon design pack, updating all rendering parameters.
     func applyPack(_ pack: IconPack) {
-        activePackId = pack.id
         style = pack.style
+        activePackId = pack.id
         statusMessage = "Activated \(pack.name) pack"
     }
 
@@ -106,6 +122,31 @@ final class AppModel {
 
     init(container: ModelContainer) {
         self.container = container
+        restoreStyle()
+    }
+
+    private static let styleKey = "modo.style"
+    private static let packKey = "modo.activePack"
+
+    /// Tests and snapshots run on a throwaway store and must not touch saved preferences.
+    private var persistsPreferences: Bool { !Store.isOverridden }
+
+    private func persistStyle() {
+        guard persistsPreferences, let data = try? JSONEncoder().encode(style) else { return }
+        UserDefaults.standard.set(data, forKey: Self.styleKey)
+    }
+
+    private func restoreStyle() {
+        guard persistsPreferences else { return }
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: Self.styleKey),
+           let saved = try? JSONDecoder().decode(RoundIconStyle.self, from: data) {
+            style = saved
+        }
+        activePackId = defaults.string(forKey: Self.packKey) ?? activePackId
+        if IconPack.allPacks.first(where: { $0.id == activePackId })?.style != style {
+            activePackId = Self.customPackId
+        }
     }
 
     /// Returns the cached original macOS squircle icon for `item`.
@@ -273,7 +314,7 @@ final class AppModel {
         _ = IconRenderer.applyIcon(hiResRound, toAppAt: item.bundlePath)
         item.isApplied = true
         try? container.mainContext.save()
-        let packName = IconPack.find(id: activePackId).name
+        let packName = activePackName
         statusMessage = "Applied \(packName) icon to \(item.title)"
     }
 
@@ -297,7 +338,7 @@ final class AppModel {
             item.isApplied = true
         }
         try? container.mainContext.save()
-        let packName = IconPack.find(id: activePackId).name
+        let packName = activePackName
         statusMessage = "Applied \(packName) pack to \(items.count) apps"
     }
 
@@ -340,7 +381,7 @@ final class AppModel {
                 count += 1
             }
         }
-        statusMessage = "Exported \(count) circular icon packs (.icns, .ico, .png) to \(directory.lastPathComponent)"
+        statusMessage = "Exported \(count) icon sets (.icns, .ico, .png) to \(directory.lastPathComponent)"
         return count
     }
 }

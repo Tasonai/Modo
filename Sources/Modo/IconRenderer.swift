@@ -187,9 +187,19 @@ enum IconRenderer {
             )
         }
 
-        if style.monochromeTint {
+        if style.monochromeTint && dominant.isSquareLike {
+            // A full-bleed squircle icon has no transparent glyph to silhouette: a flat tint would
+            // paint a solid block. Desaturate instead, so the artwork keeps its detail.
+            ctx.draw(trimmedCG, in: glyphRect)
+            ctx.saveGState()
+            ctx.clip(to: glyphRect, mask: trimmedCG)
+            ctx.setBlendMode(.saturation)
+            ctx.setFillColor(NSColor(white: 0.5, alpha: 1.0).cgColor)
+            ctx.fill(glyphRect)
+            ctx.restoreGState()
+        } else if style.monochromeTint {
             let tintRGB: MaterialRGB = switch style.backgroundStyle {
-            case .darkMaterial: dominant.dominant.materialPastel(whiteMix: 0.72)
+            case .darkMaterial: MaterialRGB(hex: 0xE6E6E8)
             case .customColor: MaterialRGB(hex: style.customHex).materialDeepInk()
             default: dominant.dominant.materialDeepInk()
             }
