@@ -158,6 +158,7 @@ final class AppModel {
     init(container: ModelContainer) {
         self.container = container
         restoreStyle()
+        startAutoReapply()
     }
 
     private static let styleKey = "modo.style"
@@ -353,6 +354,7 @@ final class AppModel {
         )
         _ = IconRenderer.applyIcon(hiResRound, toAppAt: item.bundlePath)
         item.isApplied = true
+        recordApplied(item)
         try? container.mainContext.save()
         let packName = activePackName
         statusMessage = "Applied \(packName) icon to \(item.title)"
@@ -376,6 +378,7 @@ final class AppModel {
             )
             _ = IconRenderer.applyIcon(round, toAppAt: item.bundlePath)
             item.isApplied = true
+            recordApplied(item)
         }
         try? container.mainContext.save()
         let packName = activePackName
@@ -386,6 +389,7 @@ final class AppModel {
     func restoreOriginalIcon(for item: Item) {
         _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath)
         item.isApplied = false
+        forgetApplied(item)
         try? container.mainContext.save()
         statusMessage = "Restored original macOS icon for \(item.title)"
     }
@@ -395,6 +399,7 @@ final class AppModel {
         for item in items {
             _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath)
             item.isApplied = false
+            forgetApplied(item)
         }
         try? container.mainContext.save()
         statusMessage = "Restored original macOS icons for \(items.count) apps"

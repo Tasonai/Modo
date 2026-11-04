@@ -67,6 +67,41 @@ enum SelfTest {
             }
             check("titles are cleaned", ItemTitle.clean("  Safari.app ") == "Safari")
 
+            // Auto re-apply: a real bundle in /tmp loses its icon file / gets a new version.
+            do {
+                let fm = FileManager.default
+                let app = "/tmp/ModoReapplyTest.app"
+                try? fm.removeItem(atPath: app)
+                try? fm.createDirectory(atPath: app + "/Contents", withIntermediateDirectories: true)
+                func writePlist(_ version: String) {
+                    let plist: [String: Any] = ["CFBundleName": "ModoReapplyTest", "CFBundleIdentifier": "com.atoma.modo.reapplytest",
+                                                "CFBundleShortVersionString": version, "CFBundleVersion": "1"]
+                    (plist as NSDictionary).write(toFile: app + "/Contents/Info.plist", atomically: true)
+                }
+                writePlist("1.0")
+                AppModel.persistRecordsInSelfTest = true
+                AppModel.clearRecords()
+                let probe = Item(title: "ModoReapplyTest", bundlePath: app)
+                context.insert(probe)
+                model.applyPack(.pixelPure)
+                model.applyRoundIcon(to: probe)
+                let iconFile = app + "/Icon\r"
+                check("applied icon writes the custom-icon file", fm.fileExists(atPath: iconFile))
+                check("untouched app is not re-applied", model.reapplyUpdatedApps(only: app) == 0)
+                try? fm.removeItem(atPath: iconFile)
+                check("vanished icon file is re-applied", model.reapplyUpdatedApps(only: app) == 1 && fm.fileExists(atPath: iconFile))
+                writePlist("2.0")
+                check("updated app version is re-applied", model.reapplyUpdatedApps(only: app) == 1)
+                check("re-applied app is stable afterwards", model.reapplyUpdatedApps(only: app) == 0)
+                model.restoreOriginalIcon(for: probe)
+                check("restoring forgets the record", model.reapplyUpdatedApps(only: app) == 0)
+                context.delete(probe)
+                try? context.save()
+                try? fm.removeItem(atPath: app)
+                AppModel.clearRecords()
+                AppModel.persistRecordsInSelfTest = false
+            }
+
             // Icon packs: built-in apply, manual edit leaves the pack, custom save and delete.
             model.applyPack(.cyberHex)
             check("applying a pack sets its shape", model.style.shape == .hexagon && model.activePackName == "Cyber Hex")

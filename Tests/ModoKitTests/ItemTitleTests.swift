@@ -102,3 +102,16 @@ func customPackCodable() throws {
 
     #expect(CustomIconPack(name: "   ", style: style).name == "My Pack")
 }
+
+@Test("ReapplyPolicy re-styles updated apps and apps whose icon file vanished")
+func reapplyPolicy() {
+    let record = AppliedIconRecord(version: "1.0 (10)", hadIconFile: true)
+    #expect(!ReapplyPolicy.needsReapply(record: nil, currentVersion: "1.0 (10)", hasIconFile: false))
+    #expect(!ReapplyPolicy.needsReapply(record: record, currentVersion: "1.0 (10)", hasIconFile: true))
+    #expect(ReapplyPolicy.needsReapply(record: record, currentVersion: "1.1 (11)", hasIconFile: true))
+    #expect(ReapplyPolicy.needsReapply(record: record, currentVersion: "1.0 (10)", hasIconFile: false))
+    // Icons applied through the read-only alias never had a file in the bundle: only a version change counts.
+    let aliasRecord = AppliedIconRecord(version: "1.0 (10)", hadIconFile: false)
+    #expect(!ReapplyPolicy.needsReapply(record: aliasRecord, currentVersion: "1.0 (10)", hasIconFile: false))
+    #expect(ReapplyPolicy.needsReapply(record: aliasRecord, currentVersion: "2.0 (20)", hasIconFile: false))
+}
