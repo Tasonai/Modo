@@ -100,11 +100,11 @@ public struct IconPack: Identifiable, Hashable, Sendable {
         accentHex: 0x2A2B2E
     )
 
-    /// macOS continuous curvature superellipse matching native Big Sur, Sonoma, and Sequoia.
+    /// macOS-style app-icon plate (rounded rectangle, 22.5% corner radius).
     public static let squircleStudio = IconPack(
         id: "squircle_studio",
         name: "Squircle Studio",
-        subtitle: "macOS G2 superellipse with balanced inner glyph",
+        subtitle: "macOS-style rounded plate with balanced inner glyph",
         category: "Apple",
         iconSymbol: "app.fill",
         style: RoundIconStyle(

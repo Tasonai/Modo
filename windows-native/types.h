@@ -80,3 +80,25 @@ static const COLORREF kSwatchPalette[8] = {
     RGB(30, 142, 62),   // Material Emerald
     RGB(32, 33, 36)     // Dark Graphite
 };
+
+// Curated icon packs (mirror of ModoKit IconPack).
+struct IconPackDef {
+    const wchar_t* name;
+    BgPreset preset;
+    IconShape shape;
+    double scale;
+    double shadow;
+    bool innerShadow;
+    bool monochrome;
+    COLORREF customColor;
+};
+
+static const IconPackDef kIconPacks[7] = {
+    { L"Pixel Pure",   PRESET_GOOGLE_WHITE,    SHAPE_CIRCLE,   0.68, 0.40, true,  false, RGB(232, 240, 254) },
+    { L"Material You", PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.35, true,  false, RGB(232, 240, 254) },
+    { L"Modo Noir",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.66, 0.50, true,  false, RGB(232, 240, 254) },
+    { L"Atoma Mono",   PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.30, false, true,  RGB(232, 240, 254) },
+    { L"Squircle",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.72, 0.35, true,  false, RGB(232, 240, 254) },
+    { L"Paper",        PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.25, false, false, RGB(246, 243, 235) },
+    { L"Cyber Hex",    PRESET_DARK_MATERIAL,   SHAPE_HEXAGON,  0.65, 0.55, true,  false, RGB(232, 240, 254) },
+};

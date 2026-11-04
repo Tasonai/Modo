@@ -488,9 +488,22 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
         g.DrawImage(trimmed, shRect, 0, 0, srcW, srcH, UnitPixel, &shadowAttr);
     }
 
-    if (style.monochrome) {
+    if (style.monochrome && colors.isSquareLike) {
+        // Full-bleed artwork has no transparent glyph to silhouette; a flat tint would paint a
+        // solid block. Desaturate instead so the artwork keeps its detail.
+        ColorMatrix grayMat = {
+            0.299f, 0.299f, 0.299f, 0.0f, 0.0f,
+            0.587f, 0.587f, 0.587f, 0.0f, 0.0f,
+            0.114f, 0.114f, 0.114f, 0.0f, 0.0f,
+            0.0f,   0.0f,   0.0f,   1.0f, 0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f, 1.0f
+        };
+        ImageAttributes grayAttr;
+        grayAttr.SetColorMatrix(&grayMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel, &grayAttr);
+    } else if (style.monochrome) {
         Color tint = (style.preset == PRESET_DARK_MATERIAL)
-            ? BlendWithWhite(colors.dominant, 0.72)
+            ? Color(255, 230, 230, 232)
             : DeepenColor(colors.dominant, 0.42);
         REAL tr = tint.GetR() / 255.0f;
         REAL tg = tint.GetG() / 255.0f;

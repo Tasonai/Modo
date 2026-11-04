@@ -47,7 +47,7 @@ using namespace IconEngine;
 using namespace ShellIntegration;
 
 static const int WIN_W = 1140;
-static const int WIN_H = 760;
+static const int WIN_H = 840;
 
 enum WidgetID {
     W_NONE = 0,
@@ -107,7 +107,10 @@ enum WidgetID {
     W_BTN_APPLY_ALL,
     W_BTN_RESTORE_ONE,
     W_BTN_RESTORE_ALL,
-    W_BTN_EXPORT
+    W_BTN_EXPORT,
+    // Shape & icon pack pills
+    W_SHAPE_0, W_SHAPE_1, W_SHAPE_2, W_SHAPE_3, W_SHAPE_4,
+    W_PACK_0, W_PACK_1, W_PACK_2, W_PACK_3, W_PACK_4, W_PACK_5, W_PACK_6
 };
 
 struct HitZone {
@@ -206,11 +209,16 @@ static Bitmap* GetAppThumb(AppEntry& app) {
     return app.cachedThumb;
 }
 
+static const REAL kShapeCardDy = 100.0f;
+static int g_activePack = -1;
+
 static void SaveStyleConfig() {
     std::wstring cfgPath = GetAppDataRoot() + L"\\style.cfg";
     wchar_t buf[64];
     wsprintfW(buf, L"%d", (int)g_style.preset);
     WritePrivateProfileStringW(L"Style", L"Preset", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)g_style.shape);
+    WritePrivateProfileStringW(L"Style", L"Shape", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", (int)std::round(g_style.scale * 1000.0));
     WritePrivateProfileStringW(L"Style", L"ScaleMilli", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", (int)std::round(g_style.offsetX * 1000.0));
@@ -231,6 +239,7 @@ static void LoadStyleConfig() {
     std::wstring cfgPath = GetAppDataRoot() + L"\\style.cfg";
     if (GetFileAttributesW(cfgPath.c_str()) == INVALID_FILE_ATTRIBUTES) return;
     g_style.preset = (BgPreset)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Preset", 0, cfgPath.c_str()), 0, 4);
+    g_style.shape = (IconShape)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Shape", 0, cfgPath.c_str()), 0, 4);
     int sc = (int)GetPrivateProfileIntW(L"Style", L"ScaleMilli", 680, cfgPath.c_str());
     g_style.scale = std::clamp(sc / 1000.0, 0.30, 2.50);
     int ox = (int)GetPrivateProfileIntW(L"Style", L"OffsetXMilli", 0, cfgPath.c_str());
@@ -818,58 +827,77 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         g.DrawEllipse(&sp, sr);
     }
 
+    // --- CARD 2b: Shape geometry & curated icon packs (y: 398, h: 90) ---
+    RectF shapeCard(rx, 398.0f, rw, 90.0f);
+    FillRoundRect(g, shapeCard, 8.0f, Color(255, 43, 43, 43));
+    DrawRoundRect(g, shapeCard, 8.0f, Color(255, 60, 60, 60), 1.0f);
+    g.DrawString(L"ФОРМА И ГОТОВЫЕ ПАКИ ИКОНОК", -1, &fSmallBold, PointF(rx + 16.0f, 406.0f), NULL, &mutedBr);
+    {
+        const wchar_t* shapeNames[5] = { L"Круг", L"Сквиркл", L"Скругл. квадрат", L"Галька", L"Шестиугольник" };
+        REAL shapeW = (rw - 32.0f - 4.0f * 6.0f) / 5.0f;
+        for (int p = 0; p < 5; ++p) {
+            RectF sr(rx + 16.0f + p * (shapeW + 6.0f), 424.0f, shapeW, 26.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_SHAPE_0 + p), sr, shapeNames[p], fBody, false, (int)g_style.shape == p);
+        }
+        REAL packW = (rw - 32.0f - 6.0f * 6.0f) / 7.0f;
+        for (int p = 0; p < 7; ++p) {
+            RectF pr(rx + 16.0f + p * (packW + 6.0f), 456.0f, packW, 26.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_PACK_0 + p), pr, kIconPacks[p].name, fSmallBold, false, g_activePack == p);
+        }
+    }
+
     // --- CARD 3: Geometry, Zoom (30%..250%) & X/Y Pan Sliders (y: 398, h: 184) ---
-    RectF geoCard(rx, 398.0f, rw, 184.0f);
+    RectF geoCard(rx, (398.0f + kShapeCardDy), rw, 184.0f);
     FillRoundRect(g, geoCard, 8.0f, Color(255, 43, 43, 43));
     DrawRoundRect(g, geoCard, 8.0f, Color(255, 60, 60, 60), 1.0f);
 
     // Row 1: Scale (30% .. 250%)
     wchar_t lblBuf[128];
-    wsprintfW(lblBuf, L"Масштаб внутри круга: %d%% (до 250%%)", (int)std::round(g_style.scale * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, 412.0f), NULL, &whiteBr);
-    DrawStudioSlider(g, W_SLIDER_SCALE, RectF(rx + 260.0f, 410.0f, rw - 486.0f, 22.0f), (g_style.scale - 0.30) / (2.50 - 0.30));
-    DrawStudioPillButton(g, W_BTN_SC_68,  RectF(rx + rw - 214.0f, 409.0f, 46.0f, 24.0f), L"68%",  fSmallBold, false, std::abs(g_style.scale - 0.68) < 0.01);
-    DrawStudioPillButton(g, W_BTN_SC_100, RectF(rx + rw - 164.0f, 409.0f, 48.0f, 24.0f), L"100%", fSmallBold, false, std::abs(g_style.scale - 1.00) < 0.01);
-    DrawStudioPillButton(g, W_BTN_SC_135, RectF(rx + rw - 112.0f, 409.0f, 48.0f, 24.0f), L"135%", fSmallBold, false, std::abs(g_style.scale - 1.35) < 0.01);
-    DrawStudioPillButton(g, W_BTN_SC_175, RectF(rx + rw - 60.0f,  409.0f, 46.0f, 24.0f), L"175%", fSmallBold, false, std::abs(g_style.scale - 1.75) < 0.01);
+    wsprintfW(lblBuf, L"Масштаб внутри формы: %d%% (до 250%%)", (int)std::round(g_style.scale * 100.0));
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, (412.0f + kShapeCardDy)), NULL, &whiteBr);
+    DrawStudioSlider(g, W_SLIDER_SCALE, RectF(rx + 260.0f, (410.0f + kShapeCardDy), rw - 486.0f, 22.0f), (g_style.scale - 0.30) / (2.50 - 0.30));
+    DrawStudioPillButton(g, W_BTN_SC_68,  RectF(rx + rw - 214.0f, (409.0f + kShapeCardDy), 46.0f, 24.0f), L"68%",  fSmallBold, false, std::abs(g_style.scale - 0.68) < 0.01);
+    DrawStudioPillButton(g, W_BTN_SC_100, RectF(rx + rw - 164.0f, (409.0f + kShapeCardDy), 48.0f, 24.0f), L"100%", fSmallBold, false, std::abs(g_style.scale - 1.00) < 0.01);
+    DrawStudioPillButton(g, W_BTN_SC_135, RectF(rx + rw - 112.0f, (409.0f + kShapeCardDy), 48.0f, 24.0f), L"135%", fSmallBold, false, std::abs(g_style.scale - 1.35) < 0.01);
+    DrawStudioPillButton(g, W_BTN_SC_175, RectF(rx + rw - 60.0f,  (409.0f + kShapeCardDy), 46.0f, 24.0f), L"175%", fSmallBold, false, std::abs(g_style.scale - 1.75) < 0.01);
 
     // Row 2: Horizontal X (-100% .. +100%)
     wsprintfW(lblBuf, L"Смещение Влево / Вправо X: %+d%%", (int)std::round(g_style.offsetX * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, 452.0f), NULL, &whiteBr);
-    DrawStudioSlider(g, W_SLIDER_OFFX, RectF(rx + 260.0f, 450.0f, rw - 486.0f, 22.0f), (g_style.offsetX + 1.0) * 0.5);
-    DrawStudioPillButton(g, W_BTN_LEFT,  RectF(rx + rw - 214.0f, 449.0f, 96.0f, 24.0f), L"← Влево",  fSmallBold);
-    DrawStudioPillButton(g, W_BTN_RIGHT, RectF(rx + rw - 112.0f, 449.0f, 98.0f, 24.0f), L"Вправо →", fSmallBold);
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, (452.0f + kShapeCardDy)), NULL, &whiteBr);
+    DrawStudioSlider(g, W_SLIDER_OFFX, RectF(rx + 260.0f, (450.0f + kShapeCardDy), rw - 486.0f, 22.0f), (g_style.offsetX + 1.0) * 0.5);
+    DrawStudioPillButton(g, W_BTN_LEFT,  RectF(rx + rw - 214.0f, (449.0f + kShapeCardDy), 96.0f, 24.0f), L"← Влево",  fSmallBold);
+    DrawStudioPillButton(g, W_BTN_RIGHT, RectF(rx + rw - 112.0f, (449.0f + kShapeCardDy), 98.0f, 24.0f), L"Вправо →", fSmallBold);
 
     // Row 3: Vertical Y (-100% .. +100%)
     wsprintfW(lblBuf, L"Смещение Вверх / Вниз Y: %+d%%", (int)std::round(g_style.offsetY * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, 492.0f), NULL, &whiteBr);
-    DrawStudioSlider(g, W_SLIDER_OFFY, RectF(rx + 260.0f, 490.0f, rw - 486.0f, 22.0f), (g_style.offsetY + 1.0) * 0.5);
-    DrawStudioPillButton(g, W_BTN_DOWN,   RectF(rx + rw - 214.0f, 489.0f, 62.0f, 24.0f), L"↓ Вниз",  fSmallBold);
-    DrawStudioPillButton(g, W_BTN_UP,     RectF(rx + rw - 148.0f, 489.0f, 62.0f, 24.0f), L"↑ Вверх", fSmallBold);
-    DrawStudioPillButton(g, W_BTN_CENTER, RectF(rx + rw - 82.0f,  489.0f, 68.0f, 24.0f), L"Центр",   fSmallBold);
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, (492.0f + kShapeCardDy)), NULL, &whiteBr);
+    DrawStudioSlider(g, W_SLIDER_OFFY, RectF(rx + 260.0f, (490.0f + kShapeCardDy), rw - 486.0f, 22.0f), (g_style.offsetY + 1.0) * 0.5);
+    DrawStudioPillButton(g, W_BTN_DOWN,   RectF(rx + rw - 214.0f, (489.0f + kShapeCardDy), 62.0f, 24.0f), L"↓ Вниз",  fSmallBold);
+    DrawStudioPillButton(g, W_BTN_UP,     RectF(rx + rw - 148.0f, (489.0f + kShapeCardDy), 62.0f, 24.0f), L"↑ Вверх", fSmallBold);
+    DrawStudioPillButton(g, W_BTN_CENTER, RectF(rx + rw - 82.0f,  (489.0f + kShapeCardDy), 68.0f, 24.0f), L"Центр",   fSmallBold);
 
     // Row 4: Outer Drop Shadow (0% .. 100%)
     wsprintfW(lblBuf, L"Внешняя тень Google Pixel: %d%%", (int)std::round(g_style.shadow * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, 532.0f), NULL, &whiteBr);
-    DrawStudioSlider(g, W_SLIDER_SHADOW, RectF(rx + 260.0f, 530.0f, rw - 280.0f, 22.0f), g_style.shadow);
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, (532.0f + kShapeCardDy)), NULL, &whiteBr);
+    DrawStudioSlider(g, W_SLIDER_SHADOW, RectF(rx + 260.0f, (530.0f + kShapeCardDy), rw - 280.0f, 22.0f), g_style.shadow);
 
     // --- CARD 4: Fluent Toggle Switches (y: 592, h: 68) ---
-    RectF optCard(rx, 592.0f, rw, 68.0f);
+    RectF optCard(rx, (592.0f + kShapeCardDy), rw, 68.0f);
     FillRoundRect(g, optCard, 8.0f, Color(255, 43, 43, 43));
     DrawRoundRect(g, optCard, 8.0f, Color(255, 60, 60, 60), 1.0f);
 
     REAL halfW = (rw - 36.0f) * 0.5f;
-    DrawStudioToggle(g, W_TOGGLE_AUTOTRIM,  RectF(rx + 16.0f,         600.0f, halfW, 24.0f), L"Авто-обрезка прозрачных полей", g_style.autoTrim, fBody);
-    DrawStudioToggle(g, W_TOGGLE_INNERSHAD, RectF(rx + 24.0f + halfW, 600.0f, halfW, 24.0f), L"Внутренняя тень иконки",        g_style.innerShadow, fBody);
-    DrawStudioToggle(g, W_TOGGLE_FULLBLEED, RectF(rx + 16.0f,         628.0f, halfW, 24.0f), L"Квадратные иконки на весь круг", g_style.fullBleed, fBody);
-    DrawStudioToggle(g, W_TOGGLE_MONO,      RectF(rx + 24.0f + halfW, 628.0f, halfW, 24.0f), L"Монохромный тон Material You",  g_style.monochrome, fBody);
+    DrawStudioToggle(g, W_TOGGLE_AUTOTRIM,  RectF(rx + 16.0f,         (600.0f + kShapeCardDy), halfW, 24.0f), L"Авто-обрезка прозрачных полей", g_style.autoTrim, fBody);
+    DrawStudioToggle(g, W_TOGGLE_INNERSHAD, RectF(rx + 24.0f + halfW, (600.0f + kShapeCardDy), halfW, 24.0f), L"Внутренняя тень иконки",        g_style.innerShadow, fBody);
+    DrawStudioToggle(g, W_TOGGLE_FULLBLEED, RectF(rx + 16.0f,         (628.0f + kShapeCardDy), halfW, 24.0f), L"Квадратные иконки на всю форму", g_style.fullBleed, fBody);
+    DrawStudioToggle(g, W_TOGGLE_MONO,      RectF(rx + 24.0f + halfW, (628.0f + kShapeCardDy), halfW, 24.0f), L"Монохромный тон Material You",  g_style.monochrome, fBody);
 
     // --- ACTION DOCK (y: 672, h: 42) ---
-    DrawStudioPillButton(g, W_BTN_APPLY_ONE,   RectF(rx,         672.0f, 200.0f, 40.0f), L"✓ Применить к выбранному", fSection, true);
-    DrawStudioPillButton(g, W_BTN_APPLY_ALL,   RectF(rx + 208.0f, 672.0f, 178.0f, 40.0f), L"⚡ Применить ко всем",      fSection, false, true);
-    DrawStudioPillButton(g, W_BTN_RESTORE_ONE, RectF(rx + 394.0f, 672.0f, 118.0f, 40.0f), L"↩ Оригинал",               fBodyBold);
-    DrawStudioPillButton(g, W_BTN_RESTORE_ALL, RectF(rx + 520.0f, 672.0f, 112.0f, 40.0f), L"↺ Сброс всех",             fBodyBold, false, false, true);
-    DrawStudioPillButton(g, W_BTN_EXPORT,      RectF(rx + 640.0f, 672.0f, rw - 640.0f, 40.0f), L"⬇ Экспорт",            fBodyBold);
+    DrawStudioPillButton(g, W_BTN_APPLY_ONE,   RectF(rx,         (672.0f + kShapeCardDy), 200.0f, 40.0f), L"✓ Применить к выбранному", fSection, true);
+    DrawStudioPillButton(g, W_BTN_APPLY_ALL,   RectF(rx + 208.0f, (672.0f + kShapeCardDy), 178.0f, 40.0f), L"⚡ Применить ко всем",      fSection, false, true);
+    DrawStudioPillButton(g, W_BTN_RESTORE_ONE, RectF(rx + 394.0f, (672.0f + kShapeCardDy), 118.0f, 40.0f), L"↩ Оригинал",               fBodyBold);
+    DrawStudioPillButton(g, W_BTN_RESTORE_ALL, RectF(rx + 520.0f, (672.0f + kShapeCardDy), 112.0f, 40.0f), L"↺ Сброс всех",             fBodyBold, false, false, true);
+    DrawStudioPillButton(g, W_BTN_EXPORT,      RectF(rx + 640.0f, (672.0f + kShapeCardDy), rw - 640.0f, 40.0f), L"⬇ Экспорт",            fBodyBold);
 
     // 5. Bottom Status Bar (y: clientH - 32 .. clientH)
     SolidBrush footBr(Color(255, 28, 28, 28));
@@ -1019,12 +1047,40 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             AddCustomAppOrImage(hwnd);
             break;
 
+        case W_SHAPE_0: case W_SHAPE_1: case W_SHAPE_2: case W_SHAPE_3: case W_SHAPE_4:
+            g_style.shape = (IconShape)(id - W_SHAPE_0);
+            g_activePack = -1;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+
+        case W_PACK_0: case W_PACK_1: case W_PACK_2: case W_PACK_3: case W_PACK_4: case W_PACK_5: case W_PACK_6: {
+            int idx = id - W_PACK_0;
+            const IconPackDef& pk = kIconPacks[idx];
+            g_style.preset = pk.preset;
+            g_style.shape = pk.shape;
+            g_style.scale = pk.scale;
+            g_style.shadow = pk.shadow;
+            g_style.innerShadow = pk.innerShadow;
+            g_style.monochrome = pk.monochrome;
+            g_style.customColor = pk.customColor;
+            g_style.offsetX = 0.0;
+            g_style.offsetY = 0.0;
+            g_activePack = idx;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
+
         case W_PRESET_0:
         case W_PRESET_1:
         case W_PRESET_2:
         case W_PRESET_3:
         case W_PRESET_4:
             g_style.preset = (BgPreset)(id - W_PRESET_0);
+            g_activePack = -1;
             SaveStyleConfig();
             InvalidateAllThumbs();
             InvalidateRect(hwnd, NULL, FALSE);
@@ -1498,7 +1554,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     g_hMainWnd = CreateWindowExW(
         0,
         wc.lpszClassName,
-        L"Modo Studio — Google Pixel & Material You Circular Icons",
+        L"Modo Studio — Adaptive Icon Studio by Atoma",
         style,
         std::max(0, (screenW - outerW) / 2),
         std::max(0, (screenH - outerH) / 2),
