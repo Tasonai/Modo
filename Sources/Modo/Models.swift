@@ -139,6 +139,34 @@ final class AppModel {
         statusMessage = "Activated \(pack.name) pack"
     }
 
+    /// Writes `packs` to a `.modopack` file.
+    func exportPacks(_ packs: [CustomIconPack], to url: URL) {
+        do {
+            try PackFile.encode(packs).write(to: url, options: .atomic)
+            statusMessage = "Exported \(packs.count) pack\(packs.count == 1 ? "" : "s") to \(url.lastPathComponent)"
+        } catch {
+            statusMessage = "Export failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// Adds the packs in a `.modopack` file to My Packs.
+    @discardableResult
+    func importPacks(from url: URL) -> Int {
+        do {
+            let packs = try PackFile.decode(Data(contentsOf: url))
+            customPacks.append(contentsOf: packs)
+            statusMessage = "Imported \(packs.count) pack\(packs.count == 1 ? "" : "s") from \(url.lastPathComponent)"
+            return packs.count
+        } catch PackFile.PackFileError.unsupportedVersion(let version) {
+            statusMessage = "Import failed: pack file version \(version) needs a newer Modo"
+        } catch PackFile.PackFileError.empty {
+            statusMessage = "Import failed: the file contains no packs"
+        } catch {
+            statusMessage = "Import failed: not a Modo pack file"
+        }
+        return 0
+    }
+
     func deleteCustomPack(_ pack: CustomIconPack) {
         customPacks.removeAll { $0.id == pack.id }
         if activePackId == pack.id { activePackId = Self.customPackId }

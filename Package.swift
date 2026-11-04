@@ -14,5 +14,11 @@ let package = Package(
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(name: "ModoKitTests", dependencies: ["ModoKit"]),
+        // Renders real icons and checks pixels.
+        .testTarget(
+            name: "ModoTests",
+            dependencies: ["Modo", "ModoKit"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
     ]
 )

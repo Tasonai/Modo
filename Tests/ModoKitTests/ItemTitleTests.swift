@@ -115,3 +115,78 @@ func reapplyPolicy() {
     #expect(!ReapplyPolicy.needsReapply(record: aliasRecord, currentVersion: "1.0 (10)", hasIconFile: false))
     #expect(ReapplyPolicy.needsReapply(record: aliasRecord, currentVersion: "2.0 (20)", hasIconFile: false))
 }
+
+// MARK: - Shape geometry
+
+private let unitRect = CGRect(x: 0, y: 0, width: 100, height: 100)
+
+@Test("Every shape stays inside its rect and contains the center", arguments: IconShape.allCases)
+func shapeBounds(_ shape: IconShape) {
+    let path = shape.path(in: unitRect)
+    let box = path.boundingBoxOfPath
+    #expect(box.minX >= -0.001 && box.minY >= -0.001 && box.maxX <= 100.001 && box.maxY <= 100.001)
+    #expect(path.contains(CGPoint(x: 50, y: 50)))
+    #expect(!path.contains(CGPoint(x: 1, y: 1)), "the rect corner is outside \(shape)")
+    if shape != .hexagon {
+        #expect(abs(box.width - 100) < 0.01 && abs(box.height - 100) < 0.01)
+    }
+}
+
+@Test("Squircle is a superellipse: fuller than a circle, symmetric on all four sides")
+func squircleGeometry() {
+    let squircle = IconShape.squircle.path(in: unitRect)
+    let circle = IconShape.circle.path(in: unitRect)
+    let diagonal = CGPoint(x: 50 + 37, y: 50 + 37) // outside the circle (r = 50), inside the superellipse
+    #expect(!circle.contains(diagonal))
+    #expect(squircle.contains(diagonal))
+    for p in [CGPoint(x: 13, y: 13), CGPoint(x: 87, y: 13), CGPoint(x: 13, y: 87), CGPoint(x: 87, y: 87)] {
+        #expect(squircle.contains(p))
+    }
+}
+
+@Test("Hexagon has six vertices and is narrower than tall")
+func hexagonGeometry() {
+    let path = IconShape.hexagon.path(in: unitRect)
+    var points = 0
+    path.applyWithBlock { element in
+        if element.pointee.type == .moveToPoint || element.pointee.type == .addLineToPoint { points += 1 }
+    }
+    #expect(points == 6)
+    #expect(path.boundingBoxOfPath.width < path.boundingBoxOfPath.height)
+}
+
+// MARK: - Pack files
+
+@Test("Pack file round-trips and imported packs get fresh ids")
+func packFileRoundTrip() throws {
+    let original = CustomIconPack(name: "Night", style: RoundIconStyle(shape: .hexagon, iconScale: 0.9))
+    let data = try PackFile.encode([original])
+    let imported = try PackFile.decode(data)
+    #expect(imported.count == 1)
+    #expect(imported[0].name == "Night")
+    #expect(imported[0].style == original.style)
+    #expect(imported[0].id != original.id)
+}
+
+@Test("Pack file rejects foreign, empty and future files")
+func packFileRejects() throws {
+    #expect(throws: PackFile.PackFileError.notAModoPackFile) { try PackFile.decode(Data("hello".utf8)) }
+    #expect(throws: PackFile.PackFileError.notAModoPackFile) { try PackFile.decode(Data(#"{"format":"other","version":1,"packs":[]}"#.utf8)) }
+    #expect(throws: PackFile.PackFileError.empty) { try PackFile.decode(Data(#"{"format":"modo-icon-packs","version":1,"packs":[]}"#.utf8)) }
+    #expect(throws: PackFile.PackFileError.unsupportedVersion(9)) { try PackFile.decode(Data(#"{"format":"modo-icon-packs","version":9,"packs":[]}"#.utf8)) }
+}
+
+@Test("Pack file import clamps out-of-range styles and caps long names")
+func packFileSanitizes() throws {
+    var wild = RoundIconStyle()
+    wild.iconScale = 99
+    wild.offsetX = -50
+    wild.shadowIntensity = 7
+    let longName = String(repeating: "x", count: 200)
+    let data = try PackFile.encode([CustomIconPack(name: longName, style: wild)])
+    let pack = try PackFile.decode(data)[0]
+    #expect(pack.style.iconScale == 2.5)
+    #expect(pack.style.offsetX == -1.0)
+    #expect(pack.style.shadowIntensity == 1.0)
+    #expect(pack.name.count == 60)
+}

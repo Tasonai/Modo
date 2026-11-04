@@ -2,6 +2,7 @@ import AppKit
 import ModoKit
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
@@ -61,6 +62,7 @@ struct SidebarView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
+                        Button("Export Pack…") { promptExport(pack) }
                         Button("Delete Pack", role: .destructive) { model.deleteCustomPack(pack) }
                     }
                 }
@@ -68,6 +70,13 @@ struct SidebarView: View {
                     promptSavePack()
                 } label: {
                     Label("Save Current Style…", systemImage: "plus.square.dashed")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                Button {
+                    promptImport()
+                } label: {
+                    Label("Import Pack…", systemImage: "square.and.arrow.down")
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -116,6 +125,30 @@ struct SidebarView: View {
         alert.addButton(withTitle: "Cancel")
         if alert.runModal() == .alertFirstButtonReturn {
             model.saveCurrentStyleAsPack(named: field.stringValue)
+        }
+    }
+
+    private var packType: [UTType] { UTType(filenameExtension: PackFile.fileExtension).map { [$0] } ?? [] }
+
+    private func promptExport(_ pack: CustomIconPack) {
+        let panel = NSSavePanel()
+        panel.title = "Export Pack"
+        panel.nameFieldStringValue = "\(pack.name).\(PackFile.fileExtension)"
+        panel.allowedContentTypes = packType
+        panel.allowsOtherFileTypes = true
+        if panel.runModal() == .OK, let url = panel.url {
+            model.exportPacks([pack], to: url)
+        }
+    }
+
+    private func promptImport() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Pack"
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = packType + [.json]
+        if panel.runModal() == .OK {
+            for url in panel.urls { model.importPacks(from: url) }
         }
     }
 }

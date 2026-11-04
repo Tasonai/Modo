@@ -113,6 +113,22 @@ enum SelfTest {
                 model.deleteCustomPack(saved)
             }
             check("deleting a custom pack removes it", !model.customPacks.contains { $0.name == "Selftest Pack" })
+            do {
+                let before = model.customPacks.count
+                model.style.shape = .pebble
+                model.saveCurrentStyleAsPack(named: "Selftest Share")
+                let file = URL(fileURLWithPath: "/tmp/Modo-selftest.\(PackFile.fileExtension)")
+                try? FileManager.default.removeItem(at: file)
+                if let share = model.customPacks.last { model.exportPacks([share], to: file) }
+                check("pack export writes a file", FileManager.default.fileExists(atPath: file.path))
+                check("pack import adds a copy with the same style",
+                      model.importPacks(from: file) == 1
+                      && model.customPacks.count == before + 2
+                      && model.customPacks.last?.style.shape == .pebble)
+                check("importing a non-pack file is refused", model.importPacks(from: URL(fileURLWithPath: "/etc/hosts")) == 0)
+                model.customPacks.removeAll { $0.name == "Selftest Share" }
+                try? FileManager.default.removeItem(at: file)
+            }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
