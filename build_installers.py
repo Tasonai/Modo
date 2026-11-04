@@ -42,6 +42,16 @@ def main() -> None:
         check=True,
     )
 
+    # 3. Compute SHA256 Checksums
+    import hashlib
+
+    checksum_lines = []
+    for p in sorted(DIST_DIR.glob("*")):
+        if p.is_file() and p.name != "checksums.txt":
+            digest = hashlib.sha256(p.read_bytes()).hexdigest()
+            checksum_lines.append(f"{digest}  {p.name}\n")
+    (DIST_DIR / "checksums.txt").write_text("".join(checksum_lines), encoding="utf-8")
+
     print("\n========================================================")
     print("  ВСЕ УСТАНОВЩИКИ УСПЕШНО СОБРАНЫ В ПАПКЕ DIST/")
     print("========================================================")
