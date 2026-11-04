@@ -1,24 +1,24 @@
 import AppKit
-import IconMakerKit
+import ModoKit
 import SwiftData
 import SwiftUI
 
-// IconMaker — Native macOS Google Pixel & Material You Circular Icon Studio
-//   IconMaker                      the app
-//   APP_STORE=<file> IconMaker     use another database (tests, experiments)
-//   APP_SNAPSHOT=<dir> IconMaker   save a PNG of every sidebar page and Settings tab in light and dark mode, then quit
-//   APP_SEED=1 IconMaker           fill an empty /tmp store with sample items (tools/snap.sh)
-//   IconMaker --selftest           run the self-test on a /tmp store and quit with 0 or 1 (tools/selftest.sh)
-//   APP_ACCENT=<id> IconMaker      run with another accent from Theme.all (UI/Theme.swift)
-//   APP_GRID=1 IconMaker           draw the 8 pt grid and the layout probes over the window
+// Modo — Native macOS Adaptive Icon Studio by Atoma
+//   Modo                      the app
+//   APP_STORE=<file> Modo     use another database (tests, experiments)
+//   APP_SNAPSHOT=<dir> Modo   save a PNG of every sidebar page and Settings tab in light and dark mode, then quit
+//   APP_SEED=1 Modo           fill an empty /tmp store with sample items (tools/snap.sh)
+//   Modo --selftest           run the self-test on a /tmp store and quit with 0 or 1 (tools/selftest.sh)
+//   APP_ACCENT=<id> Modo      run with another accent from Theme.all (UI/Theme.swift)
+//   APP_GRID=1 Modo           draw the 8 pt grid and the layout probes over the window
 
 @main
-struct IconMakerApp: App {
+struct ModoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = AppModel(container: Store.makeContainer())
 
     var body: some Scene {
-        Window("IconMaker", id: "main") {
+        Window("Modo", id: "main") {
             ContentView()
                 .environment(model)
                 .themed()
@@ -68,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// Where the data lives: ~/Library/Application Support/IconMaker/IconMaker.store
+/// Where the data lives: ~/Library/Application Support/Modo/Modo.store
 enum Store {
     static var isOverridden: Bool {
         !(ProcessInfo.processInfo.environment["APP_STORE"] ?? "").isEmpty
@@ -78,9 +78,9 @@ enum Store {
         if let path = ProcessInfo.processInfo.environment["APP_STORE"], !path.isEmpty {
             return URL(fileURLWithPath: path)
         }
-        let dir = URL.applicationSupportDirectory.appending(path: "IconMaker", directoryHint: .isDirectory)
+        let dir = URL.applicationSupportDirectory.appending(path: "Modo", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appending(path: "IconMaker.store")
+        return dir.appending(path: "Modo.store")
     }
 
     static func makeContainer() -> ModelContainer {

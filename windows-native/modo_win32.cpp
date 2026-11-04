@@ -1,5 +1,5 @@
 /*
- * IconMaker Studio for Windows — Custom Self-Rendered GDI+ Dark Studio UI Engine
+ * Modo Studio for Windows — Custom Self-Rendered GDI+ Dark Studio UI Engine
  * Inspired by DaVinci Resolve & macOS Pro Apps (Zero native Win32 child controls!)
  *
  * Every button, slider, toggle switch, segmented pill, color swatch, search box,
@@ -568,7 +568,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     SolidBrush mutedBr(Color(255, 160, 160, 160));
     SolidBrush accentBr(Color(255, 220, 220, 220)); // Clean neutral light monochrome
 
-    g.DrawString(L"IconMaker Studio", -1, &fLogo, PointF(54.0f, 12.0f), NULL, &whiteBr);
+    g.DrawString(L"Modo Studio", -1, &fLogo, PointF(54.0f, 12.0f), NULL, &whiteBr);
     g.DrawString(L"GOOGLE PIXEL & MATERIAL YOU ENGINE", -1, &fSmallBold, PointF(55.0f, 31.0f), NULL, &mutedBr);
 
     // Top-right Windows 11 CommandBar buttons
@@ -1120,7 +1120,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                         hwnd,
                         L"Этот ярлык находится в общей системной папке (Public Desktop / ProgramData).\n\n"
                         L"Разрешить обновление с правами Администратора, чтобы иконка на Рабочем столе обновилась до единого круга?",
-                        L"IconMaker Studio — Системный ярлык",
+                        L"Modo Studio — Системный ярлык",
                         MB_YESNO | MB_ICONQUESTION
                     );
                     if (ans == IDYES) {
@@ -1159,7 +1159,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                     hwnd,
                     L"Часть ярлыков на Рабочем столе находится в общей папке C:\\Users\\Public\\Desktop (Chrome, Steam, Edge и др.).\n\n"
                     L"Нажмите «Да», чтобы автоматически применить с правами Администратора и сделать АБСОЛЮТНО ВСЕ иконки одинаковыми кругами!",
-                    L"IconMaker Studio — Применить ко всем ярлыкам",
+                    L"Modo Studio — Применить ко всем ярлыкам",
                     MB_YESNO | MB_ICONQUESTION
                 );
                 if (ans == IDYES) {
@@ -1177,7 +1177,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             wsprintfW(msg, L"Готово! Одинаковые круглые иконки Google Pixel (240px / 93.75%%) применены к %d приложениям (включая File Explorer и значки Рабочего стола).", count);
             g_statusText = msg;
             InvalidateRect(hwnd, NULL, FALSE);
-            MessageBoxW(hwnd, msg, L"IconMaker Studio", MB_ICONINFORMATION);
+            MessageBoxW(hwnd, msg, L"Modo Studio", MB_ICONINFORMATION);
             break;
         }
 
@@ -1199,7 +1199,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             RefreshWindowsExplorerIconCache(true);
             g_statusText = L"Оригинальные иконки восстановлены для всех приложений";
             InvalidateRect(hwnd, NULL, FALSE);
-            MessageBoxW(hwnd, L"Оригинальные иконки восстановлены для всех приложений!", L"IconMaker Studio", MB_ICONINFORMATION);
+            MessageBoxW(hwnd, L"Оригинальные иконки восстановлены для всех приложений!", L"Modo Studio", MB_ICONINFORMATION);
             break;
         }
 
@@ -1483,7 +1483,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     wc.hIconSm = LoadIconW(hInst, MAKEINTRESOURCEW(101));
     if (!wc.hIcon) wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wc.hbrBackground = NULL; // Custom GDI+ full-window canvas
-    wc.lpszClassName = L"IconMakerStudioCanvasClass";
+    wc.lpszClassName = L"ModoStudioCanvasClass";
     RegisterClassExW(&wc);
 
     RECT adj = { 0, 0, WIN_W, WIN_H };
@@ -1498,7 +1498,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     g_hMainWnd = CreateWindowExW(
         0,
         wc.lpszClassName,
-        L"IconMaker Studio — Google Pixel & Material You Circular Icons",
+        L"Modo Studio — Google Pixel & Material You Circular Icons",
         style,
         std::max(0, (screenW - outerW) / 2),
         std::max(0, (screenH - outerH) / 2),
@@ -1532,7 +1532,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
         wsprintfW(doneMsg, L"Все системные и пользовательские ярлыки (%d шт.) обновлены до одинаковых кругов!", count);
         g_statusText = doneMsg;
         InvalidateRect(g_hMainWnd, NULL, FALSE);
-        MessageBoxW(g_hMainWnd, doneMsg, L"IconMaker Studio (Администратор)", MB_ICONINFORMATION);
+        MessageBoxW(g_hMainWnd, doneMsg, L"Modo Studio (Администратор)", MB_ICONINFORMATION);
     } else {
         wchar_t exeName[MAX_PATH] = {0};
         if (GetModuleFileNameW(NULL, exeName, MAX_PATH - 1)) {

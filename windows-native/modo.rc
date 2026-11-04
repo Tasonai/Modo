@@ -20,13 +20,13 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "CompanyName",      "Atoma\0"
-            VALUE "FileDescription",  "IconMaker - Google Pixel Circular Icon Studio\0"
-            VALUE "FileVersion",      "1.2.0.0\0"
-            VALUE "InternalName",     "IconMaker.exe\0"
+            VALUE "FileDescription",  "Modo - Adaptive Icon Studio by Atoma\0"
+            VALUE "FileVersion",      "1.0.0.0\0"
+            VALUE "InternalName",     "Modo.exe\0"
             VALUE "LegalCopyright",   "Copyright (C) 2026 Atoma. All rights reserved.\0"
-            VALUE "OriginalFilename", "IconMaker.exe\0"
-            VALUE "ProductName",      "IconMaker for Windows\0"
-            VALUE "ProductVersion",   "1.2.0.0\0"
+            VALUE "OriginalFilename", "Modo.exe\0"
+            VALUE "ProductName",      "Modo for Windows\0"
+            VALUE "ProductVersion",   "1.0.0.0\0"
         END
     END
     BLOCK "VarFileInfo"

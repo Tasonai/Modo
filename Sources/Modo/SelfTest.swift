@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import IconMakerKit
+import ModoKit
 import SwiftData
 
 /// Self-test for agents: runs the app's real functions on a test store,

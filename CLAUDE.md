@@ -1,28 +1,28 @@
-# IconMaker
+# Modo
 
-A native macOS app in SwiftUI. It runs on this Mac only, with a local
+A native macOS app in SwiftUI by Atoma. It runs on this Mac only, with a local
 SwiftData database and no server.
 
 ## Layout
 
-- `Sources/IconMaker/` the app. `App.swift` has the window, menus, and the database location.
-- `Sources/IconMakerKit/` rules and data logic with no SwiftUI. Tests in `Tests/IconMakerKitTests/`.
+- `Sources/Modo/` the app. `App.swift` has the window, menus, and the database location.
+- `Sources/ModoKit/` rules and data logic with no SwiftUI. Tests in `Tests/ModoKitTests/`.
 - `Package.swift` a Swift package. There is no Xcode project.
-- `build.sh` builds, signs, and installs `~/Applications/IconMaker.app`.
+- `build.sh` builds, signs, and installs `~/Applications/Modo.app`.
 - `Icon/AppIcon.icon` the app icon, an Icon Composer file (JSON plus SVG layers). `build.sh` compiles it with `tools/make_icon.sh`; `tools/icon_review.sh` renders every look into one PNG.
 - `docs/` the brief, the screen index, and the user stories, when they exist.
 
 ## Build and check
 
 - Build and install: `./build.sh`. Add `--open` to restart the app with the new build. The build shows warnings; fix them.
-- Unit tests: `swift test --scratch-path ~/Library/Developer/IconMaker/test-build`.
+- Unit tests: `swift test --scratch-path ~/Library/Developer/Modo/test-build`.
 - Self-test (the app's real functions on a /tmp store): `tools/selftest.sh`. Exit 0 when every check passes. Add a check for every story with logic in `SelfTest.swift`.
 - After every UI change, take snapshots with sample data and look at them: `tools/snap.sh`.
-  It writes `/tmp/IconMaker-shots/<page>-light.png` and `-dark.png` for every sidebar page, and `settings-<tab>-light.png` and `-dark.png` for every Settings tab, then quits. `APP_SNAPSHOT_PAGES=all,settings tools/snap.sh` limits the pages.
+  It writes `/tmp/Modo-shots/<page>-light.png` and `-dark.png` for every sidebar page, and `settings-<tab>-light.png` and `-dark.png` for every Settings tab, then quits. `APP_SNAPSHOT_PAGES=all,settings tools/snap.sh` limits the pages.
   For a panel, sheet, or popover, add a capture to `Snapshot.swift` like the Settings loop.
 - Snapshots, seed data, and the self-test refuse to run without `APP_STORE` in /tmp.
-- Never test against the real database in `~/Library/Application Support/IconMaker/`.
-- Then check the grid: `tools/grid-lint.sh` and `swift tools/check-layout.swift /tmp/IconMaker-shots/*-layout.json`. Both print PASS.
+- Never test against the real database in `~/Library/Application Support/Modo/`.
+- Then check the grid: `tools/grid-lint.sh` and `swift tools/check-layout.swift /tmp/Modo-shots/*-layout.json`. Both print PASS.
 - A change is done when the build has no errors, the grid checks pass, and you looked at the light and dark snapshots.
 
 ## Design rules

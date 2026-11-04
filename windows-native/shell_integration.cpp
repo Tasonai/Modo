@@ -650,7 +650,7 @@ void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
                 psl->SetPath(installedExe.c_str());
                 psl->SetWorkingDirectory(appDir.c_str());
                 psl->SetIconLocation(installedExe.c_str(), 0);
-                psl->SetDescription(L"IconMaker Studio — Круглые иконки Google Pixel");
+                psl->SetDescription(L"Modo Studio — Адаптивные иконки от Atoma");
                 IPersistFile* ppf = nullptr;
                 if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
                     ppf->Save(lnkPath.c_str(), TRUE);
@@ -661,8 +661,8 @@ void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
         }
     };
 
-    makeShortcut(CSIDL_DESKTOPDIRECTORY, L"IconMaker Studio.lnk");
-    makeShortcut(CSIDL_PROGRAMS, L"IconMaker Studio.lnk");
+    makeShortcut(CSIDL_DESKTOPDIRECTORY, L"Modo Studio.lnk");
+    makeShortcut(CSIDL_PROGRAMS, L"Modo Studio.lnk");
 
     if (showConfirmation && hwnd) {
         MessageBoxW(
@@ -670,7 +670,7 @@ void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
             L"IconMaker Studio успешно установлен!\n\n"
             L"• Папка: %LOCALAPPDATA%\\Programs\\IconMaker\\IconMaker.exe\n"
             L"• Ярлыки созданы на Рабочем столе и в меню «Пуск».",
-            L"IconMaker Studio",
+            L"Modo Studio",
             MB_ICONINFORMATION
         );
     }

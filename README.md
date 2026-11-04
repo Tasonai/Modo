@@ -1,6 +1,6 @@
-# IconMaker
+# Modo
 
-**IconMaker** — кроссплатформенная нативная дизайн-студия для автоматического и ручного преобразования иконок приложений в **круглые адаптивные иконки в стиле Google Pixel и Material You**.
+**Modo** — кроссплатформенная нативная дизайн-студия для создания адаптивных иконок для macOS и Windows в едином гармоничном стиле.
 
 Разработчик: **Atoma**
 
@@ -9,8 +9,8 @@
 ## 🌟 Ключевые возможности
 
 - **100% нативная реализация под каждую ОС**:
-  - **macOS**: Нативное приложение на **SwiftUI** и **SwiftData** с трехколоночной навигацией `NavigationSplitView`, плавной физикой сглаживания жестов и поддержкой тем оформления macOS.
-  - **Windows**: Нативное приложение на **C++17** и **GDI+** без тяжелых сторонних фреймворков и без среды выполнения Python. Чистый PE32+ бинарник без DWARF-секций и оверлеев (полная совместимость с Windows Defender).
+  - **macOS**: Приложение на **SwiftUI** и **SwiftData** с трехколоночной навигацией `NavigationSplitView`, плавной физикой сглаживания жестов и поддержкой тем оформления macOS.
+  - **Windows**: Приложение на **C++17** и **GDI+** без тяжелых сторонних фреймворков и без Python. Чистый PE32+ бинарник без DWARF-секций и оверлеев (полная совместимость с Windows Defender).
 - **Строгий нейтральный дизайн (Achromatic Minimal)**:
   - Лаконичный интерфейс без навязчивых цветных акцентов.
   - Четкая визуальная иерархия, высокая контрастность (WCAG AAA) в светлой и тёмной темах.
@@ -21,14 +21,14 @@
   - Автоматическое обнаружение программ на Рабочем столе, в меню «Пуск» и на Панели задач.
   - Фильтрация деинсталляторов и дубликатов с объединением нескольких ссылок на один исполняемый файл.
 - **Интерактивная студия кастомизации**:
-  - **Интерактивный холст (Drag-to-Pan)**: перетаскивание глифа внутри круга мышью или трекпадом с авто-центрированием по двойному клику.
+  - **Интерактивный холст (Drag-to-Pan)**: перетаскивание глифа внутри формы мышью или трекпадом с авто-центрированием по двойному клику.
   - Масштабирование глифа от 30% до 250% (Zoom / Full-Bleed).
   - Смещение по осям X и Y, интенсивность тени (Elevation Shadow).
-  - Пресеты фона: *Google White*, *Material You Pastel* (автоанализ цветов исходной иконки), *Dark Material*, *Adaptive Edge*, *Custom Color* с пипеткой Eyedropper.
+  - Пресеты оформления: *Google White*, *Material You Pastel* (автоанализ цветов исходной иконки), *Dark Material*, *Adaptive Edge*, *Custom Color* с пипеткой Eyedropper.
   - Переключатели: *Auto-Trim Margins*, *Inner Glyph Shadow*, *Full-Bleed Square Mask*, *Material Monochrome Tint*.
 - **Безопасность и откат в 1 клик**:
   - Системные исполняемые файлы `.exe` не модифицируются.
-  - Исходные иконки и оригинальные `.lnk` сохраняются в защищенном каталоге бэкапов (`%LOCALAPPDATA%\IconMaker\backup`).
+  - Исходные иконки и оригинальные `.lnk` сохраняются в защищенном каталоге бэкапов (`%LOCALAPPDATA%\Modo\backup`).
   - Мгновенный откат к заводскому виду в один клик.
 - **Экспорт полного набора форматов**:
   - Windows: мультиразмерный `.ico` (256px PNG-frame + 64/48/32/16px 32-bpp DIB frames).
@@ -43,14 +43,14 @@
 ```bash
 python3 build_installers.py
 ```
-Он компилирует нативный macOS-билд, собирает чистые Windows PE32+ бинарники и упаковывает все дистрибутивы в каталог `dist/` (а также автоматически синхронизирует их с `/Users/tasonai/Developer/IconMaker/dist/`).
+Он компилирует нативный macOS-билд, собирает чистые Windows PE32+ бинарники и упаковывает все дистрибутивы в каталог `dist/` (а также автоматически синхронизирует их с `/Users/tasonai/Developer/Modo/dist/`).
 
 ---
 
 ### Сборка для macOS
 Требуется: macOS 14+, Xcode / Command Line Tools.
 ```bash
-# Сборка и установка в ~/Applications/IconMaker.app
+# Сборка и установка в ~/Applications/Modo.app
 ./build.sh
 
 # Запуск приложения после сборки
@@ -71,38 +71,37 @@ python3 windows-native/build_windows_installers.py
 ## 📦 Доступные установщики (`dist/`)
 
 ### 🍏 macOS
-- **`IconMaker-macOS.dmg`** — классический образ диска с Drag-and-Drop в `/Applications`.
-- **`IconMaker-macOS-Installer.pkg`** — стандартный системный мастер установки macOS.
-- **`IconMaker-macOS.zip`** — готовый архив с подписанным `IconMaker.app`.
+- **`Modo-macOS.dmg`** — классический образ диска с Drag-and-Drop в `/Applications`.
+- **`Modo-macOS-Installer.pkg`** — стандартный системный мастер установки macOS.
+- **`Modo-macOS.zip`** — готовый архив с подписанным `Modo.app`.
 
 ### 🪟 Windows
-- **`IconMaker-Windows-Setup.exe`** — нативный установщик (размещает в `%LOCALAPPDATA%\Programs\IconMaker`, создает ярлыки на Рабочем столе и в «Пуск»).
-- **`IconMaker-Windows-Portable.exe`** — портативная версия (не требует установки).
-- **`IconMaker-Windows-x64.zip`** — портативный ZIP-архив.
-- **`GoogleRoundIconizer-Setup.exe`** — установочный алиас.
+- **`Modo-Windows-Setup.exe`** — нативный установщик (размещает в `%LOCALAPPDATA%\Programs\Modo`, создает ярлыки на Рабочем столе и в «Пуск»).
+- **`Modo-Windows-Portable.exe`** — портативная версия (не требует установки).
+- **`Modo-Windows-x64.zip`** — портативный ZIP-архив.
 
 ---
 
 ## 🏛️ Архитектура репозитория
 
 ```
-Icon Maker/
+Modo/
 ├── Sources/
-│   ├── IconMaker/                # macOS SwiftUI приложение
+│   ├── Modo/                     # macOS SwiftUI приложение
 │   │   ├── Views/
 │   │   │   ├── SidebarView.swift         # Боковая панель категорий и стилей
 │   │   │   ├── AppListView.swift         # Список приложений, фильтры-капсулы
 │   │   │   └── DetailInspectorView.swift # Студия редактирования и жесты Drag-to-Pan
 │   │   ├── ContentView.swift             # Корневой SplitView и тулбар
 │   │   ├── Models.swift                  # Модели данных и состояние приложения
-│   │   └── IconRenderer.swift            # CoreGraphics рендерер круглых иконок
-│   └── IconMakerKit/             # Библиотека правил и математики преобразований
+│   │   └── IconRenderer.swift            # CoreGraphics рендерер адаптивных иконок
+│   └── ModoKit/                  # Библиотека правил и математики преобразований
 ├── windows-native/               # Нативный C++ движок Windows
 │   ├── types.h                   # Общие структуры (AppEntry, RoundStyle, Swatches)
 │   ├── icon_engine.h / .cpp      # GDI+ движок, автообрезка, парсинг и ICO-кодер
 │   ├── shell_integration.h / .cpp# Shell API, IShellLink, реестр CLSID, кэш Explorer
-│   ├── iconmaker_win32.cpp       # Оконная процедура, GDI+ холст и контролы
-│   ├── iconmaker.rc              # Ресурсы, VERSIONINFO, UAC Manifest
+│   ├── modo_win32.cpp            # Оконная процедура, GDI+ холст и контролы
+│   ├── modo.rc                   # Ресурсы, VERSIONINFO, UAC Manifest
 │   └── build_windows_installers.py # Скрипт сборки PE32+ бинарников
 ├── tools/                        # Утилиты верификации и упаковки
 │   ├── package_macos.py          # Генератор DMG, PKG и ZIP для macOS

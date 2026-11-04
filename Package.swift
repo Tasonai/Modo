@@ -2,17 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "IconMaker",
+    name: "Modo",
     platforms: [.macOS(.v26)],
     targets: [
         // Rules and data logic with no SwiftUI, so tests run without the app.
-        .target(name: "IconMakerKit"),
+        .target(name: "ModoKit"),
         .executableTarget(
-            name: "IconMaker",
-            dependencies: ["IconMakerKit"],
+            name: "Modo",
+            dependencies: ["ModoKit"],
             // App code runs on the main thread unless you say otherwise.
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
-        .testTarget(name: "IconMakerKitTests", dependencies: ["IconMakerKit"]),
+        .testTarget(name: "ModoKitTests", dependencies: ["ModoKit"]),
     ]
 )

@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
-import IconMakerKit
+import ModoKit
 import ImageIO
 import UniformTypeIdentifiers
 

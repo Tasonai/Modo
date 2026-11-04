@@ -612,7 +612,9 @@ Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fal
     if (!safeAppName.empty()) {
         wchar_t buf[MAX_PATH] = {0};
         GetEnvironmentVariableW(L"LOCALAPPDATA", buf, MAX_PATH);
-        std::wstring dir = std::wstring(buf) + L"\\IconMaker\\backup";
+        std::wstring dir = std::wstring(buf) + L"\\Modo\\backup";
+        CreateDirectoryW((std::wstring(buf) + L"\\Modo").c_str(), NULL);
+        CreateDirectoryW(dir.c_str(), NULL);
         origCachePng = dir + L"\\" + safeAppName + L"_orig.png";
         if (GetFileAttributesW(origCachePng.c_str()) != INVALID_FILE_ATTRIBUTES) {
             Bitmap* cachedOrig = Bitmap::FromFile(origCachePng.c_str());
@@ -631,7 +633,8 @@ Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fal
     };
 
     std::wstring cleanPrimary = primaryPath;
-    if (cleanPrimary.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+    if (cleanPrimary.find(L"\\Modo\\icons\\") != std::wstring::npos ||
+        cleanPrimary.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
         cleanPrimary.clear();
     }
 
@@ -653,7 +656,7 @@ Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fal
         ? cleanPrimary
         : fallbackPath;
 
-    if (!pathToUse.empty() && pathToUse.find(L"\\IconMaker\\icons\\") == std::wstring::npos) {
+    if (!pathToUse.empty() && pathToUse.find(L"\\Modo\\icons\\") == std::wstring::npos && pathToUse.find(L"\\IconMaker\\icons\\") == std::wstring::npos) {
         if (Bitmap* directBmp2 = ExtractDirectPeOrIco256(pathToUse, 0)) {
             return saveToOrigCache(directBmp2);
         }

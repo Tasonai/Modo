@@ -1,6 +1,6 @@
 #!/bin/zsh
-# Builds IconMaker and installs it to ~/Applications/IconMaker.app.
-# Build products live in ~/Library/Developer/IconMaker, outside the repo
+# Builds Modo and installs it to ~/Applications/Modo.app.
+# Build products live in ~/Library/Developer/Modo, outside the repo
 # (and outside Dropbox or iCloud, which would try to sync them).
 #
 # Usage: ./build.sh            release build, install
@@ -8,7 +8,7 @@
 #        ./build.sh --open     install, then quit the running copy and open the new one
 set -euo pipefail
 here=${0:A:h}
-name="IconMaker"
+name="Modo"
 scratch="$HOME/Library/Developer/$name/build"
 config=release
 [[ " $* " == *" --debug "* ]] && config=debug

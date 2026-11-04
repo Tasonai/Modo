@@ -102,14 +102,14 @@ def main() -> None:
             if old.is_file():
                 old.unlink()
 
-    build_tmp = Path("/tmp/iconmaker-win-clean")
+    build_tmp = Path("/tmp/modo-win-clean")
     if build_tmp.exists():
         shutil.rmtree(build_tmp)
     build_tmp.mkdir(parents=True, exist_ok=True)
 
-    res_file = WIN_DIR / "iconmaker.res"
-    raw_exe = build_tmp / "IconMaker_raw.exe"
-    stripped_exe = build_tmp / "IconMaker_stripped.exe"
+    res_file = WIN_DIR / "modo.res"
+    raw_exe = build_tmp / "Modo_raw.exe"
+    stripped_exe = build_tmp / "Modo_stripped.exe"
 
     print("[1/3] Компиляция ресурсов Windows (.ico, VERSIONINFO, UAC Manifest asInvoker) через zig rc...")
     subprocess.run(
@@ -117,8 +117,8 @@ def main() -> None:
             str(ZIG_BIN),
             "rc",
             "-fo",
-            "iconmaker.res",
-            "iconmaker.rc",
+            "modo.res",
+            "modo.rc",
         ],
         cwd=str(WIN_DIR),
         check=True,
@@ -137,7 +137,7 @@ def main() -> None:
             "-fno-exceptions",
             "-fno-rtti",
             "-municode",
-            str(WIN_DIR / "iconmaker_win32.cpp"),
+            str(WIN_DIR / "modo_win32.cpp"),
             str(WIN_DIR / "icon_engine.cpp"),
             str(WIN_DIR / "shell_integration.cpp"),
             str(res_file),
@@ -162,22 +162,20 @@ def main() -> None:
     shutil.copy2(raw_exe, stripped_exe)
     normalize_pe_headers(stripped_exe)
 
-    portable_exe = DIST_DIR / "IconMaker-Windows-Portable.exe"
-    setup_exe = DIST_DIR / "IconMaker-Windows-Setup.exe"
-    alias_exe = DIST_DIR / "GoogleRoundIconizer-Setup.exe"
-    zip_bundle = DIST_DIR / "IconMaker-Windows-x64.zip"
+    portable_exe = DIST_DIR / "Modo-Windows-Portable.exe"
+    setup_exe = DIST_DIR / "Modo-Windows-Setup.exe"
+    zip_bundle = DIST_DIR / "Modo-Windows-x64.zip"
 
     shutil.copy2(stripped_exe, portable_exe)
     shutil.copy2(stripped_exe, setup_exe)
-    shutil.copy2(stripped_exe, alias_exe)
 
     with zipfile.ZipFile(zip_bundle, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(portable_exe, arcname="IconMaker/IconMaker.exe")
+        zf.write(portable_exe, arcname="Modo/Modo.exe")
 
     print("\n========================================================")
     print("  ЧИСТЫЕ PE32+ ФАЙЛЫ БЕЗ ОВЕРЛЕЯ И ДРОППЕРА ГОТОВЫ")
     print("========================================================")
-    for p in (setup_exe, portable_exe, alias_exe, zip_bundle):
+    for p in (setup_exe, portable_exe, zip_bundle):
         print(f"  • {p.name:34s} ({p.stat().st_size / 1024:.1f} KB)")
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Master Installer Builder for IconMaker:
+Master Installer Builder for Modo by Atoma:
   - Builds native macOS installers (.dmg, .pkg, .zip)
   - Builds clean native Windows PE32+ installers (.exe Setup, Portable .exe, .zip)
 """
@@ -17,7 +17,7 @@ DIST_DIR = ROOT_DIR / "dist"
 
 def main() -> None:
     print("========================================================")
-    print("  СБОРКА УСТАНОВЩИКОВ ICONMAKER (MACOS + WINDOWS)")
+    print("  СБОРКА УСТАНОВЩИКОВ MODO (MACOS + WINDOWS)")
     print("========================================================")
 
     # 1. macOS Build & Packaging

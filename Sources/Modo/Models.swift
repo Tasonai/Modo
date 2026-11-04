@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import IconMakerKit
+import ModoKit
 import Observation
 import SwiftData
 

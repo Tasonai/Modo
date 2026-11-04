@@ -1,4 +1,4 @@
-import IconMakerKit
+import ModoKit
 import SwiftUI
 
 /// The Settings window (Command-Comma). Each tab is a grouped Form that sizes

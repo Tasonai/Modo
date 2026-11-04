@@ -2,11 +2,11 @@
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
   <assemblyIdentity
     type="win32"
-    name="TasonAI.IconMaker.Studio"
-    version="1.2.0.0"
+    name="Atoma.Modo.Studio"
+    version="1.0.0.0"
     processorArchitecture="amd64"
   />
-  <description>IconMaker — Google Pixel and Material You Circular Icon Studio</description>
+  <description>Modo — Adaptive Icon Studio by Atoma</description>
   <dependency>
     <dependentAssembly>
       <assemblyIdentity

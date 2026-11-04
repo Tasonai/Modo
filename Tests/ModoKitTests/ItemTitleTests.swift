@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import IconMakerKit
+@testable import ModoKit
 
 @Test("Clean app titles", arguments: [
     ("Safari.app", "Safari"),

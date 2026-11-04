@@ -1,4 +1,4 @@
-import IconMakerKit
+import ModoKit
 import SwiftData
 import SwiftUI
 
