@@ -13,5 +13,6 @@
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSHumanReadableCopyright</key><string>Copyright © 2026 Atoma. All rights reserved.</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 </dict></plist>
