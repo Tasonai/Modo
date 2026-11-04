@@ -3,11 +3,11 @@
 # Usage: tools/snap.sh            all pages
 #        APP_SNAPSHOT_PAGES=all,settings tools/snap.sh
 set -u
-app=~/Applications/IconMaker.app/Contents/MacOS/IconMaker
-store=/tmp/IconMaker-test.store
-shots=/tmp/IconMaker-shots
+app=~/Applications/Modo.app/Contents/MacOS/Modo
+store=/tmp/Modo-test.store
+shots=/tmp/Modo-shots
 # A crashed run leaves saved window state, and the next launch would wait on a "reopen windows?" alert.
-rm -rf ~/Library/Saved\ Application\ State/com.tasonai.iconmaker.savedState
+rm -rf ~/Library/Saved\ Application\ State/com.atoma.modo.savedState
 # Seed data only fills an empty store, so start from nothing.
 rm -f $store $store-shm $store-wal
 rm -rf $shots

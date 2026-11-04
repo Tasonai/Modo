@@ -333,6 +333,35 @@ static Color DeepenColor(Color c, double factor = 0.42) {
     return Color(255, r, g, b);
 }
 
+static void AddShapePath(GraphicsPath& path, IconShape shape, RectF r) {
+    switch (shape) {
+        case SHAPE_CIRCLE:
+            path.AddEllipse(r);
+            break;
+        case SHAPE_SQUIRCLE:
+            AddRoundedRect(path, r, r.Width * 0.225f);
+            break;
+        case SHAPE_ROUNDED_RECT:
+            AddRoundedRect(path, r, r.Width * 0.16f);
+            break;
+        case SHAPE_PEBBLE:
+            AddRoundedRect(path, r, r.Width * 0.38f);
+            break;
+        case SHAPE_HEXAGON: {
+            REAL cx = r.X + r.Width * 0.5f;
+            REAL cy = r.Y + r.Height * 0.5f;
+            REAL rad = std::min(r.Width, r.Height) * 0.5f;
+            PointF pts[6];
+            for (int i = 0; i < 6; ++i) {
+                REAL angle = (REAL)(i * 3.14159265358979323846 / 3.0 - 3.14159265358979323846 / 6.0);
+                pts[i] = PointF(cx + rad * std::cos(angle), cy + rad * std::sin(angle));
+            }
+            path.AddPolygon(pts, 6);
+            break;
+        }
+    }
+}
+
 Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int canvasSize) {
     Bitmap* out = new Bitmap(canvasSize, canvasSize, PixelFormat32bppARGB);
     if (!sourceBitmap) return out;
@@ -364,7 +393,9 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
                      circleRect.Y - expand * 0.5f + yOff * t,
                      circleRect.Width + expand,
                      circleRect.Height + expand);
-            g.FillEllipse(&sb, sr);
+            GraphicsPath shadowPath;
+            AddShapePath(shadowPath, style.shape, sr);
+            g.FillPath(&sb, &shadowPath);
         }
     }
 
@@ -401,10 +432,12 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
         topFill,
         botFill
     );
-    g.FillEllipse(&discBrush, circleRect);
+    GraphicsPath platePath;
+    AddShapePath(platePath, style.shape, circleRect);
+    g.FillPath(&discBrush, &platePath);
 
     GraphicsPath clipPath;
-    clipPath.AddEllipse(circleRect);
+    AddShapePath(clipPath, style.shape, circleRect);
     GraphicsState state = g.Save();
     g.SetClip(&clipPath, CombineModeReplace);
 
@@ -485,7 +518,9 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
     Pen rimPen(rimColor, penW);
     RectF rimRect = circleRect;
     rimRect.Inflate(-penW * 0.5f, -penW * 0.5f);
-    g.DrawEllipse(&rimPen, rimRect);
+    GraphicsPath rimPath;
+    AddShapePath(rimPath, style.shape, rimRect);
+    g.DrawPath(&rimPen, &rimPath);
 
     delete trimmed;
     return out;

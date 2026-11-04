@@ -32,6 +32,10 @@ struct DetailInspectorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("comparison", area: "detail")
 
+                iconPacksCard
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .gridProbe("packs", area: "detail")
+
                 styleControlsCard
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("controls", area: "detail")
@@ -141,12 +145,81 @@ struct DetailInspectorView: View {
         .overlay(shape.strokeBorder(.separator, lineWidth: 1))
     }
 
+    private var iconPacksCard: some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        return VStack(alignment: .leading, spacing: Space.sm) {
+            HStack {
+                Text("Curated Icon Packs")
+                    .font(.headline)
+                Spacer()
+                Text("One-click style presets")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Space.sm) {
+                    ForEach(IconPack.allPacks) { pack in
+                        packButton(pack)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
+        .overlay(cardShape.strokeBorder(.separator, lineWidth: 1))
+    }
+
+    private func packButton(_ pack: IconPack) -> some View {
+        let isSelected = model.activePackId == pack.id
+        let btnShape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+        return Button {
+            model.applyPack(pack)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: pack.iconSymbol)
+                        .font(.subheadline)
+                    Text(pack.name)
+                        .font(.subheadline.weight(.semibold))
+                }
+                Text(pack.subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, Space.sm)
+            .padding(.vertical, Space.xs)
+            .frame(width: 156, alignment: .leading)
+            .background(isSelected ? Palette.accent.opacity(0.12) : Color.clear, in: btnShape)
+            .overlay(
+                btnShape.strokeBorder(
+                    isSelected ? Palette.accent : Color.primary.opacity(0.15),
+                    lineWidth: isSelected ? 1.5 : 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .help("\(pack.name) (\(pack.category)): \(pack.subtitle)")
+    }
+
     private var styleControlsCard: some View {
         @Bindable var model = model
         let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
         return VStack(alignment: .leading, spacing: Space.md) {
-            Text("Google Pixel & Material You Studio")
+            Text("Modo Adaptive Studio")
                 .font(.headline)
+
+            LabeledContent("Shape Geometry") {
+                Picker("Shape Geometry", selection: $model.style.shape) {
+                    ForEach(IconShape.allCases) { item in
+                        Label(item.title, systemImage: item.symbol).tag(item)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 240)
+            }
 
             LabeledContent("Surface Preset") {
                 Picker("Surface Preset", selection: $model.style.backgroundStyle) {

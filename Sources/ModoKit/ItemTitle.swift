@@ -55,20 +55,22 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
     }
 }
 
-/// Value type holding all parameters for rendering a Google-style circular icon.
+/// Value type holding all parameters for rendering a Modo adaptive icon.
 public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var backgroundStyle: RoundBackgroundStyle
-    /// Foreground glyph scale inside the circular disc (0.30 ... 2.50, i.e. 30% to 250%).
+    /// Icon geometry shape (circle, squircle, rounded rect, pebble, hexagon).
+    public var shape: IconShape
+    /// Foreground glyph scale inside the canvas disc (0.30 ... 2.50, i.e. 30% to 250%).
     public var iconScale: Double
-    /// Horizontal pan offset inside the circle (-1.0 ... 1.0, fraction of circle radius; negative = left, positive = right).
+    /// Horizontal pan offset inside the shape (-1.0 ... 1.0, fraction of radius; negative = left, positive = right).
     public var offsetX: Double
-    /// Vertical pan offset inside the circle (-1.0 ... 1.0, fraction of circle radius; negative = down, positive = up).
+    /// Vertical pan offset inside the shape (-1.0 ... 1.0, fraction of radius; negative = down, positive = up).
     public var offsetY: Double
     /// Outer drop shadow intensity (0.0 ... 1.0).
     public var shadowIntensity: Double
     /// Adds a subtle drop shadow directly under the foreground glyph.
     public var innerShadow: Bool
-    /// Expands square/squircle full-bleed icons to fill the circle seamlessly.
+    /// Expands square/squircle full-bleed icons to fill the canvas seamlessly.
     public var fullBleedSquares: Bool
     /// Applies a Material You monochrome tint to the foreground glyph.
     public var monochromeTint: Bool
@@ -79,6 +81,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
 
     public init(
         backgroundStyle: RoundBackgroundStyle = .googleWhite,
+        shape: IconShape = .circle,
         iconScale: Double = 0.68,
         offsetX: Double = 0.0,
         offsetY: Double = 0.0,
@@ -90,6 +93,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         customHex: UInt32 = 0xE8F0FE
     ) {
         self.backgroundStyle = backgroundStyle
+        self.shape = shape
         self.iconScale = min(max(iconScale, 0.30), 2.50)
         self.offsetX = min(max(offsetX, -1.0), 1.0)
         self.offsetY = min(max(offsetY, -1.0), 1.0)

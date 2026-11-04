@@ -64,3 +64,26 @@ func icoBinaryFormat() {
     #expect(ico[6] == 16) // first entry width = 16
     #expect(ico[22] == 0) // second entry width = 0 (256px)
 }
+
+@Test("IconShape and IconPack catalogs verification")
+func iconPacksCatalog() {
+    #expect(IconShape.allCases.count == 5)
+    #expect(IconPack.allPacks.count == 7)
+
+    let pixel = IconPack.find(id: "pixel_pure")
+    #expect(pixel.style.shape == .circle)
+    #expect(pixel.style.backgroundStyle == .googleWhite)
+
+    let atoma = IconPack.find(id: "atoma_mono")
+    #expect(atoma.style.shape == .squircle)
+    #expect(atoma.style.monochromeTint == true)
+
+    let cyber = IconPack.find(id: "cyber_hex")
+    #expect(cyber.style.shape == .hexagon)
+
+    let squircle = IconPack.find(id: "squircle_studio")
+    #expect(squircle.style.shape == .squircle)
+
+    let fallback = IconPack.find(id: "nonexistent_pack")
+    #expect(fallback.id == "pixel_pure")
+}

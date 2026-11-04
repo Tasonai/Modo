@@ -86,11 +86,19 @@ final class AppModel {
     var search = ""
     var settingsTab: SettingsTab = .general
     var statusMessage = "Ready"
+    var activePackId: String = "pixel_pure"
 
     var style: RoundIconStyle = RoundIconStyle() {
         didSet {
             roundCache.removeAll()
         }
+    }
+
+    /// Selects and activates an icon design pack, updating all rendering parameters.
+    func applyPack(_ pack: IconPack) {
+        activePackId = pack.id
+        style = pack.style
+        statusMessage = "Activated \(pack.name) pack"
     }
 
     private var originalCache: [UUID: NSImage] = [:]
@@ -248,7 +256,7 @@ final class AppModel {
             : "All installed applications are up to date"
     }
 
-    /// Applies the circular Google Pixel icon to a single `Item`.
+    /// Applies the adaptive Modo icon to a single `Item`.
     func applyRoundIcon(to item: Item) {
         let source = IconRenderer.loadOriginalIcon(
             bundlePath: item.bundlePath,
@@ -265,10 +273,11 @@ final class AppModel {
         _ = IconRenderer.applyIcon(hiResRound, toAppAt: item.bundlePath)
         item.isApplied = true
         try? container.mainContext.save()
-        statusMessage = "Applied circular Google icon to \(item.title)"
+        let packName = IconPack.find(id: activePackId).name
+        statusMessage = "Applied \(packName) icon to \(item.title)"
     }
 
-    /// Applies circular Google Pixel icons to all provided `items`.
+    /// Applies adaptive Modo icons to all provided `items`.
     func applyRoundIconsToAll(_ items: [Item]) {
         guard !items.isEmpty else { return }
         for item in items {
@@ -288,7 +297,8 @@ final class AppModel {
             item.isApplied = true
         }
         try? container.mainContext.save()
-        statusMessage = "Applied circular Google icons to \(items.count) apps"
+        let packName = IconPack.find(id: activePackId).name
+        statusMessage = "Applied \(packName) pack to \(items.count) apps"
     }
 
     /// Restores the original macOS icon for `item`.

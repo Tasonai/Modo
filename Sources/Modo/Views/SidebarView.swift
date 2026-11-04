@@ -17,6 +17,29 @@ struct SidebarView: View {
                 }
             }
 
+            Section("Icon Packs") {
+                ForEach(IconPack.allPacks) { pack in
+                    Button {
+                        model.applyPack(pack)
+                    } label: {
+                        HStack(spacing: Space.sm) {
+                            Image(systemName: pack.iconSymbol)
+                                .foregroundStyle(model.activePackId == pack.id ? Palette.accentText : .secondary)
+                            Text(pack.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if model.activePackId == pack.id {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Palette.accentText)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("\(pack.name) — \(pack.subtitle)")
+                }
+            }
+
             Section("Surface Presets") {
                 ForEach(RoundBackgroundStyle.allCases) { preset in
                     Button {

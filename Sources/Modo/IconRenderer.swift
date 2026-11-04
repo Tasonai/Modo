@@ -116,11 +116,11 @@ enum IconRenderer {
         ctx.setShouldAntialias(true)
         ctx.interpolationQuality = .high
 
-        // Google Pixel circular icon specification:
-        // Leave breathing room around the circle for the ambient + key drop shadow so it aligns with macOS Dock optical weight.
+        // Modo adaptive icon specification:
+        // Leave breathing room around the plate for the ambient + key drop shadow so it aligns with macOS Dock optical weight.
         let margin = dim * 0.075
-        let circleRect = CGRect(x: margin, y: margin, width: dim - margin * 2.0, height: dim - margin * 2.0) // grid: ok circle bounds
-        let circlePath = CGPath(ellipseIn: circleRect, transform: nil)
+        let circleRect = CGRect(x: margin, y: margin, width: dim - margin * 2.0, height: dim - margin * 2.0) // grid: ok canvas bounds
+        let circlePath = shapePath(for: style.shape, in: circleRect)
 
         // 1. Outer elevation drop shadow
         if style.shadowIntensity > 0.01 {
@@ -211,7 +211,7 @@ enum IconRenderer {
         ctx.restoreGState()
         ctx.restoreGState() // End circle clip
 
-        // 4. Crisp Google Pixel circular rim highlight
+        // 4. Crisp subtle rim highlight
         ctx.saveGState()
         let borderWidth = max(1.0, dim * 0.004)
         let rimColor: NSColor = style.backgroundStyle == .darkMaterial
@@ -219,11 +219,45 @@ enum IconRenderer {
             : NSColor.black.withAlphaComponent(0.08)
         ctx.setStrokeColor(rimColor.cgColor)
         ctx.setLineWidth(borderWidth)
-        ctx.addPath(CGPath(ellipseIn: circleRect.insetBy(dx: borderWidth * 0.5, dy: borderWidth * 0.5), transform: nil))
+        let insetRect = circleRect.insetBy(dx: borderWidth * 0.5, dy: borderWidth * 0.5)
+        ctx.addPath(shapePath(for: style.shape, in: insetRect))
         ctx.strokePath()
         ctx.restoreGState()
 
         return out
+    }
+
+    /// Constructs the path geometry for the requested `IconShape`.
+    static func shapePath(for shape: IconShape, in rect: CGRect) -> CGPath {
+        switch shape {
+        case .circle:
+            return CGPath(ellipseIn: rect, transform: nil)
+        case .squircle:
+            let r = rect.width * 0.225
+            return CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil)
+        case .roundedRect:
+            let r = rect.width * 0.16
+            return CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil)
+        case .pebble:
+            let r = rect.width * 0.38
+            return CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil)
+        case .hexagon:
+            let path = CGMutablePath()
+            let cx = rect.midX
+            let cy = rect.midY
+            let radius = min(rect.width, rect.height) * 0.5
+            for i in 0..<6 {
+                let angle = CGFloat(i) * CGFloat.pi / 3.0 - CGFloat.pi / 6.0
+                let pt = CGPoint(x: cx + radius * cos(angle), y: cy + radius * sin(angle))
+                if i == 0 {
+                    path.move(to: pt)
+                } else {
+                    path.addLine(to: pt)
+                }
+            }
+            path.closeSubpath()
+            return path
+        }
     }
 
     /// Applies the rendered circular icon to the target `.app` bundle or creates a desktop/folder alias if read-only.

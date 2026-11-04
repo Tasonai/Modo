@@ -31,8 +31,17 @@ enum BgPreset {
     PRESET_CUSTOM_COLOR = 4
 };
 
+enum IconShape {
+    SHAPE_CIRCLE = 0,
+    SHAPE_SQUIRCLE = 1,
+    SHAPE_ROUNDED_RECT = 2,
+    SHAPE_PEBBLE = 3,
+    SHAPE_HEXAGON = 4
+};
+
 struct RoundStyle {
     BgPreset preset = PRESET_GOOGLE_WHITE;
+    IconShape shape = SHAPE_CIRCLE;
     double scale = 0.68;       // 0.30 .. 2.50 (30% .. 250%)
     double offsetX = 0.0;      // -1.0 .. +1.0
     double offsetY = 0.0;      // -1.0 .. +1.0 (positive = up)
