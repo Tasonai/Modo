@@ -87,3 +87,18 @@ func iconPacksCatalog() {
     let fallback = IconPack.find(id: "nonexistent_pack")
     #expect(fallback.id == "pixel_pure")
 }
+
+@Test("CustomIconPack round-trips through JSON and falls back to a default name")
+func customPackCodable() throws {
+    let style = RoundIconStyle(backgroundStyle: .darkMaterial, shape: .hexagon, iconScale: 0.9)
+    let pack = CustomIconPack(name: "  Night  ", style: style)
+    #expect(pack.name == "Night")
+    #expect(pack.id.hasPrefix("custom_"))
+
+    let data = try JSONEncoder().encode([pack])
+    let decoded = try JSONDecoder().decode([CustomIconPack].self, from: data)
+    #expect(decoded == [pack])
+    #expect(decoded[0].style.shape == .hexagon)
+
+    #expect(CustomIconPack(name: "   ", style: style).name == "My Pack")
+}

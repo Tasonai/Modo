@@ -97,7 +97,7 @@ final class AppModel {
             roundCache.removeAll()
             persistStyle()
             // Manual tweaks leave the pack: the UI then reads "Custom Style".
-            if let pack = IconPack.allPacks.first(where: { $0.id == activePackId }), pack.style != style {
+            if let packStyle = styleOfPack(id: activePackId), packStyle != style {
                 activePackId = Self.customPackId
             }
         }
@@ -107,7 +107,42 @@ final class AppModel {
 
     /// Display name of the active pack, or "Custom Style" after manual edits.
     var activePackName: String {
-        IconPack.allPacks.first(where: { $0.id == activePackId })?.name ?? "Custom Style"
+        IconPack.allPacks.first(where: { $0.id == activePackId })?.name
+            ?? customPacks.first(where: { $0.id == activePackId })?.name
+            ?? "Custom Style"
+    }
+
+    /// User-saved packs, persisted in UserDefaults.
+    var customPacks: [CustomIconPack] = [] {
+        didSet {
+            guard persistsPreferences, let data = try? JSONEncoder().encode(customPacks) else { return }
+            UserDefaults.standard.set(data, forKey: Self.customPacksKey)
+        }
+    }
+
+    private func styleOfPack(id: String) -> RoundIconStyle? {
+        IconPack.allPacks.first(where: { $0.id == id })?.style
+            ?? customPacks.first(where: { $0.id == id })?.style
+    }
+
+    /// Saves the current style as a new custom pack and makes it active.
+    func saveCurrentStyleAsPack(named name: String) {
+        let pack = CustomIconPack(name: name, style: style)
+        customPacks.append(pack)
+        activePackId = pack.id
+        statusMessage = "Saved pack \(pack.name)"
+    }
+
+    func applyCustomPack(_ pack: CustomIconPack) {
+        style = pack.style
+        activePackId = pack.id
+        statusMessage = "Activated \(pack.name) pack"
+    }
+
+    func deleteCustomPack(_ pack: CustomIconPack) {
+        customPacks.removeAll { $0.id == pack.id }
+        if activePackId == pack.id { activePackId = Self.customPackId }
+        statusMessage = "Deleted pack \(pack.name)"
     }
 
     /// Selects and activates an icon design pack, updating all rendering parameters.
@@ -127,6 +162,7 @@ final class AppModel {
 
     private static let styleKey = "modo.style"
     private static let packKey = "modo.activePack"
+    private static let customPacksKey = "modo.customPacks"
 
     /// Tests and snapshots run on a throwaway store and must not touch saved preferences.
     private var persistsPreferences: Bool { !Store.isOverridden }
@@ -143,8 +179,12 @@ final class AppModel {
            let saved = try? JSONDecoder().decode(RoundIconStyle.self, from: data) {
             style = saved
         }
+        if let data = defaults.data(forKey: Self.customPacksKey),
+           let saved = try? JSONDecoder().decode([CustomIconPack].self, from: data) {
+            customPacks = saved
+        }
         activePackId = defaults.string(forKey: Self.packKey) ?? activePackId
-        if IconPack.allPacks.first(where: { $0.id == activePackId })?.style != style {
+        if styleOfPack(id: activePackId) != style {
             activePackId = Self.customPackId
         }
     }

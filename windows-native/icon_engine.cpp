@@ -338,9 +338,22 @@ static void AddShapePath(GraphicsPath& path, IconShape shape, RectF r) {
         case SHAPE_CIRCLE:
             path.AddEllipse(r);
             break;
-        case SHAPE_SQUIRCLE:
-            AddRoundedRect(path, r, r.Width * 0.225f);
+        case SHAPE_SQUIRCLE: {
+            // Superellipse |x|^n + |y|^n = 1 with n = 5: continuous curvature, close to the macOS icon outline.
+            const int steps = 256;
+            const double power = 2.0 / 5.0;
+            std::vector<PointF> pts(steps);
+            for (int i = 0; i < steps; ++i) {
+                double t = 2.0 * 3.14159265358979323846 * i / steps;
+                double c = std::cos(t), s = std::sin(t);
+                double x = (c < 0 ? -1.0 : 1.0) * std::pow(std::fabs(c), power);
+                double y = (s < 0 ? -1.0 : 1.0) * std::pow(std::fabs(s), power);
+                pts[i] = PointF((REAL)(r.X + r.Width * 0.5 + x * r.Width * 0.5),
+                                (REAL)(r.Y + r.Height * 0.5 + y * r.Height * 0.5));
+            }
+            path.AddPolygon(pts.data(), steps);
             break;
+        }
         case SHAPE_ROUNDED_RECT:
             AddRoundedRect(path, r, r.Width * 0.16f);
             break;

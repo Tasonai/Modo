@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openSettings) private var openSettings
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
+    @State private var confirmApplyAll = false
 
     private var visibleItems: [Item] {
         items.filter { item in
@@ -58,6 +59,16 @@ struct ContentView: View {
                 }
             }
         }
+        .confirmationDialog(
+            "Apply \(model.activePackName) to \(visibleItems.count) apps?",
+            isPresented: $confirmApplyAll,
+            titleVisibility: .visible
+        ) {
+            Button("Apply to \(visibleItems.count) Apps") { model.applyRoundIconsToAll(visibleItems) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This replaces the icons of these apps. You can restore the originals at any time.")
+        }
         .navigationTitle(model.sidebar.title)
         .navigationSubtitle("\(visibleItems.count) apps · \(model.style.backgroundStyle.title)")
         .searchable(text: $model.search, prompt: "Search applications")
@@ -89,7 +100,7 @@ struct ContentView: View {
                 .help("Choose surface preset")
 
                 Button {
-                    model.applyRoundIconsToAll(visibleItems)
+                    confirmApplyAll = true
                 } label: {
                     Label(visibleItems.isEmpty ? "Apply All" : "Apply All (\(visibleItems.count))", systemImage: "checkmark.circle.badge.sparkles")
                 }
@@ -139,20 +150,31 @@ struct ContentView: View {
         if !model.search.isEmpty { return "Try a different application name or category." }
         return switch model.sidebar {
         case .all: "Scan /Applications or add an app to preview Modo icons."
-        case .applied: "Select an app and click Apply Round Icon to convert its macOS icon."
+        case .applied: "Select an app and apply a Modo icon to restyle its macOS icon."
         case .starred: "Star your favorite apps to keep them handy."
         }
     }
 
     private func exportFolderPicker(for targets: [Item]) {
         let panel = NSOpenPanel()
-        panel.title = "Export Circular Icon Pack (.icns, .ico, .png)"
+        panel.title = "Export Icon Pack (.icns, .ico, .png) — also saved as a .zip"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.prompt = "Export Here"
         if panel.runModal() == .OK, let url = panel.url {
-            model.exportIconPack(for: targets, to: url)
+            let safeName = model.activePackName.replacingOccurrences(of: "/", with: "-")
+            let folder = url.appendingPathComponent("Modo-\(safeName)", isDirectory: true)
+            let count = model.exportIconPack(for: targets, to: folder)
+            if count > 0 {
+                let zip = url.appendingPathComponent("Modo-\(safeName).zip")
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-c", "-k", "--keepParent", folder.path, zip.path]
+                try? ditto.run()
+                ditto.waitUntilExit()
+                model.statusMessage = "Exported \(count) icon sets to \(zip.lastPathComponent)"
+            }
         }
     }
 

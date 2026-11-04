@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import CoreGraphics
 import Foundation
 import ModoKit
@@ -190,13 +191,7 @@ enum IconRenderer {
         if style.monochromeTint && dominant.isSquareLike {
             // A full-bleed squircle icon has no transparent glyph to silhouette: a flat tint would
             // paint a solid block. Desaturate instead, so the artwork keeps its detail.
-            ctx.draw(trimmedCG, in: glyphRect)
-            ctx.saveGState()
-            ctx.clip(to: glyphRect, mask: trimmedCG)
-            ctx.setBlendMode(.saturation)
-            ctx.setFillColor(NSColor(white: 0.5, alpha: 1.0).cgColor)
-            ctx.fill(glyphRect)
-            ctx.restoreGState()
+            ctx.draw(desaturated(trimmedCG), in: glyphRect)
         } else if style.monochromeTint {
             let tintRGB: MaterialRGB = switch style.backgroundStyle {
             case .darkMaterial: MaterialRGB(hex: 0xE6E6E8)
@@ -237,14 +232,45 @@ enum IconRenderer {
         return out
     }
 
+    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+
+    /// Grayscale copy of `image` that keeps its alpha channel (transparent corners stay transparent).
+    static func desaturated(_ image: CGImage) -> CGImage {
+        let input = CIImage(cgImage: image)
+        guard let filter = CIFilter(name: "CIColorControls") else { return image }
+        filter.setValue(input, forKey: kCIInputImageKey)
+        filter.setValue(0.0, forKey: kCIInputSaturationKey)
+        guard let output = filter.outputImage,
+              let result = ciContext.createCGImage(output, from: input.extent) else { return image }
+        return result
+    }
+
+    /// Smooth superellipse |x|^n + |y|^n = 1 (n = 5 is close to the macOS app-icon outline).
+    /// Curvature changes continuously, so there is no visible seam where a corner meets an edge.
+    static func superellipsePath(in rect: CGRect, exponent n: Double) -> CGPath {
+        let path = CGMutablePath()
+        let steps = 256
+        let power = 2.0 / n
+        for i in 0..<steps {
+            let t = 2.0 * Double.pi * Double(i) / Double(steps)
+            let c = cos(t), s = sin(t)
+            let x = (c < 0 ? -1.0 : 1.0) * pow(abs(c), power)
+            let y = (s < 0 ? -1.0 : 1.0) * pow(abs(s), power)
+            let pt = CGPoint(x: rect.midX + CGFloat(x) * rect.width * 0.5,
+                             y: rect.midY + CGFloat(y) * rect.height * 0.5)
+            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+        }
+        path.closeSubpath()
+        return path
+    }
+
     /// Constructs the path geometry for the requested `IconShape`.
     static func shapePath(for shape: IconShape, in rect: CGRect) -> CGPath {
         switch shape {
         case .circle:
             return CGPath(ellipseIn: rect, transform: nil)
         case .squircle:
-            let r = rect.width * 0.225
-            return CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil)
+            return superellipsePath(in: rect, exponent: 5.0)
         case .roundedRect:
             let r = rect.width * 0.16
             return CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil)

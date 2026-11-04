@@ -40,7 +40,7 @@ def package_macos() -> None:
             "--identifier",
             "com.atoma.modo.pkg",
             "--version",
-            "1.1.0",
+            "1.2.0",
             str(pkg_path),
         ],
         check=True,

@@ -67,6 +67,18 @@ enum SelfTest {
             }
             check("titles are cleaned", ItemTitle.clean("  Safari.app ") == "Safari")
 
+            // Icon packs: built-in apply, manual edit leaves the pack, custom save and delete.
+            model.applyPack(.cyberHex)
+            check("applying a pack sets its shape", model.style.shape == .hexagon && model.activePackName == "Cyber Hex")
+            model.style.iconScale = 0.5
+            check("manual edit leaves the pack", model.activePackName == "Custom Style")
+            model.saveCurrentStyleAsPack(named: "Selftest Pack")
+            check("saving a custom pack activates it", model.activePackName == "Selftest Pack")
+            if let saved = model.customPacks.first(where: { $0.name == "Selftest Pack" }) {
+                model.deleteCustomPack(saved)
+            }
+            check("deleting a custom pack removes it", !model.customPacks.contains { $0.name == "Selftest Pack" })
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }

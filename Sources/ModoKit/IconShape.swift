@@ -4,7 +4,7 @@ import Foundation
 public enum IconShape: String, CaseIterable, Codable, Sendable, Identifiable {
     /// Classic circular disc (Google Pixel, Android adaptive circle).
     case circle = "circle"
-    /// macOS-style rounded app-icon plate (22.5% corner radius; not a true continuous-curvature squircle).
+    /// Superellipse (n = 5): continuous curvature, close to the macOS app-icon outline.
     case squircle = "squircle"
     /// Smooth rounded rectangle with customizable optical radius.
     case roundedRect = "rounded_rect"
@@ -28,7 +28,7 @@ public enum IconShape: String, CaseIterable, Codable, Sendable, Identifiable {
     public var subtitle: String {
         switch self {
         case .circle: "Classic circular disc (Google Pixel)"
-        case .squircle: "macOS-style rounded plate"
+        case .squircle: "Smooth superellipse (macOS-like)"
         case .roundedRect: "Modern rounded rectangle"
         case .pebble: "Organic smooth capsule"
         case .hexagon: "Sharp geometric tech plate"
