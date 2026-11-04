@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""
+Packages macOS build into standalone distribution formats:
+  - `dist/IconMaker-macOS.dmg` (Disk Image with /Applications drag-and-drop link)
+  - `dist/IconMaker-macOS-Installer.pkg` (Standard macOS Setup Wizard installer package)
+  - `dist/IconMaker-macOS.zip` (Direct ZIP archive with signed app bundle)
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DIST_DIR = ROOT_DIR / "dist"
+APP_SOURCE = Path.home() / "Applications" / "IconMaker.app"
+
+
+def package_macos() -> None:
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+
+    # If ~/Applications/IconMaker.app does not exist, build it first via build.sh
+    if not APP_SOURCE.exists():
+        print("[*] ~/Applications/IconMaker.app не найден. Запуск ./build.sh...")
+        subprocess.run([str(ROOT_DIR / "build.sh")], cwd=str(ROOT_DIR), check=True)
+
+    assert APP_SOURCE.exists(), f"Не удалось найти {APP_SOURCE}"
+
+    print("[1/3] Сборка стандартного установщика macOS (.pkg)...")
+    pkg_path = DIST_DIR / "IconMaker-macOS-Installer.pkg"
+    pkg_path.unlink(missing_ok=True)
+    subprocess.run(
+        [
+            "pkgbuild",
+            "--component",
+            str(APP_SOURCE),
+            "--install-location",
+            "/Applications",
+            "--identifier",
+            "com.tasonai.iconmaker.pkg",
+            "--version",
+            "1.0.0",
+            str(pkg_path),
+        ],
+        check=True,
+    )
+
+    print("[2/3] Сборка образа диска macOS (.dmg с ярлыком /Applications)...")
+    dmg_staging = Path("/tmp/iconmaker_dmg_staging")
+    if dmg_staging.exists():
+        shutil.rmtree(dmg_staging)
+    dmg_staging.mkdir(parents=True, exist_ok=True)
+
+    shutil.copytree(APP_SOURCE, dmg_staging / "IconMaker.app", symlinks=True)
+    (dmg_staging / "Applications").symlink_to("/Applications")
+
+    dmg_path = DIST_DIR / "IconMaker-macOS.dmg"
+    dmg_path.unlink(missing_ok=True)
+    subprocess.run(
+        [
+            "hdiutil",
+            "create",
+            "-volname",
+            "IconMaker",
+            "-srcfolder",
+            str(dmg_staging),
+            "-ov",
+            "-format",
+            "UDZO",
+            str(dmg_path),
+        ],
+        check=True,
+    )
+
+    print("[3/3] Сборка ZIP-архива приложения (.zip)...")
+    zip_path = DIST_DIR / "IconMaker-macOS.zip"
+    zip_path.unlink(missing_ok=True)
+    subprocess.run(
+        ["ditto", "-c", "-k", "--keepParent", str(APP_SOURCE), str(zip_path)],
+        check=True,
+    )
+
+    if dmg_staging.exists():
+        shutil.rmtree(dmg_staging)
+
+    print("\n========================================================")
+    print("  ГОТОВЫ УСТАНОВЩИКИ MACOS")
+    print("========================================================")
+    for p in (pkg_path, dmg_path, zip_path):
+        print(f"  • {p.name:34s} ({p.stat().st_size / 1024:.1f} KB)")
+
+
+if __name__ == "__main__":
+    package_macos()

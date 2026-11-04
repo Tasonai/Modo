@@ -97,9 +97,10 @@ def normalize_pe_headers(exe_path: Path) -> None:
 
 def main() -> None:
     DIST_DIR.mkdir(parents=True, exist_ok=True)
-    for old in DIST_DIR.glob("*"):
-        if old.is_file():
-            old.unlink()
+    for pattern in ("*Windows*", "*Win*", "GoogleRoundIconizer*", "*.exe"):
+        for old in DIST_DIR.glob(pattern):
+            if old.is_file():
+                old.unlink()
 
     build_tmp = Path("/tmp/iconmaker-win-clean")
     if build_tmp.exists():
