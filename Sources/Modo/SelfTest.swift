@@ -102,6 +102,101 @@ enum SelfTest {
                 AppModel.persistRecordsInSelfTest = false
             }
 
+            // Icon sets: install, hostile archives, catalog download.
+            do {
+                let fm = FileManager.default
+                let work = URL(fileURLWithPath: "/tmp/Modo-selftest-sets", isDirectory: true)
+                try? fm.removeItem(at: work)
+                try? fm.removeItem(at: IconSetStore.root)
+                try? fm.createDirectory(at: work, withIntermediateDirectories: true)
+
+                func png(_ color: NSColor, size: Int = 64) -> Data {
+                    let image = NSImage(size: NSSize(width: size, height: size))
+                    image.lockFocus(); color.setFill(); NSRect(x: 0, y: 0, width: size, height: size).fill(); image.unlockFocus()
+                    return NSBitmapImageRep(cgImage: image.cgImage(forProposedRect: nil, context: nil, hints: nil)!)
+                        .representation(using: .png, properties: [:])!
+                }
+                let pureRed = NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
+                /// Builds a zip from a folder spec and returns its bytes.
+                func makeZip(named name: String, manifestFile: String = "red.png", pngData: Data? = nil,
+                             extra: (URL) -> Void = { _ in }) -> Data {
+                    let dir = work.appendingPathComponent(name, isDirectory: true)
+                    try? fm.removeItem(at: dir)
+                    try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                    let manifest = IconSetManifest(id: name, name: "Set \(name)", author: "Atoma", license: "CC0",
+                                                   icons: [.init(bundleID: "com.example.probe", file: manifestFile)])
+                    try? JSONEncoder().encode(manifest).write(to: dir.appendingPathComponent("manifest.json"))
+                    try? (pngData ?? png(pureRed)).write(to: dir.appendingPathComponent("red.png"))
+                    extra(dir)
+                    let zip = work.appendingPathComponent("\(name).zip")
+                    try? fm.removeItem(at: zip)
+                    let p = Process()
+                    p.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+                    p.currentDirectoryURL = dir
+                    p.arguments = ["-q", "-r", "-y", zip.path, "."]
+                    try? p.run(); p.waitUntilExit()
+                    return (try? Data(contentsOf: zip)) ?? Data()
+                }
+
+                let good = makeZip(named: "goodset")
+                let goodHash = IconSetRules.sha256Hex(good)
+                let installed = try? IconSetStore.install(zipData: good, expectedSHA256: goodHash)
+                check("a valid icon set installs", installed?.id == "goodset" && IconSetStore.installedSets().count == 1)
+
+                model.refreshIconSets()
+                model.activeIconSetID = "goodset"
+                let probe = Item(title: "Probe", bundleIdentifier: "com.example.probe")
+                let art = model.sourceIcon(for: probe, canvasSize: 64)
+                let artRep = art.cgImage(forProposedRect: nil, context: nil, hints: nil).map { NSBitmapImageRep(cgImage: $0) }
+                let artColor = artRep?.colorAt(x: 32, y: 32)?.usingColorSpace(.sRGB)
+                check("the active set's picture is used for a matching app", (artColor?.redComponent ?? 0) > 0.8 && (artColor?.redComponent ?? 0) > (artColor?.greenComponent ?? 0) + 0.4)
+                let other = Item(title: "Other", bundleIdentifier: "com.example.other")
+                check("an app the set does not cover keeps its own icon", model.sourceIcon(for: other, canvasSize: 64) !== art)
+                model.activeIconSetID = nil
+
+                @MainActor func refuses(_ label: String, _ data: Data, sha: String? = nil) {
+                    let before = IconSetStore.installedSets().count
+                    let threw = (try? IconSetStore.install(zipData: data, expectedSHA256: sha)) == nil
+                    check(label, threw && IconSetStore.installedSets().count == before)
+                }
+                refuses("a wrong checksum is refused", good, sha: String(repeating: "0", count: 64))
+                refuses("a manifest path that escapes the folder is refused", makeZip(named: "escape", manifestFile: "../evil.png"))
+                check("nothing was written outside the set folder", !fm.fileExists(atPath: work.appendingPathComponent("evil.png").path))
+                refuses("a symlink inside the archive is refused", makeZip(named: "linked") { dir in
+                    try? fm.createSymbolicLink(atPath: dir.appendingPathComponent("link.png").path, withDestinationPath: "/etc/hosts")
+                })
+                refuses("a listed 'png' that is really text is refused", makeZip(named: "fake", pngData: Data("not an image".utf8)))
+                refuses("an oversized picture is refused", makeZip(named: "huge", pngData: png(.blue, size: IconSetRules.maxPixels + 1)))
+                refuses("garbage is refused", Data("definitely not a zip".utf8))
+
+                // Catalog over a local file: fetch, then download and install.
+                let catalog = IconCatalog(format: IconSetRules.catalogFormat, version: 1, sets: [
+                    .init(id: "goodset", name: "Set goodset", author: "Atoma", license: "CC0", version: "1",
+                          url: work.appendingPathComponent("goodset.zip").absoluteString, sha256: goodHash,
+                          sizeBytes: good.count, iconCount: 1),
+                    .init(id: "tampered", name: "Tampered", author: "Evil", license: "?", version: "1",
+                          url: work.appendingPathComponent("goodset.zip").absoluteString, sha256: String(repeating: "1", count: 64),
+                          sizeBytes: good.count, iconCount: 1),
+                ])
+                let catalogURL = work.appendingPathComponent("catalog.json")
+                try? JSONEncoder().encode(catalog).write(to: catalogURL)
+                IconSetStore.remove(id: "goodset")
+                if let fetched = try? await IconSetStore.fetchCatalog(from: catalogURL) {
+                    check("a catalog lists its sets", fetched.sets.count == 2)
+                    let ok = try? await IconSetStore.download(fetched.sets[0])
+                    check("a catalog entry downloads and installs", ok?.id == "goodset")
+                    let bad = try? await IconSetStore.download(fetched.sets[1])
+                    check("a download that fails its checksum is refused", bad == nil)
+                } else {
+                    check("a catalog lists its sets", false)
+                }
+                model.refreshIconSets()
+                if let set = model.installedIconSets.first { model.removeIconSet(set) }
+                check("removing a set deletes it", model.installedIconSets.isEmpty)
+                try? fm.removeItem(at: work)
+                try? fm.removeItem(at: IconSetStore.root)
+            }
+
             // Icon packs: built-in apply, manual edit leaves the pack, custom save and delete.
             model.applyPack(.cyberHex)
             check("applying a pack sets its shape", model.style.shape == .hexagon && model.activePackName == "Cyber Hex")

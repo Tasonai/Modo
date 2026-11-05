@@ -82,12 +82,7 @@ extension AppModel {
                 hasIconFile: Self.hasIconFile(at: item.bundlePath)
             )
             guard needs else { continue }
-            let source = IconRenderer.loadOriginalIcon(
-                bundlePath: item.bundlePath,
-                symbolName: item.symbolName,
-                brandHex: UInt32(clamping: item.brandHex),
-                canvasSize: 512
-            )
+            let source = sourceIcon(for: item, canvasSize: 512)
             let rendered = IconRenderer.renderRoundIcon(
                 sourceImage: source,
                 style: style,

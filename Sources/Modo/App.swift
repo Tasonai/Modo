@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 /// Where the data lives: ~/Library/Application Support/Modo/Modo.store
 enum Store {
-    static var isOverridden: Bool {
+    nonisolated static var isOverridden: Bool {
         !(ProcessInfo.processInfo.environment["APP_STORE"] ?? "").isEmpty
     }
 

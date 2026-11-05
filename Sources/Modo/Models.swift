@@ -212,10 +212,57 @@ final class AppModel {
            let saved = try? JSONDecoder().decode([CustomIconPack].self, from: data) {
             customPacks = saved
         }
+        activeIconSetID = defaults.string(forKey: Self.iconSetKey)
         activePackId = defaults.string(forKey: Self.packKey) ?? activePackId
         if styleOfPack(id: activePackId) != style {
             activePackId = Self.customPackId
         }
+    }
+
+    // MARK: Icon sets
+
+    /// Sets installed on disk (refreshed after install / remove).
+    var installedIconSets: [InstalledIconSet] = IconSetStore.installedSets()
+
+    /// The set whose artwork replaces each app's own icon; `nil` means the apps' original icons.
+    var activeIconSetID: String? = nil {
+        didSet {
+            roundCache.removeAll()
+            if persistsPreferences { UserDefaults.standard.set(activeIconSetID, forKey: Self.iconSetKey) }
+        }
+    }
+
+    private static let iconSetKey = "modo.activeIconSet"
+
+    var activeIconSet: InstalledIconSet? {
+        guard let id = activeIconSetID else { return nil }
+        return installedIconSets.first { $0.id == id }
+    }
+
+    func refreshIconSets() {
+        installedIconSets = IconSetStore.installedSets()
+        if let id = activeIconSetID, !installedIconSets.contains(where: { $0.id == id }) {
+            activeIconSetID = nil
+        }
+    }
+
+    func removeIconSet(_ set: InstalledIconSet) {
+        IconSetStore.remove(id: set.id)
+        refreshIconSets()
+        statusMessage = "Removed icon set \(set.manifest.name)"
+    }
+
+    /// The artwork Modo styles for `item`: the active set's picture for this app, else the app's own icon.
+    func sourceIcon(for item: Item, canvasSize: Int) -> NSImage {
+        if let set = activeIconSet, let image = IconSetStore.image(for: item.bundleIdentifier, in: set) {
+            return image
+        }
+        return IconRenderer.loadOriginalIcon(
+            bundlePath: item.bundlePath,
+            symbolName: item.symbolName,
+            brandHex: UInt32(clamping: item.brandHex),
+            canvasSize: canvasSize
+        )
     }
 
     /// Returns the cached original macOS squircle icon for `item`.
@@ -238,7 +285,7 @@ final class AppModel {
         if let cached = roundCache[item.id] {
             return cached
         }
-        let source = originalIcon(for: item)
+        let source = sourceIcon(for: item, canvasSize: 256)
         let rendered = IconRenderer.renderRoundIcon(
             sourceImage: source,
             style: style,
@@ -368,12 +415,7 @@ final class AppModel {
 
     /// Applies the adaptive Modo icon to a single `Item`.
     func applyRoundIcon(to item: Item) {
-        let source = IconRenderer.loadOriginalIcon(
-            bundlePath: item.bundlePath,
-            symbolName: item.symbolName,
-            brandHex: UInt32(clamping: item.brandHex),
-            canvasSize: 1024
-        )
+        let source = sourceIcon(for: item, canvasSize: 1024)
         let hiResRound = IconRenderer.renderRoundIcon(
             sourceImage: source,
             style: style,
@@ -392,12 +434,7 @@ final class AppModel {
     func applyRoundIconsToAll(_ items: [Item]) {
         guard !items.isEmpty else { return }
         for item in items {
-            let source = IconRenderer.loadOriginalIcon(
-                bundlePath: item.bundlePath,
-                symbolName: item.symbolName,
-                brandHex: UInt32(clamping: item.brandHex),
-                canvasSize: 512
-            )
+            let source = sourceIcon(for: item, canvasSize: 512)
             let round = IconRenderer.renderRoundIcon(
                 sourceImage: source,
                 style: style,
@@ -438,12 +475,7 @@ final class AppModel {
     func exportIconPack(for items: [Item], to directory: URL) -> Int {
         var count = 0
         for item in items {
-            let source = IconRenderer.loadOriginalIcon(
-                bundlePath: item.bundlePath,
-                symbolName: item.symbolName,
-                brandHex: UInt32(clamping: item.brandHex),
-                canvasSize: 1024
-            )
+            let source = sourceIcon(for: item, canvasSize: 1024)
             if let urls = try? IconRenderer.exportIconPack(
                 for: item.title,
                 sourceImage: source,

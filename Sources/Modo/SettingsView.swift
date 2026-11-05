@@ -59,6 +59,7 @@ struct GeneralSettings: View {
     @AppStorage("createAliasOnReadOnly") private var createAliasOnReadOnly = true
     @AppStorage("exportIncludesICO") private var exportIncludesICO = true
     @AppStorage("autoReapplyIcons") private var autoReapplyIcons = true
+    @AppStorage("iconSetCatalogURL") private var iconSetCatalogURL = ""
 
     var body: some View {
         @Bindable var model = model
@@ -77,6 +78,7 @@ struct GeneralSettings: View {
             Toggle("Create ~/Applications/Round Icons alias for read-only apps", isOn: $createAliasOnReadOnly)
             Toggle("Export multi-size Windows .ico alongside Apple .icns", isOn: $exportIncludesICO)
             Toggle("Re-apply Modo icons after an app is updated", isOn: $autoReapplyIcons)
+            TextField("Icon set catalog URL", text: $iconSetCatalogURL, prompt: Text("https://…/catalog.json"))
         }
     }
 }

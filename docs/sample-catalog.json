@@ -1,0 +1,17 @@
+{
+  "format": "modo-icon-catalog",
+  "version": 1,
+  "sets": [
+    {
+      "id": "papirus-sample",
+      "name": "Papirus Sample",
+      "author": "Papirus Development Team",
+      "license": "GPL-3.0",
+      "version": "1.0.0",
+      "url": "https://raw.githubusercontent.com/atoma/modo-icon-sets/main/packs/papirus-sample.zip",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 102400,
+      "iconCount": 24
+    }
+  ]
+}

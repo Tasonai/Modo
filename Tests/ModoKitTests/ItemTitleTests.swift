@@ -190,3 +190,91 @@ func packFileSanitizes() throws {
     #expect(pack.style.shadowIntensity == 1.0)
     #expect(pack.name.count == 60)
 }
+
+// MARK: - Icon sets
+
+@Test("Set ids are folder-safe")
+func iconSetIDs() {
+    for ok in ["atoma-basics", "papirus_1.2", "a"] { #expect(IconSetRules.isValidID(ok)) }
+    for bad in ["", "Atoma", "../x", "a/b", ".hidden", "a..b", "sp ace", String(repeating: "a", count: 65)] {
+        #expect(!IconSetRules.isValidID(bad), "\(bad) must be rejected")
+    }
+}
+
+@Test("Only safe relative PNG paths are accepted")
+func iconSetPaths() {
+    for ok in ["a.png", "icons/safari.PNG", "x/y/z.png"] { #expect(IconSetRules.isSafeRelativePNGPath(ok)) }
+    for bad in ["", "/etc/x.png", "../x.png", "a/../b.png", "a//b.png", ".hidden.png", "a/.b.png", "a\\b.png", "a.jpg", "a.png/"] {
+        #expect(!IconSetRules.isSafeRelativePNGPath(bad), "\(bad) must be rejected")
+    }
+}
+
+private func catalogJSON(_ entries: String) -> Data {
+    Data(#"{"format":"modo-icon-catalog","version":1,"sets":[\#(entries)]}"#.utf8)
+}
+
+private let goodHash = String(repeating: "a", count: 64)
+
+private func entryJSON(id: String = "basics", url: String = "https://example.com/b.zip", sha: String = goodHash, size: Int = 1000) -> String {
+    #"{"id":"\#(id)","name":"Basics","author":"Atoma","license":"CC0","version":"1","url":"\#(url)","sha256":"\#(sha)","sizeBytes":\#(size),"iconCount":3}"#
+}
+
+@Test("Catalog keeps valid entries and drops hostile ones")
+func catalogFiltering() throws {
+    let entries = [
+        entryJSON(id: "good"),
+        entryJSON(id: "http-link", url: "http://example.com/b.zip"),
+        entryJSON(id: "file-link", url: "file:///etc/passwd"),
+        entryJSON(id: "ftp-link", url: "ftp://example.com/b.zip"),
+        entryJSON(id: "../escape"),
+        entryJSON(id: "short-hash", sha: "abc"),
+        entryJSON(id: "upper-hash", sha: String(repeating: "A", count: 64)),
+        entryJSON(id: "huge", size: IconSetRules.maxZipBytes + 1),
+        entryJSON(id: "good"),
+    ].joined(separator: ",")
+    let catalog = try IconSetRules.decodeCatalog(catalogJSON(entries))
+    #expect(catalog.sets.map(\.id) == ["good"])
+}
+
+@Test("File URLs are accepted in a catalog only when explicitly allowed")
+func catalogFileURLs() throws {
+    let data = catalogJSON(entryJSON(url: "file:///tmp/b.zip"))
+    #expect(try IconSetRules.decodeCatalog(data).sets.isEmpty)
+    #expect(try IconSetRules.decodeCatalog(data, allowFileURLs: true).sets.count == 1)
+}
+
+@Test("Catalog rejects other formats and newer versions")
+func catalogRejects() {
+    #expect(throws: IconSetError.notACatalog) { try IconSetRules.decodeCatalog(Data("[]".utf8)) }
+    #expect(throws: IconSetError.notACatalog) { try IconSetRules.decodeCatalog(Data(#"{"format":"x","version":1,"sets":[]}"#.utf8)) }
+    #expect(throws: IconSetError.unsupportedVersion(5)) {
+        try IconSetRules.decodeCatalog(Data(#"{"format":"modo-icon-catalog","version":5,"sets":[]}"#.utf8))
+    }
+}
+
+@Test("Manifest validation refuses path escapes, bad ids and duplicate bundle ids")
+func manifestRules() throws {
+    func manifest(id: String = "ok", icons: [IconSetManifest.Entry]) throws -> Data {
+        try JSONEncoder().encode(IconSetManifest(id: id, name: "N", author: "A", license: "L", icons: icons))
+    }
+    let good = try manifest(icons: [.init(bundleID: "com.apple.Safari", file: "safari.png")])
+    #expect(try IconSetRules.decodeManifest(good).icons.count == 1)
+    #expect(throws: IconSetError.unsafePath("../x.png")) {
+        try IconSetRules.decodeManifest(try manifest(icons: [.init(bundleID: "a.b", file: "../x.png")]))
+    }
+    #expect(throws: IconSetError.invalidID("Bad Id")) {
+        try IconSetRules.decodeManifest(try manifest(id: "Bad Id", icons: []))
+    }
+    #expect(throws: IconSetError.duplicateBundleID("a.b")) {
+        try IconSetRules.decodeManifest(try manifest(icons: [.init(bundleID: "a.b", file: "1.png"), .init(bundleID: "a.b", file: "2.png")]))
+    }
+    #expect(throws: IconSetError.duplicateBundleID("a b")) {
+        try IconSetRules.decodeManifest(try manifest(icons: [.init(bundleID: "a b", file: "1.png")]))
+    }
+    #expect(throws: IconSetError.notAnIconSet) { try IconSetRules.decodeManifest(Data("{}".utf8)) }
+}
+
+@Test("SHA-256 matches the known digest of 'abc'")
+func sha256Known() {
+    #expect(IconSetRules.sha256Hex(Data("abc".utf8)) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+}

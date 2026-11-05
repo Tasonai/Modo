@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
     let items: [Item]
+    @State private var showIconSets = false
 
     var body: some View {
         @Bindable var model = model
@@ -40,6 +41,56 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                     .help("\(pack.name) — \(pack.subtitle)")
                 }
+            }
+
+            Section("Icon Sets") {
+                Button {
+                    model.activeIconSetID = nil
+                } label: {
+                    HStack(spacing: Space.sm) {
+                        Image(systemName: "app.dashed")
+                            .foregroundStyle(model.activeIconSetID == nil ? Palette.accentText : .secondary)
+                        Text("Original icons")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if model.activeIconSetID == nil {
+                            Image(systemName: "checkmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Palette.accentText)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                ForEach(model.installedIconSets) { set in
+                    Button {
+                        model.activeIconSetID = set.id
+                    } label: {
+                        HStack(spacing: Space.sm) {
+                            Image(systemName: "photo.stack")
+                                .foregroundStyle(model.activeIconSetID == set.id ? Palette.accentText : .secondary)
+                            Text(set.manifest.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if model.activeIconSetID == set.id {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Palette.accentText)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("\(set.manifest.name) by \(set.manifest.author) · \(set.manifest.license) · \(set.manifest.icons.count) icons")
+                    .contextMenu {
+                        Button("Remove Icon Set", role: .destructive) { model.removeIconSet(set) }
+                    }
+                }
+                Button {
+                    showIconSets = true
+                } label: {
+                    Label("Get Icon Sets…", systemImage: "arrow.down.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
 
             Section("My Packs") {
@@ -103,6 +154,10 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+        .sheet(isPresented: $showIconSets) {
+            IconSetBrowserView()
+                .environment(model)
         }
     }
 
