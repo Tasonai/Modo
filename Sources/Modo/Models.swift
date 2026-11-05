@@ -51,6 +51,11 @@ final class Item {
         self.customOffsetY = customOffsetY
         self.customImageData = customImageData
     }
+
+    /// Whether this entry is an ordinary filesystem folder/directory (rather than a .app bundle).
+    var isFolder: Bool {
+        categoryName == "Folder" || (!bundlePath.isEmpty && !bundlePath.hasSuffix(".app") && (try? URL(fileURLWithPath: bundlePath).resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true)
+    }
 }
 
 /// Sidebar filter pages. Snapshot mode walks through every case automatically.
@@ -107,6 +112,8 @@ final class AppModel {
     var settingsTab: SettingsTab = .general
     var statusMessage = "Ready"
     var showUpdateSheet: Bool = false
+    var showBatchCreator: Bool = false
+    var batchInitialFolderURL: URL? = nil
 
     var viewMode: AppViewMode = .list {
         didSet {
@@ -492,6 +499,45 @@ final class AppModel {
         statusMessage = "Imported \(item.title)"
     }
 
+    /// Adds or imports a directory folder by its URL to customize its Finder icon.
+    func addFolder(from url: URL) {
+        let fullPath = url.path
+        let folderName = url.lastPathComponent
+        let context = container.mainContext
+        let existing = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        if let match = existing.first(where: { $0.bundlePath == fullPath }) {
+            selection = match.id
+            statusMessage = "Folder \(match.title) is already in library"
+            return
+        }
+
+        let item = Item(
+            title: folderName,
+            bundlePath: fullPath,
+            bundleIdentifier: "com.folder.\(UUID().uuidString.prefix(6).lowercased())",
+            categoryName: "Folder",
+            symbolName: "folder.fill",
+            brandHex: FolderColorPreset.appleBlue.hex
+        )
+        context.insert(item)
+        try? context.save()
+        selection = item.id
+        statusMessage = "Imported folder \(item.title)"
+    }
+
+    /// Prompts user to pick a folder from disk to style.
+    func promptFolderPicker() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Folder to Style"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose Folder"
+        if panel.runModal() == .OK, let url = panel.url {
+            addFolder(from: url)
+        }
+    }
+
     /// Adds a custom sample application item (used by File > New Item and self-test).
     func addItem(
         title: String = "Custom App",
@@ -571,21 +617,48 @@ final class AppModel {
             : "All installed applications are up to date"
     }
 
+    /// Returns the rendered customized folder icon for `item`.
+    func folderIcon(for item: Item) -> NSImage {
+        if let cached = roundCache[item.id] { return cached }
+        let preset = FolderColorPreset.allCases.first(where: { $0.hex == item.brandHex }) ?? .appleBlue
+        let folderStyle = FolderStyle(
+            colorHex: preset.hex,
+            accentHex: preset.accentHex,
+            embossStyle: .etched,
+            badgeSymbolName: item.symbolName
+        )
+        var glyphSVG: String? = nil
+        if let data = item.customImageData, let text = String(data: data, encoding: .utf8), CustomArtworkHelper.isSVGData(data) {
+            glyphSVG = text
+        }
+        let svg = FolderVectorGenerator.generateFolderSVG(style: folderStyle, size: 512, centerGlyphSVG: glyphSVG)
+        if let data = svg.data(using: .utf8), let img = NSImage(data: data) {
+            roundCache[item.id] = img
+            return img
+        }
+        return roundIcon(for: item)
+    }
+
     /// Applies the adaptive Modo icon to a single `Item`.
     func applyRoundIcon(to item: Item) {
-        let source = sourceIcon(for: item, canvasSize: 1024)
-        let hiResRound = IconRenderer.renderRoundIcon(
-            sourceImage: source,
-            style: effectiveStyle(for: item),
-            fallbackHex: UInt32(clamping: item.brandHex),
-            canvasSize: 1024
-        )
-        _ = IconRenderer.applyIcon(hiResRound, toAppAt: item.bundlePath)
+        let hiRes: NSImage
+        if item.isFolder {
+            hiRes = folderIcon(for: item)
+        } else {
+            let source = sourceIcon(for: item, canvasSize: 1024)
+            hiRes = IconRenderer.renderRoundIcon(
+                sourceImage: source,
+                style: effectiveStyle(for: item),
+                fallbackHex: UInt32(clamping: item.brandHex),
+                canvasSize: 1024
+            )
+        }
+        _ = IconRenderer.applyIcon(hiRes, toAppAt: item.bundlePath)
         item.isApplied = true
         recordApplied(item)
         try? container.mainContext.save()
-        let packName = activePackName
-        statusMessage = "Applied \(packName) icon to \(item.title)"
+        let name = item.isFolder ? "Folder Style" : activePackName
+        statusMessage = "Applied \(name) to \(item.title)"
     }
 
     /// Applies adaptive Modo icons to all provided `items`.

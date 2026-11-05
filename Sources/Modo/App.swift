@@ -43,6 +43,11 @@ struct ModoApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Add Custom App…") { model.addItem() }
                     .keyboardShortcut("n")
+                Button("Add Folder to Style…") { model.promptFolderPicker() }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
+                Button("Batch Convert Folder to Icon Pack…") { model.showBatchCreator = true }
+                    .keyboardShortcut("b", modifiers: [.command, .shift])
+                Divider()
                 Button("Scan Installed Applications") { model.scanInstalledApplications() }
                     .keyboardShortcut("r")
             }

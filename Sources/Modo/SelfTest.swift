@@ -383,6 +383,48 @@ enum SelfTest {
                 let validHash = OTAUpdateEngine.sha256(data: payload)
                 check("OTAUpdateEngine validates matching SHA-256", OTAUpdateEngine.verifyChecksum(data: payload, expectedSHA256: validHash))
                 check("OTAUpdateEngine rejects tampered checksum", !OTAUpdateEngine.verifyChecksum(data: payload, expectedSHA256: "0000000000000000000000000000000000000000000000000000000000000000"))
+
+                // Folder Icon Styler: SVG generation, color presets & folder customization
+                let folderSVG = FolderVectorGenerator.generateFolderSVG(
+                    style: FolderStyle(preset: .sunsetOrange, embossStyle: .etched),
+                    size: 512,
+                    centerGlyphSVG: "<circle cx=\"256\" cy=\"330\" r=\"40\" fill=\"white\"/>"
+                )
+                check("FolderVectorGenerator outputs valid SVG", folderSVG.contains("<svg") && folderSVG.contains("linearGradient"))
+                check("FolderColorPreset provides all 9 palette colors", FolderColorPreset.allCases.count == 9)
+
+                let fm = FileManager.default
+                let testFolder = URL(fileURLWithPath: "/tmp/ModoFolderTest")
+                try? fm.removeItem(at: testFolder)
+                try? fm.createDirectory(at: testFolder, withIntermediateDirectories: true)
+                model.addFolder(from: testFolder)
+                if let folderItem = items().first(where: { $0.bundlePath == testFolder.path }) {
+                    check("added folder item is identified as isFolder", folderItem.isFolder)
+                    let folderImg = model.folderIcon(for: folderItem)
+                    check("model.folderIcon renders an NSImage", folderImg.size.width > 0 && folderImg.size.height > 0)
+                    model.applyRoundIcon(to: folderItem)
+                    check("applying folder icon marks item as applied", folderItem.isApplied)
+                    model.restoreOriginalIcon(for: folderItem)
+                    check("restoring folder icon clears applied state", !folderItem.isApplied)
+                    context.delete(folderItem)
+                    try? context.save()
+                }
+                try? fm.removeItem(at: testFolder)
+
+                // Batch Iconset & Pack Creator: Directory scanning & pack naming
+                let batchDir = URL(fileURLWithPath: "/tmp/ModoBatchTest")
+                try? fm.removeItem(at: batchDir)
+                try? fm.createDirectory(at: batchDir, withIntermediateDirectories: true)
+                let samplePNG = batchDir.appendingPathComponent("safari-browser.png")
+                let sampleSVG = batchDir.appendingPathComponent("developer-terminal.svg")
+                try? "fake-png-data".write(to: samplePNG, atomically: true, encoding: .utf8)
+                try? "<svg></svg>".write(to: sampleSVG, atomically: true, encoding: .utf8)
+                let candidates = BatchIconEngine.scanDirectory(at: batchDir)
+                check("BatchIconEngine scans image files into candidates", candidates.count == 2)
+                check("BatchIconEngine formats title from filename", candidates.contains(where: { $0.cleanTitle == "Safari Browser" }))
+                let safeName = BatchIconEngine.safePackName("My Awesome Design Pack! 2026")
+                check("BatchIconEngine formats safe pack name", safeName == "My-Awesome-Design-Pack-2026")
+                try? fm.removeItem(at: batchDir)
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

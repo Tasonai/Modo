@@ -66,6 +66,11 @@ struct DetailInspectorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("comparison", area: "detail")
 
+                if item.isFolder {
+                    folderCustomizationCard
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 customArtworkCard
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("custom_artwork", area: "detail")
@@ -188,7 +193,7 @@ struct DetailInspectorView: View {
             }
 
             VStack(spacing: Space.sm) {
-                Image(nsImage: model.roundIcon(for: item))
+                Image(nsImage: item.isFolder ? model.folderIcon(for: item) : model.roundIcon(for: item))
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 96, height: 96)
@@ -213,7 +218,7 @@ struct DetailInspectorView: View {
                         model.style.resetPosition()
                     }
                     .help("Drag to pan icon · Double click to center")
-                Text(model.activePackName)
+                Text(item.isFolder ? "macOS Tinted Folder" : model.activePackName)
                     .font(.callout.weight(.semibold))
                 Text("Drag to Pan · Double click to Center")
                     .font(.caption)
@@ -341,6 +346,82 @@ struct DetailInspectorView: View {
         } isTargeted: { targeted in
             isDropTargeted = targeted
         }
+    }
+
+    private var folderCustomizationCard: some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        return VStack(alignment: .leading, spacing: Space.md) {
+            Label("macOS Folder Tint & Styling", systemImage: "folder.fill.badge.gearshape")
+                .font(.headline)
+
+            Text("Pick a folder color and combine it with your chosen badge to style this folder in Finder.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            // Preset Colors Grid
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Folder Color Preset")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
+                    ForEach(FolderColorPreset.allCases) { preset in
+                        Button {
+                            item.brandHex = preset.hex
+                            model.invalidateCache(for: item)
+                            try? context.save()
+                        } label: {
+                            VStack(spacing: 4) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: UInt32(preset.hex)))
+                                        .frame(width: 26, height: 26)
+                                        .shadow(color: Color(hex: UInt32(preset.hex)).opacity(0.3), radius: 2)
+
+                                    if item.brandHex == preset.hex {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                Text(preset.rawValue)
+                                    .font(.system(size: 9))
+                                    .lineLimit(1)
+                                    .foregroundStyle(item.brandHex == preset.hex ? Palette.accent : .secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    model.applyRoundIcon(to: item)
+                } label: {
+                    Label("Apply to Folder in Finder", systemImage: "folder.badge.checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+
+                if item.isApplied {
+                    Button("Restore Original") {
+                        model.restoreOriginalIcon(for: item)
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if !item.bundlePath.isEmpty {
+                    Button("Reveal in Finder") {
+                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: item.bundlePath)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
+        .overlay(cardShape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
     }
 
     private var iconPacksCard: some View {

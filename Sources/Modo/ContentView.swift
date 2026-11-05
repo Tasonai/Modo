@@ -139,6 +139,13 @@ struct ContentView: View {
                 .disabled(visibleItems.isEmpty)
 
                 Button {
+                    model.showBatchCreator = true
+                } label: {
+                    Label("Batch Pack…", systemImage: "square.stack.3d.up.fill")
+                }
+                .help("Batch convert a folder of logos/images into an icon pack (⌘⇧B)")
+
+                Button {
                     model.scanInstalledApplications()
                 } label: {
                     Label("Scan Apps", systemImage: "arrow.clockwise")
@@ -152,6 +159,10 @@ struct ContentView: View {
         }
         .sheet(isPresented: $model.showUpdateSheet) {
             OTAUpdateSheetView()
+                .themed()
+        }
+        .sheet(isPresented: $model.showBatchCreator) {
+            BatchCreatorSheetView()
                 .themed()
         }
         .task {
@@ -251,9 +262,22 @@ struct ContentView: View {
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
         for provider in providers {
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                guard let url = url, url.pathExtension == "app" else { return }
+                guard let url = url else { return }
                 Task { @MainActor in
-                    self.model.addApplication(from: url)
+                    var isDir: ObjCBool = false
+                    if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                        if url.pathExtension == "app" {
+                            self.model.addApplication(from: url)
+                        } else {
+                            let candidates = BatchIconEngine.scanDirectory(at: url)
+                            if candidates.count >= 2 {
+                                self.model.batchInitialFolderURL = url
+                                self.model.showBatchCreator = true
+                            } else {
+                                self.model.addFolder(from: url)
+                            }
+                        }
+                    }
                 }
             }
         }
