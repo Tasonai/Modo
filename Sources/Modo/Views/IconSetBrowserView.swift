@@ -3,49 +3,197 @@ import ModoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Sheet that lists the icon sets of the online catalog and installs them.
+/// Sheet that lists popular icon sets and online community catalogs.
 struct IconSetBrowserView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("iconSetCatalogURL") private var catalogURL = ""
+    @AppStorage("iconSetCatalogURL") private var catalogURL = IconSetRules.defaultCatalogURL
 
     @State private var catalog: IconCatalog?
     @State private var loading = false
     @State private var busyID: String?
     @State private var message: String?
+    @State private var selectedTab: BrowserTab = .popular
+
+    enum BrowserTab: String, CaseIterable, Identifiable {
+        case popular = "Popular Packs"
+        case online = "Online Catalog"
+        var id: String { rawValue }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.md) {
+            // Header
             HStack {
-                Text("Online Icon Sets")
+                Text("Icon Sets")
                     .font(.title3.weight(.semibold))
                 Spacer()
-                Button("Install from File…") { installFromFile() }
+                Button("Install from ZIP…") { installFromFile() }
                     .controlSize(.small)
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
 
-            if catalogURL.trimmingCharacters(in: .whitespaces).isEmpty {
-                Text("No catalog yet. Paste the address of an icon set catalog (a JSON file) below, or in Settings.")
-                    .foregroundStyle(.secondary)
+            // Tab Picker
+            Picker("", selection: $selectedTab) {
+                ForEach(BrowserTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            if let message {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(Palette.accentText)
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, Space.sm)
+                .padding(.vertical, 4)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: Radius.sm))
             }
 
+            // Content
+            switch selectedTab {
+            case .popular:
+                popularPacksList
+            case .online:
+                onlineCatalogList
+            }
+        }
+        .padding(Space.xl)
+        .frame(width: 620, height: 500)
+        .task {
+            if !catalogURL.trimmingCharacters(in: .whitespaces).isEmpty {
+                await load()
+            }
+        }
+    }
+
+    // MARK: - Popular Packs Tab
+
+    private var popularPacksList: some View {
+        VStack(alignment: .leading, spacing: Space.sm) {
+            Text("Ready-to-use popular community packs with curated artwork for Chrome, Safari, VS Code, Telegram, Terminal, Finder, and more.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            List(CuratedIconSets.popularPacks) { pack in
+                HStack(alignment: .center, spacing: Space.md) {
+                    Image(systemName: iconForPack(pack.id))
+                        .font(.title2)
+                        .foregroundStyle(Palette.accentText)
+                        .frame(width: 36, height: 36)
+                        .background(.background.secondary, in: Circle())
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(pack.name)
+                                .font(.headline)
+                            if model.activeIconSetID == pack.id {
+                                Text("Active")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(Palette.accentText)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Palette.accent.opacity(0.12), in: Capsule())
+                            }
+                        }
+                        Text("\(pack.description) · \(pack.author) · \(pack.license)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    let isInstalled = model.installedIconSets.contains(where: { $0.id == pack.id })
+                    if busyID == pack.id {
+                        ProgressView().controlSize(.small)
+                    } else if isInstalled {
+                        Menu {
+                            Button("Apply / Make Active") {
+                                model.activeIconSetID = pack.id
+                                message = "Activated \(pack.name)"
+                            }
+                            Button("Reinstall") {
+                                installCurated(pack)
+                            }
+                            Divider()
+                            Button("Remove", role: .destructive) {
+                                if let installed = model.installedIconSets.first(where: { $0.id == pack.id }) {
+                                    model.removeIconSet(installed)
+                                    message = "Removed \(pack.name)"
+                                }
+                            }
+                        } label: {
+                            Text("Installed ✓")
+                        }
+                        .controlSize(.small)
+                    } else {
+                        Button("Install") {
+                            installCurated(pack)
+                        }
+                        .controlSize(.small)
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .listStyle(.inset(alternatesRowBackgrounds: true))
+            .frame(minHeight: 280)
+        }
+    }
+
+    private func iconForPack(_ id: String) -> String {
+        switch id {
+        case "papirus-minimal": "square.grid.2x2.fill"
+        case "catppuccin-icons": "cup.and.saucer.fill"
+        case "nordic-frost": "snowflake"
+        default: "photo.stack"
+        }
+    }
+
+    private func installCurated(_ pack: CuratedIconSets.CuratedPack) {
+        busyID = pack.id
+        message = nil
+        defer { busyID = nil }
+        do {
+            let set = try CuratedIconSets.install(id: pack.id)
+            model.refreshIconSets()
+            model.activeIconSetID = set.id
+            model.statusMessage = "Installed and activated \(set.manifest.name)"
+            message = "Successfully installed \(set.manifest.name)!"
+        } catch {
+            message = describe(error)
+        }
+    }
+
+    // MARK: - Online Catalog Tab
+
+    private var onlineCatalogList: some View {
+        VStack(alignment: .leading, spacing: Space.sm) {
             HStack(spacing: Space.sm) {
                 TextField("https://…/catalog.json", text: $catalogURL)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { Task { await load() } }
                 Button("Load") { Task { await load() } }
                     .disabled(loading || catalogURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Reset URL") {
+                    catalogURL = IconSetRules.defaultCatalogURL
+                    Task { await load() }
+                }
+                .controlSize(.small)
             }
 
-            Text("Icon sets are artwork made by other people. Check the license shown for each set; Modo does not review them.")
+            Text("External artwork catalog over HTTPS. Every archive is verified by SHA-256 and checked for security before installation.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if loading { ProgressView().controlSize(.small) }
-            if let message {
-                Text(message).font(.callout).foregroundStyle(.secondary)
+            if loading {
+                ProgressView().controlSize(.small)
             }
 
             if let catalog {
@@ -63,21 +211,25 @@ struct IconSetBrowserView: View {
                         } else if model.installedIconSets.contains(where: { $0.id == entry.id }) {
                             Button("Reinstall") { Task { await install(entry) } }.controlSize(.small)
                         } else {
-                            Button("Install") { Task { await install(entry) } }.controlSize(.small)
+                            Button("Install") { Task { await install(entry) } }
+                                .controlSize(.small)
+                                .buttonStyle(.borderedProminent)
                         }
                     }
                     .padding(.vertical, 2)
                 }
-                .frame(minHeight: 160)
+                .listStyle(.inset(alternatesRowBackgrounds: true))
+                .frame(minHeight: 250)
+
                 if catalog.sets.isEmpty {
                     Text("This catalog has no usable sets.").foregroundStyle(.secondary)
                 }
+            } else if !loading {
+                Text("Catalog not loaded. Check the URL or click Load.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, Space.md)
             }
-        }
-        .padding(Space.xl)
-        .frame(width: 560, height: 460)
-        .task {
-            if !catalogURL.trimmingCharacters(in: .whitespaces).isEmpty { await load() }
         }
     }
 
@@ -138,8 +290,9 @@ struct IconSetBrowserView: View {
         case IconSetError.notAnIconSet: "That file is not a Modo icon set."
         case IconSetError.unsupportedVersion: "This needs a newer version of Modo."
         case IconSetError.unsafePath, IconSetError.invalidID, IconSetError.duplicateBundleID, IconSetError.tooManyIcons:
-            "The icon set is malformed and was rejected."
-        default: error.localizedDescription
+            "The archive does not follow the Modo icon set rules."
+        default:
+            error.localizedDescription
         }
     }
 }

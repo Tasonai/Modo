@@ -90,6 +90,7 @@ public enum IconSetError: Error, Equatable {
 public enum IconSetRules {
     public static let setFormat = "modo-icon-set"
     public static let catalogFormat = "modo-icon-catalog"
+    public static let defaultCatalogURL = "https://raw.githubusercontent.com/atoma/modo-icon-sets/main/catalog.json"
     public static let currentVersion = 1
     public static let maxIconsPerSet = 3000
     public static let maxZipBytes = 80 * 1024 * 1024

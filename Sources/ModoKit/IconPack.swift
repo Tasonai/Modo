@@ -155,6 +155,119 @@ public struct IconPack: Identifiable, Hashable, Sendable {
         accentHex: 0x111215
     )
 
+    /// Warm dark palette with soothing pastel lavender (#CBA6F7) from Catppuccin Mocha.
+    public static let catppuccinMocha = IconPack(
+        id: "catppuccin_mocha",
+        name: "Catppuccin",
+        subtitle: "Warm dark palette with soothing pastel lavender (#CBA6F7)",
+        category: "Community",
+        iconSymbol: "cup.and.saucer.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .squircle,
+            iconScale: 0.68,
+            shadowIntensity: 0.35,
+            innerShadow: false,
+            monochromeTint: false,
+            customHex: 0x1E1E2E
+        ),
+        accentHex: 0xCBA6F7
+    )
+
+    /// Arctic cold slate (#2E3440) with polar ice blue glyphs inspired by the Nord theme.
+    public static let nordicFrost = IconPack(
+        id: "nordic_frost",
+        name: "Nordic Frost",
+        subtitle: "Arctic cold slate (#2E3440) with polar ice blue (#88C0D0)",
+        category: "Community",
+        iconSymbol: "snowflake",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .squircle,
+            iconScale: 0.68,
+            shadowIntensity: 0.30,
+            innerShadow: false,
+            monochromeTint: false,
+            customHex: 0x2E3440
+        ),
+        accentHex: 0x88C0D0
+    )
+
+    /// Cyberpunk dark storm (#1A1B26) with vibrant neon glow inspired by Tokyo Night.
+    public static let tokyoNight = IconPack(
+        id: "tokyo_night",
+        name: "Tokyo Night",
+        subtitle: "Cyberpunk dark storm (#1A1B26) with electric indigo glow",
+        category: "Tech",
+        iconSymbol: "sparkles",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .hexagon,
+            iconScale: 0.66,
+            shadowIntensity: 0.50,
+            innerShadow: true,
+            monochromeTint: false,
+            customHex: 0x1A1B26
+        ),
+        accentHex: 0x7AA2F7
+    )
+
+    /// Legendary dark contrast theme (#282A36) with vibrant purple accent.
+    public static let draculaVamp = IconPack(
+        id: "dracula_vamp",
+        name: "Dracula",
+        subtitle: "Dark contrast theme (#282A36) with vibrant purple accent",
+        category: "Community",
+        iconSymbol: "bolt.heart.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .squircle,
+            iconScale: 0.68,
+            shadowIntensity: 0.40,
+            innerShadow: false,
+            monochromeTint: false,
+            customHex: 0x282A36
+        ),
+        accentHex: 0xBD93F9
+    )
+
+    /// Soft organic pebble shape with warm twilight amber (#F97316).
+    public static let sunsetPebble = IconPack(
+        id: "sunset_pebble",
+        name: "Sunset Pebble",
+        subtitle: "Soft organic pebble shape with warm twilight amber",
+        category: "Aesthetic",
+        iconSymbol: "sunset.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .pebble,
+            iconScale: 0.70,
+            shadowIntensity: 0.35,
+            innerShadow: false,
+            monochromeTint: false,
+            customHex: 0x2D1B28
+        ),
+        accentHex: 0xF97316
+    )
+
+    /// Microsoft Fluent-inspired crisp squircle with deep gentle elevation.
+    public static let fluentSoft = IconPack(
+        id: "fluent_soft",
+        name: "Fluent Soft",
+        subtitle: "Crisp squircle plate with deep gentle elevation",
+        category: "Design",
+        iconSymbol: "square.stack.3d.up.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .googleWhite,
+            shape: .squircle,
+            iconScale: 0.74,
+            shadowIntensity: 0.45,
+            innerShadow: true,
+            monochromeTint: false
+        ),
+        accentHex: 0x0078D4
+    )
+
     /// Curated collection of all built-in Modo icon packs.
     public static let allPacks: [IconPack] = [
         .pixelPure,
@@ -163,7 +276,13 @@ public struct IconPack: Identifiable, Hashable, Sendable {
         .atomaMono,
         .squircleStudio,
         .editorialPaper,
-        .cyberHex
+        .cyberHex,
+        .catppuccinMocha,
+        .nordicFrost,
+        .tokyoNight,
+        .draculaVamp,
+        .sunsetPebble,
+        .fluentSoft
     ]
 
     /// Finds a pack matching the given ID or falls back to Pixel Pure.

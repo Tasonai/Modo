@@ -93,7 +93,7 @@ struct IconPackDef {
     COLORREF customColor;
 };
 
-static const IconPackDef kIconPacks[7] = {
+static const IconPackDef kIconPacks[13] = {
     { L"Pixel Pure",   PRESET_GOOGLE_WHITE,    SHAPE_CIRCLE,   0.68, 0.40, true,  false, RGB(232, 240, 254) },
     { L"Material You", PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.35, true,  false, RGB(232, 240, 254) },
     { L"Modo Noir",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.66, 0.50, true,  false, RGB(232, 240, 254) },
@@ -101,4 +101,10 @@ static const IconPackDef kIconPacks[7] = {
     { L"Squircle",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.72, 0.35, true,  false, RGB(232, 240, 254) },
     { L"Paper",        PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.25, false, false, RGB(246, 243, 235) },
     { L"Cyber Hex",    PRESET_DARK_MATERIAL,   SHAPE_HEXAGON,  0.65, 0.55, true,  false, RGB(232, 240, 254) },
+    { L"Catppuccin",   PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.35, false, false, RGB(30, 30, 46) },
+    { L"Nordic",       PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.30, false, false, RGB(46, 52, 64) },
+    { L"Tokyo Night",  PRESET_CUSTOM_COLOR,    SHAPE_HEXAGON,  0.66, 0.50, true,  false, RGB(26, 27, 38) },
+    { L"Dracula",      PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.40, false, false, RGB(40, 42, 54) },
+    { L"Sunset",       PRESET_CUSTOM_COLOR,    SHAPE_PEBBLE,   0.70, 0.35, false, false, RGB(45, 27, 40) },
+    { L"Fluent",       PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.74, 0.45, true,  false, RGB(243, 244, 246) }
 };

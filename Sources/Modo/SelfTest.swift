@@ -193,11 +193,30 @@ enum SelfTest {
                 model.refreshIconSets()
                 if let set = model.installedIconSets.first { model.removeIconSet(set) }
                 check("removing a set deletes it", model.installedIconSets.isEmpty)
+
+                // Curated popular packs: direct offline install & icon extraction
+                let papirus = try? CuratedIconSets.install(id: "papirus-minimal")
+                check("curated popular pack installs with icons", papirus?.id == "papirus-minimal" && (papirus?.manifest.icons.count ?? 0) >= 10)
+                model.refreshIconSets()
+                model.activeIconSetID = "papirus-minimal"
+                let chromeItem = Item(title: "Google Chrome", bundleIdentifier: "com.google.Chrome")
+                let chromeArt = model.sourceIcon(for: chromeItem, canvasSize: 64)
+                check("curated pack supplies artwork for Chrome", chromeArt.size.width > 0)
+                if let set = model.installedIconSets.first(where: { $0.id == "papirus-minimal" }) {
+                    model.removeIconSet(set)
+                }
+                model.activeIconSetID = nil
+                check("curated pack cleanup leaves store empty", model.installedIconSets.isEmpty)
+
                 try? fm.removeItem(at: work)
                 try? fm.removeItem(at: IconSetStore.root)
             }
 
             // Icon packs: built-in apply, manual edit leaves the pack, custom save and delete.
+            model.applyPack(.catppuccinMocha)
+            check("applying Catppuccin sets its style and palette", model.style.customHex == 0x1E1E2E && model.activePackName == "Catppuccin")
+            model.applyPack(.nordicFrost)
+            check("applying Nordic Frost sets its arctic style", model.style.customHex == 0x2E3440 && model.activePackName == "Nordic Frost")
             model.applyPack(.cyberHex)
             check("applying a pack sets its shape", model.style.shape == .hexagon && model.activePackName == "Cyber Hex")
             model.style.iconScale = 0.5

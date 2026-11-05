@@ -68,11 +68,25 @@ func icoBinaryFormat() {
 @Test("IconShape and IconPack catalogs verification")
 func iconPacksCatalog() {
     #expect(IconShape.allCases.count == 5)
-    #expect(IconPack.allPacks.count == 7)
+    #expect(IconPack.allPacks.count == 13)
 
     let pixel = IconPack.find(id: "pixel_pure")
     #expect(pixel.style.shape == .circle)
     #expect(pixel.style.backgroundStyle == .googleWhite)
+
+    let catppuccin = IconPack.find(id: "catppuccin_mocha")
+    #expect(catppuccin.style.shape == .squircle)
+    #expect(catppuccin.style.customHex == 0x1E1E2E)
+
+    let nord = IconPack.find(id: "nordic_frost")
+    #expect(nord.style.shape == .squircle)
+    #expect(nord.accentHex == 0x88C0D0)
+
+    let tokyo = IconPack.find(id: "tokyo_night")
+    #expect(tokyo.style.shape == .hexagon)
+
+    let dracula = IconPack.find(id: "dracula_vamp")
+    #expect(dracula.accentHex == 0xBD93F9)
 
     let atoma = IconPack.find(id: "atoma_mono")
     #expect(atoma.style.shape == .squircle)
