@@ -12,6 +12,7 @@ struct DetailInspectorView: View {
     @State private var adjustThisAppOnly: Bool = false
     @State private var isDropTargeted: Bool = false
     @State private var showSimpleIconsSheet: Bool = false
+    @State private var showAIGlyphStudio: Bool = false
 
     private var effectiveScale: Double {
         item.customScale ?? model.style.iconScale
@@ -93,6 +94,9 @@ struct DetailInspectorView: View {
         }
         .sheet(isPresented: $showSimpleIconsSheet) {
             SimpleIconsBrowserView(item: item)
+        }
+        .sheet(isPresented: $showAIGlyphStudio) {
+            AIGlyphStudioView(item: item)
         }
     }
 
@@ -279,6 +283,14 @@ struct DetailInspectorView: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: Space.sm) {
+                Button {
+                    showAIGlyphStudio = true
+                } label: {
+                    Label("AI Studio…", systemImage: "wand.and.stars")
+                }
+                .controlSize(.small)
+                .buttonStyle(.borderedProminent)
+
                 Button {
                     showSimpleIconsSheet = true
                 } label: {

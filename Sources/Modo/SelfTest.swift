@@ -341,6 +341,15 @@ enum SelfTest {
                 check("backup point recorded in recentBackups", model.recentBackups.contains(where: { $0.id == backupPoint.id }))
                 let restoredCount = model.restoreFromBackupPoint(backupPoint, items: [customApp])
                 check("restoreFromBackupPoint executes cleanly", restoredCount >= 0)
+
+                // AI Glyph Studio: Procedural Geometric Vector generation & assignment
+                let prismOpts = ProceduralGlyphOptions(title: "Cyber App", style: .prism, primaryHex: 0x8B5CF6, secondaryHex: 0x6D28D9, seed: 101)
+                let prismSVGData = ProceduralGlyphGenerator.generateSVGData(options: prismOpts)
+                check("ProceduralGlyphGenerator creates valid SVG data", CustomArtworkHelper.isSVGData(prismSVGData))
+                model.setCustomArtwork(data: prismSVGData, for: customApp)
+                check("AI geometric vector assigned to item", customApp.customImageData != nil)
+                let aiRound = model.roundIcon(for: customApp)
+                check("roundIcon renders styled icon from AI vector", aiRound.size.width > 0)
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

@@ -78,6 +78,24 @@ func styleClamping() {
     }
 }
 
+@Test("Procedural geometric SVG vector generator and AI prompt builder")
+func proceduralGlyphs() {
+    #expect(GeometricGlyphStyle.allCases.count == 9)
+    for style in GeometricGlyphStyle.allCases {
+        let opts = ProceduralGlyphOptions(title: "Cyber Studio", style: style, primaryHex: 0x10B981, secondaryHex: 0x059669, seed: 42)
+        let svg = ProceduralGlyphGenerator.generateSVG(options: opts)
+        #expect(svg.contains("<svg"))
+        #expect(svg.contains("</svg>"))
+        #expect(!ProceduralGlyphGenerator.generateSVGData(options: opts).isEmpty)
+    }
+
+    #expect(AIImageStylePreset.allCases.count == 4)
+    let url = AIImagePromptBuilder.buildURL(prompt: "minimalist camera", style: .vectorLogo, seed: 123)
+    #expect(url != nil)
+    #expect(url?.host == "image.pollinations.ai")
+    #expect(url?.absoluteString.contains("nologo=true") == true)
+}
+
 @Test("ICO binary header packs multi-size PNG entries")
 func icoBinaryFormat() {
     let fakePNG16 = Data([0x89, 0x50, 0x4E, 0x47])
