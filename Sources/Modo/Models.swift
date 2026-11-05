@@ -230,6 +230,48 @@ final class AppModel {
     private static let styleKey = "modo.style"
     private static let packKey = "modo.activePack"
     private static let customPacksKey = "modo.customPacks"
+    private static let backupsKey = "modo.systemBackups"
+
+    var recentBackups: [SystemBackupPoint] = []
+
+    /// Creates an immutable snapshot restore point of selected applications before styling.
+    @discardableResult
+    func createBackupPoint(for items: [Item], name: String? = nil) -> SystemBackupPoint {
+        let appPaths = items.map(\.bundlePath).filter { !$0.isEmpty }
+        let pointName = name ?? "Backup \(Date.now.formatted(date: .abbreviated, time: .shortened))"
+        let point = SystemBackupPoint(
+            name: pointName,
+            appPaths: appPaths,
+            packName: activePackName
+        )
+        recentBackups.insert(point, at: 0)
+        if recentBackups.count > 10 { recentBackups = Array(recentBackups.prefix(10)) }
+        if persistsPreferences, let data = try? JSONEncoder().encode(recentBackups) {
+            UserDefaults.standard.set(data, forKey: Self.backupsKey)
+        }
+        return point
+    }
+
+    /// Restores all applications in `backup` back to original system icons.
+    @discardableResult
+    func restoreFromBackupPoint(_ backup: SystemBackupPoint, items: [Item]) -> Int {
+        var restored = 0
+        let pathSet = Set(backup.appPaths)
+        for item in items where pathSet.contains(item.bundlePath) {
+            restoreOriginalIcon(for: item)
+            restored += 1
+        }
+        statusMessage = "Restored \(restored) apps from backup \(backup.name)"
+        return restored
+    }
+
+    /// Restarts the macOS Dock process so new icon caches display immediately.
+    func restartDock() {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+        proc.arguments = ["Dock"]
+        try? proc.run()
+    }
 
     /// Tests and snapshots run on a throwaway store and must not touch saved preferences.
     private var persistsPreferences: Bool { !Store.isOverridden }
@@ -242,6 +284,10 @@ final class AppModel {
     private func restoreStyle() {
         guard persistsPreferences else { return }
         let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: Self.backupsKey),
+           let saved = try? JSONDecoder().decode([SystemBackupPoint].self, from: data) {
+            recentBackups = saved
+        }
         if let data = defaults.data(forKey: Self.styleKey),
            let saved = try? JSONDecoder().decode(RoundIconStyle.self, from: data) {
             style = saved

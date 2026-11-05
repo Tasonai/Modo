@@ -64,6 +64,18 @@ func styleClamping() {
     } else {
         #expect(Bool(false), "Failed to encode/decode RoundIconStyle")
     }
+
+    // SystemBackupPoint serialization
+    let backup = SystemBackupPoint(name: "Test Point", appPaths: ["/Applications/Safari.app"], packName: "Pixel Pure")
+    #expect(backup.appPaths.count == 1)
+    if let enc = try? JSONEncoder().encode(backup),
+       let dec = try? JSONDecoder().decode(SystemBackupPoint.self, from: enc) {
+        #expect(dec.name == "Test Point")
+        #expect(dec.appPaths == ["/Applications/Safari.app"])
+        #expect(dec.packName == "Pixel Pure")
+    } else {
+        #expect(Bool(false), "Failed to encode/decode SystemBackupPoint")
+    }
 }
 
 @Test("ICO binary header packs multi-size PNG entries")

@@ -1,5 +1,22 @@
 import Foundation
 
+/// An immutable snapshot restore point of applied application icons.
+public struct SystemBackupPoint: Identifiable, Codable, Sendable, Hashable {
+    public let id: UUID
+    public let date: Date
+    public let name: String
+    public let appPaths: [String]
+    public let packName: String
+
+    public init(id: UUID = UUID(), date: Date = .now, name: String, appPaths: [String], packName: String) {
+        self.id = id
+        self.date = date
+        self.name = name
+        self.appPaths = appPaths
+        self.packName = packName
+    }
+}
+
 /// Pure business logic for IconMaker: title cleanup, Google Pixel / Material You
 /// circular icon style parameters, pastel tint extraction math, and multi-size `.ico` builder.
 public enum ItemTitle {

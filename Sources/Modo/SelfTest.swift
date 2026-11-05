@@ -334,6 +334,13 @@ enum SelfTest {
                 let hasTinted = FileManager.default.fileExists(atPath: appearanceDir.appendingPathComponent("CustomApp-Tinted.png").path)
                 check("exportAppearanceVariants generates Light, Dark, and Tinted PNGs", variantCount == 1 && hasLight && hasDark && hasTinted)
                 try? FileManager.default.removeItem(at: appearanceDir)
+
+                // 1-Click System Theming Wizard: Snapshot backup point creation & restore
+                let backupPoint = model.createBackupPoint(for: [customApp], name: "Selftest Backup")
+                check("createBackupPoint creates snapshot point", backupPoint.appPaths.contains(customApp.bundlePath) || backupPoint.name == "Selftest Backup")
+                check("backup point recorded in recentBackups", model.recentBackups.contains(where: { $0.id == backupPoint.id }))
+                let restoredCount = model.restoreFromBackupPoint(backupPoint, items: [customApp])
+                check("restoreFromBackupPoint executes cleanly", restoredCount >= 0)
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

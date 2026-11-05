@@ -8,6 +8,7 @@ struct ContentView: View {
     @Environment(\.openSettings) private var openSettings
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
     @State private var confirmApplyAll = false
+    @State private var showThemingWizard = false
 
     private var visibleItems: [Item] {
         items.filter { item in
@@ -104,6 +105,13 @@ struct ContentView: View {
                 .help("Choose surface preset")
 
                 Button {
+                    showThemingWizard = true
+                } label: {
+                    Label("Theme System…", systemImage: "wand.and.stars")
+                }
+                .help("1-Click System Theming Wizard: batch style all installed apps with instant backup (⇧⌘T)")
+
+                Button {
                     confirmApplyAll = true
                 } label: {
                     Label(visibleItems.isEmpty ? "Apply All" : "Apply All (\(visibleItems.count))", systemImage: "checkmark.circle.badge.sparkles")
@@ -139,6 +147,9 @@ struct ContentView: View {
             }
         }
         .noInitialFocus()
+        .sheet(isPresented: $showThemingWizard) {
+            SystemThemingWizardView(allItems: visibleItems.isEmpty ? items : visibleItems)
+        }
         .task {
             SeedData.insertIfRequested(into: model)
             if !Store.isOverridden && items.isEmpty {
