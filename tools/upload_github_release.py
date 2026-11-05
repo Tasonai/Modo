@@ -2,11 +2,31 @@
 import json
 import mimetypes
 import os
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
 
-TOKEN = os.environ.get("GITHUB_TOKEN") or ""
+def get_token():
+    t = os.environ.get("GITHUB_TOKEN")
+    if t:
+        return t
+    try:
+        proc = subprocess.run(
+            ["git", "credential", "fill"],
+            input="protocol=https\nhost=github.com\n",
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        for line in proc.stdout.splitlines():
+            if line.startswith("password="):
+                return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return ""
+
+TOKEN = get_token()
 REPO = "Tasonai/Modo"
 TAG = "v1.6.0"
 TITLE = "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI"
