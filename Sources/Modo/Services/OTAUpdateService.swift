@@ -47,7 +47,7 @@ public final class OTAUpdateService {
     public var downloadTask: Task<Void, Never>?
 
     // MARK: - Preferences & Keys
-    public static let defaultFeedURLString = "https://raw.githubusercontent.com/atoma/modo/main/dist/update.json"
+    public static let defaultFeedURLString = "https://raw.githubusercontent.com/Tasonai/Modo/main/dist/update.json"
     private static let feedURLKey = "modo.otaFeedURL"
     private static let autoCheckKey = "modo.otaAutoCheck"
     private static let lastCheckedKey = "modo.otaLastChecked"

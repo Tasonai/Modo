@@ -63,7 +63,7 @@ def main() -> None:
             "name": name,
             "platform": platform,
             "format": fmt,
-            "downloadURL": f"https://github.com/atoma/modo/releases/download/v1.5.0/{name}",
+            "downloadURL": f"https://github.com/Tasonai/Modo/releases/download/v1.5.0/{name}",
             "sha256": sha256,
             "sizeBytes": size,
             "isPrimary": is_primary
