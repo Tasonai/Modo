@@ -622,6 +622,49 @@ bool RestoreOriginalEntry(AppEntry& app) {
     return true;
 }
 
+bool ApplyCustomFolderIcon(const std::wstring& folderPath, const std::wstring& icoPath) {
+    if (folderPath.empty() || icoPath.empty()) return false;
+    std::wstring iniPath = folderPath + L"\\desktop.ini";
+
+    // 1. Remove attributes if exists to allow overwrite
+    SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_NORMAL);
+
+    // 2. Write desktop.ini ShellClassInfo keys
+    WritePrivateProfileStringW(L".ShellClassInfo", L"IconResource", (icoPath + L",0").c_str(), iniPath.c_str());
+    WritePrivateProfileStringW(L".ShellClassInfo", L"IconFile", icoPath.c_str(), iniPath.c_str());
+    WritePrivateProfileStringW(L".ShellClassInfo", L"IconIndex", L"0", iniPath.c_str());
+    WritePrivateProfileStringW(L"ViewState", L"FolderType", L"Generic", iniPath.c_str());
+
+    // 3. Mark desktop.ini as System + Hidden
+    SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
+
+    // 4. Mark directory with FILE_ATTRIBUTE_READONLY so Explorer evaluates desktop.ini
+    DWORD attr = GetFileAttributesW(folderPath.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES) {
+        SetFileAttributesW(folderPath.c_str(), attr | FILE_ATTRIBUTE_READONLY);
+    }
+
+    // 5. Notify Explorer shell
+    SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath.c_str(), NULL);
+    return true;
+}
+
+bool RestoreFolderIcon(const std::wstring& folderPath) {
+    if (folderPath.empty()) return false;
+    std::wstring iniPath = folderPath + L"\\desktop.ini";
+
+    SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_NORMAL);
+    DeleteFileW(iniPath.c_str());
+
+    DWORD attr = GetFileAttributesW(folderPath.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES) {
+        SetFileAttributesW(folderPath.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
+    }
+
+    SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath.c_str(), NULL);
+    return true;
+}
+
 void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
     wchar_t selfPath[MAX_PATH * 2] = {0};
     if (!GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) return;

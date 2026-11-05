@@ -8,16 +8,19 @@ from pathlib import Path
 
 TOKEN = os.environ.get("GITHUB_TOKEN") or ""
 REPO = "Tasonai/Modo"
-TAG = "v1.5.0"
-TITLE = "Modo 1.5.0 — AI Glyph Studio & OTA Updates"
-BODY = """## Modo 1.5.0 — Official Release by Atoma
+TAG = "v1.6.0"
+TITLE = "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI"
+BODY = """## Modo 1.6.0 — Official Release by Atoma
 
-### 🚀 What's New:
-- **Over-The-Air (OTA) Updates**: In-app automated update engine with live download progress and cryptographic SHA-256 verification.
-- **AI Glyph Studio**: Dual-engine generation featuring 9 procedural geometric vector styles (Monogram, Sparkle, Aperture, Orbit, Hexacore, Prism, Shield, Terminal, Waveform) and cloud neural logo generation.
-- **1-Click System Theming Wizard**: Batch application, auto Simple Icons matching, snapshot backups, and 1-click rollback.
-- **Adaptive Dark & Tinted Modes**: Seamless macOS Sequoia & iOS 18 style rendering with 3-variant PNG kit export.
-- **Windows PE32+ Native Suite**: Ultra-compact (391 KB) zero-dependency native setup and portable editions without PE overlay.
+### 🚀 What's New in v1.6.0:
+- **📁 Folder Icon Styler**: Custom macOS Finder & Windows Explorer folder tinting with 9 rich gradient palettes and 4 engraved embossed glyph styles (SF Symbols, Simple Icons, AI Studio).
+- **📦 Batch Iconset & Pack Creator**: Drag-and-drop an entire folder of artwork or logos to automatically generate `.modopack`, multi-size `.icns`, Windows `.ico`, 1024px `.png`, and `.zip` archives.
+- **🚀 MenuBar Extra (Quick Drop Companion)**: Instant drag-and-drop icon styling right from the macOS status bar without launching the full window.
+- **⚡ Terminal CLI `modo`**: Full headless automation for terminal power-users (`modo style`, `modo folder`, `modo batch`, `modo showcase`).
+- **🎨 App Store & Portfolio Showcase Studio**: Generate high-res 1920×1080 and 1280×640 hero presentation graphics with ambient lighting and contact shadows for GitHub README and App Store.
+- **🌐 Documentation & Web Showcase**: Interactive web playground and docs hosted via GitHub Pages.
+- **🔌 Raycast & Alfred Integrations**: Ready-to-use workflows for styling apps directly from launcher search.
+- **🪟 Windows Explorer desktop.ini Parity**: Native folder icon customization for Windows 10/11.
 
 ### 📦 Artifacts & Checksums:
 Verify integrity against `checksums.txt`.
@@ -96,7 +99,7 @@ def main():
         except urllib.error.HTTPError as e:
             print(f"  ✗ Failed to upload {p.name}: {e.read().decode('utf-8')}")
 
-    print("\nRelease v1.5.0 published successfully with all assets!")
+    print("\nRelease v1.6.0 published successfully with all assets!")
 
 if __name__ == "__main__":
     main()

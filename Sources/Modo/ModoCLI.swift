@@ -5,7 +5,7 @@ import ModoKit
 // MARK: - Modo Command-Line Interface Engine
 
 public enum ModoCLI {
-    public static let version = "1.5.0"
+    public static let version = "1.6.0"
 
     /// Dispatches command line arguments. Returns process exit code.
     public static func run(arguments: [String]) -> Int32 {

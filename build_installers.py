@@ -63,18 +63,18 @@ def main() -> None:
             "name": name,
             "platform": platform,
             "format": fmt,
-            "downloadURL": f"https://github.com/Tasonai/Modo/releases/download/v1.5.0/{name}",
+            "downloadURL": f"https://github.com/Tasonai/Modo/releases/download/v1.6.0/{name}",
             "sha256": sha256,
             "sizeBytes": size,
             "isPrimary": is_primary
         })
 
     manifest = {
-        "version": "1.5.0",
+        "version": "1.6.0",
         "build": datetime.now().strftime("%Y%m%d%H%M"),
         "releaseDate": datetime.now().strftime("%Y-%m-%d"),
-        "title": "Modo 1.5.0 — AI Glyph Studio & OTA Updates",
-        "releaseNotes": "• Over-the-Air (OTA) automated update engine with SHA-256 verification\n• In-app Check for Updates modal with live download progress\n• AI Glyph Studio: 9 procedural geometric styles + neural logo generation\n• Multi-resolution export & Material You pastel palettes\n• Windows PE32+ native installer & portable suite",
+        "title": "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI",
+        "releaseNotes": "• Folder Icon Styler: 9 gradient palettes & 4 embossed badge styles for macOS Finder & Windows Explorer\n• Batch Iconset & Pack Creator: folder scan & multi-format export (.modopack, .icns, .ico, .png, .zip)\n• MenuBar Extra Companion: Quick Drag & Drop icon styling from macOS status bar\n• Terminal CLI 'modo': full headless command-line automation\n• App Store & Showcase Studio: high-resolution hero presentation banners\n• Raycast & Alfred launcher integrations",
         "minOSVersion": "14.0",
         "isMandatory": False,
         "assets": assets

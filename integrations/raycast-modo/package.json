@@ -1,0 +1,34 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "modo",
+  "title": "Modo Icon Studio",
+  "description": "Style macOS applications and Finder folders with adaptive Material You & Squircle shapes right from Raycast.",
+  "icon": "icon.png",
+  "author": "Atoma",
+  "categories": ["Applications", "Productivity", "Design Tools"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "style-app",
+      "title": "Style Application Icon",
+      "description": "Apply adaptive squircle or circular styling to any installed application",
+      "mode": "view"
+    },
+    {
+      "name": "style-folder",
+      "title": "Style Finder Folder",
+      "description": "Change Finder folder colors and embossed glyphs",
+      "mode": "view"
+    },
+    {
+      "name": "restore-icon",
+      "title": "Restore Original Icon",
+      "description": "Restore original system icon for an app or folder",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.70.0",
+    "@raycast/utils": "^1.14.0"
+  }
+}

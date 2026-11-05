@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Modo — Native Adaptive Icon Studio for macOS & Windows</title>
+  <meta name="description" content="Harmonize your macOS Dock, Windows Desktop, and Finder with unified Pixel, Squircle, and Material You adaptive icons." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090B10;
+      --card-bg: rgba(22, 27, 38, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --accent: #2A82E4;
+      --accent-glow: rgba(42, 130, 228, 0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 20% 15%, rgba(42, 130, 228, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 80% 65%, rgba(139, 92, 246, 0.12) 0%, transparent 40%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    .container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+
+    /* Header */
+    header { padding: 28px 0; border-bottom: 1px solid var(--card-border); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 100; }
+    .nav { display: flex; justify-content: space-between; align-items: center; }
+    .logo { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
+    .logo-badge { background: linear-gradient(135deg, #2A82E4, #8B5CF6); width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; box-shadow: 0 4px 14px var(--accent-glow); }
+    .nav-links { display: flex; gap: 24px; font-size: 14px; font-weight: 500; color: var(--text-muted); }
+    .nav-links a:hover { color: #fff; }
+    .btn-github { background: rgba(255, 255, 255, 0.08); padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid var(--card-border); transition: 0.2s; }
+    .btn-github:hover { background: rgba(255, 255, 255, 0.14); }
+
+    /* Hero */
+    .hero { padding: 90px 0 70px; text-align: center; }
+    .badge-pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(42, 130, 228, 0.12); border: 1px solid rgba(42, 130, 228, 0.3); padding: 6px 14px; border-radius: 99px; font-size: 12px; font-weight: 600; color: #60A5FA; margin-bottom: 24px; }
+    .hero h1 { font-size: 54px; font-weight: 800; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 20px; }
+    .hero h1 span { background: linear-gradient(135deg, #60A5FA, #A78BFA, #F472B6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { font-size: 20px; color: var(--text-muted); max-width: 680px; margin: 0 auto 36px; }
+
+    /* Download Buttons */
+    .cta-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 50px; }
+    .btn-primary { background: linear-gradient(135deg, #2563EB, #1D4ED8); padding: 14px 28px; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 8px 24px var(--accent-glow); transition: 0.2s; display: inline-flex; align-items: center; gap: 10px; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(37, 99, 235, 0.5); }
+    .btn-secondary { background: var(--card-bg); border: 1px solid var(--card-border); padding: 14px 26px; border-radius: 12px; font-weight: 600; font-size: 15px; transition: 0.2s; display: inline-flex; align-items: center; gap: 10px; }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); }
+
+    /* Interactive Preview Playground */
+    .playground { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 24px; padding: 40px; margin-bottom: 90px; backdrop-filter: blur(20px); box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+    .playground-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+    .icon-stage { display: flex; justify-content: center; align-items: center; min-height: 280px; background: radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%); }
+    .mock-icon {
+      width: 170px; height: 170px;
+      display: grid; place-items: center;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .mock-icon svg { width: 90px; height: 90px; fill: currentColor; }
+
+    /* Shapes */
+    .shape-squircle { border-radius: 38px; }
+    .shape-circle { border-radius: 50%; }
+    .shape-roundedRect { border-radius: 24px; }
+    .shape-pebble { border-radius: 65px 35px 65px 35px; }
+    .shape-hexagon { clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); border-radius: 0; }
+
+    /* Themes */
+    .theme-pastel { background: #DCE8FE; color: #1E40AF; }
+    .theme-dark { background: #181A20; color: #60A5FA; border: 1px solid rgba(255,255,255,0.1); }
+    .theme-white { background: #FFFFFF; color: #1A73E8; }
+    .theme-sunset { background: linear-gradient(135deg, #F97316, #DB2777); color: #FFF; }
+
+    .controls-panel { display: flex; flex-direction: column; gap: 20px; }
+    .controls-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 8px; }
+    .pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill { background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); padding: 8px 16px; border-radius: 99px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* Features Grid */
+    .features-header { text-align: center; margin-bottom: 50px; }
+    .features-header h2 { font-size: 38px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 90px; }
+    .feature-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 28px; transition: 0.2s; }
+    .feature-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.18); }
+    .feature-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(42, 130, 228, 0.15); display: grid; place-items: center; font-size: 20px; margin-bottom: 18px; color: #60A5FA; }
+    .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+    /* Terminal Code */
+    .cli-box { background: #0F121A; border: 1px solid var(--card-border); border-radius: 16px; padding: 24px; font-family: 'JetBrains Mono', monospace; font-size: 13px; margin: 40px 0; overflow-x: auto; }
+    .cli-line { display: flex; gap: 12px; margin-bottom: 8px; }
+    .cli-prompt { color: #60A5FA; user-select: none; }
+    .cli-cmd { color: #E5E7EB; }
+    .cli-comment { color: #6B7280; font-style: italic; }
+
+    /* Footer */
+    footer { border-top: 1px solid var(--card-border); padding: 40px 0; text-align: center; font-size: 14px; color: var(--text-muted); }
+    footer span { color: #F3F4F6; font-weight: 600; }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 38px; }
+      .playground-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container nav">
+      <div class="logo">
+        <div class="logo-badge">✦</div>
+        Modo
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#playground">Playground</a>
+        <a href="#cli">CLI</a>
+        <a href="https://github.com/Tasonai/Modo" target="_blank" class="btn-github">★ Star on GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="badge-pill">✨ Modo 1.6.0 Released with MenuBar & Folder Styler</div>
+      <h1>Adaptive Icon Studio for<br /><span>macOS & Windows</span></h1>
+      <p>Harmonize your Dock, Desktop, and Finder with unified Pixel, Squircle, and Material You adaptive icons. 1-click styling, zero fuss.</p>
+      
+      <div class="cta-group">
+        <a href="https://github.com/Tasonai/Modo/releases/latest" class="btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 3.5c.62-.75 1.04-1.8 0.92-2.85-.9.04-2 0.6-2.65 1.35-.58.66-1.09 1.73-.95 2.76 1.01.08 2.05-.51 2.68-1.26z"/></svg>
+          Download for macOS (.dmg)
+        </a>
+        <a href="https://github.com/Tasonai/Modo/releases/latest" class="btn-secondary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/></svg>
+          Download for Windows (.exe)
+        </a>
+      </div>
+    </section>
+
+    <!-- Interactive Playground -->
+    <section class="playground" id="playground">
+      <div class="playground-grid">
+        <div class="icon-stage">
+          <div class="mock-icon shape-squircle theme-pastel" id="previewIcon">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+          </div>
+        </div>
+        <div class="controls-panel">
+          <div>
+            <div class="controls-label">Adaptive Geometry Shape</div>
+            <div class="pill-group" id="shapePills">
+              <div class="pill active" data-shape="squircle">Squircle</div>
+              <div class="pill" data-shape="circle">Circle</div>
+              <div class="pill" data-shape="roundedRect">Rounded Rect</div>
+              <div class="pill" data-shape="pebble">Pebble</div>
+              <div class="pill" data-shape="hexagon">Hexagon</div>
+            </div>
+          </div>
+          <div>
+            <div class="controls-label">Surface & Color Theme</div>
+            <div class="pill-group" id="themePills">
+              <div class="pill active" data-theme="pastel">Material Pastel</div>
+              <div class="pill" data-theme="dark">Obsidian Dark</div>
+              <div class="pill" data-theme="white">Pure White</div>
+              <div class="pill" data-theme="sunset">Sunset Gradient</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+      <div class="features-header">
+        <h2>Engineered for perfection</h2>
+        <p style="color: var(--text-muted);">Everything you need to craft, batch-export, and manage desktop icons.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📁</div>
+          <h3>Folder Icon Styler</h3>
+          <p>Customize macOS Finder and Windows Explorer directories with 9 gradient palettes and engraved embossed badges.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h3>Batch Pack Creator</h3>
+          <p>Drop a folder of images or vectors to batch generate complete iconsets in multi-size .icns, .ico, and .png.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🚀</div>
+          <h3>MenuBar Quick Drop</h3>
+          <p>Instant drag-and-drop icon styling directly from the macOS status bar without opening the main window.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Command Line Tool</h3>
+          <p>Automate your developer workflow from terminal with <code>modo style</code>, <code>modo folder</code>, and <code>modo batch</code>.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <h3>Showcase Studio</h3>
+          <p>Generate high-res 1920×1080 App Store & GitHub README hero banners with realistic lighting and contact shadows.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3>1-Click Restore & Backups</h3>
+          <p>Full snapshot recovery points: preview changes risk-free and revert back to system defaults with one tap.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLI Section -->
+    <section id="cli">
+      <div class="features-header">
+        <h2>Developer CLI at your fingertips</h2>
+        <p style="color: var(--text-muted);">Integrate Modo into terminal aliases, build scripts, and CI/CD pipelines.</p>
+      </div>
+      <div class="cli-box">
+        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo style /Applications/Slack.app --shape squircle --bg pastel</span></div>
+        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo folder ~/Projects/Client --color sunsetOrange</span></div>
+        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo batch ~/Design/Icons --out ~/Desktop/Export</span></div>
+        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo showcase /Applications/Safari.app --out ./safari-banner.png --theme mesh</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>Crafted with care by <span>Atoma</span>. Open source on <a href="https://github.com/Tasonai/Modo" style="text-decoration: underline;">GitHub</a>.</p>
+    </div>
+  </footer>
+
+  <script>
+    const preview = document.getElementById('previewIcon');
+    let currentShape = 'squircle';
+    let currentTheme = 'pastel';
+
+    function updatePreview() {
+      preview.className = `mock-icon shape-${currentShape} theme-${currentTheme}`;
+    }
+
+    document.querySelectorAll('#shapePills .pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('#shapePills .pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentShape = pill.dataset.shape;
+        updatePreview();
+      });
+    });
+
+    document.querySelectorAll('#themePills .pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('#themePills .pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentTheme = pill.dataset.theme;
+        updatePreview();
+      });
+    });
+  </script>
+</body>
+</html>

@@ -374,7 +374,7 @@ enum SelfTest {
                 """
                 let mData = testManifestJSON.data(using: .utf8)!
                 let manifest = try JSONDecoder().decode(UpdateManifest.self, from: mData)
-                check("OTAUpdateEngine detects newer version available", OTAUpdateEngine.isUpdateAvailable(manifest: manifest, currentVersion: "1.5.0"))
+                check("OTAUpdateEngine detects newer version available", OTAUpdateEngine.isUpdateAvailable(manifest: manifest, currentVersion: "1.6.0"))
                 check("OTAUpdateEngine reports current version as not newer", !OTAUpdateEngine.isUpdateAvailable(manifest: manifest, currentVersion: "9.9.9"))
                 let bestAsset = OTAUpdateEngine.findBestAsset(in: manifest, for: .macos)
                 check("OTAUpdateEngine selects macOS zip asset", bestAsset?.format == .zip && bestAsset?.name == "Modo-macOS.zip")
