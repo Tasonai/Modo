@@ -621,4 +621,24 @@ final class AppModel {
         statusMessage = "Exported \(sizes.count) resolutions for \(count) apps to \(directory.lastPathComponent)"
         return count
     }
+
+    /// Exports Light, Dark, and Tinted PNG variants for `items` into `directory` (macOS Sequoia & iOS 18 style).
+    @discardableResult
+    func exportAppearanceVariants(for items: [Item], to directory: URL) -> Int {
+        var count = 0
+        for item in items {
+            let source = sourceIcon(for: item, canvasSize: 1024)
+            if let urls = try? IconRenderer.exportAppearanceVariants(
+                for: item.title,
+                sourceImage: source,
+                baseStyle: effectiveStyle(for: item),
+                fallbackHex: UInt32(clamping: item.brandHex),
+                to: directory
+            ), !urls.isEmpty {
+                count += 1
+            }
+        }
+        statusMessage = "Exported Light, Dark & Tinted variants for \(count) apps to \(directory.lastPathComponent)"
+        return count
+    }
 }

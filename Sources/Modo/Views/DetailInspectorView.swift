@@ -44,6 +44,15 @@ struct DetailInspectorView: View {
         )
     }
 
+    private var tintColorBinding: Binding<Color> {
+        Binding(
+            get: { EyedropperPicker.color(from: model.style.tintColorHex) },
+            set: { newColor in
+                model.style.tintColorHex = EyedropperPicker.hex(from: newColor)
+            }
+        )
+    }
+
     var body: some View {
         @Bindable var model = model
         ScrollView {
@@ -388,6 +397,47 @@ struct DetailInspectorView: View {
             Text("Modo Adaptive Studio")
                 .font(.headline)
 
+            LabeledContent("Appearance Theme") {
+                Picker("Appearance Theme", selection: $model.style.appearanceMode) {
+                    Label("Light", systemImage: "sun.max.fill").tag(IconAppearanceMode.light)
+                    Label("Dark", systemImage: "moon.stars.fill").tag(IconAppearanceMode.dark)
+                    Label("Tinted", systemImage: "paintpalette.fill").tag(IconAppearanceMode.tinted)
+                    Label("Auto", systemImage: "circle.lefthalf.filled").tag(IconAppearanceMode.system)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 260)
+            }
+
+            if model.style.appearanceMode == .tinted {
+                LabeledContent("Accent Tint (iOS 18)") {
+                    HStack(spacing: Space.sm) {
+                        ColorPicker("Tint Color", selection: tintColorBinding, supportsOpacity: false)
+                            .labelsHidden()
+
+                        Text(MaterialRGB(hex: model.style.tintColorHex).hexString)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: Space.xs) {
+                            ForEach([0x007AFF, 0x34C759, 0xAF52DE, 0xFF9500, 0xFF2D55, 0x5856D6], id: \.self) { (hex: Int) in
+                                Button {
+                                    model.style.tintColorHex = UInt32(hex)
+                                } label: {
+                                    Circle()
+                                        .fill(EyedropperPicker.color(from: UInt32(hex)))
+                                        .frame(width: 16, height: 16)
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(Color.white.opacity(0.8), lineWidth: model.style.tintColorHex == UInt32(hex) ? 2 : 0)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+
             LabeledContent("Shape Geometry") {
                 Picker("Shape Geometry", selection: $model.style.shape) {
                     ForEach(IconShape.allCases) { item in
@@ -591,6 +641,9 @@ struct DetailInspectorView: View {
                 Button("Standard Icon Pack (.icns, .ico, 1024px .png)") {
                     exportPack(for: item)
                 }
+                Button("Light, Dark & Tinted Kit (macOS 15 / iOS 18)") {
+                    exportAppearanceVariants(for: item)
+                }
                 Button("All Resolutions (16 to 1024 px PNG)") {
                     exportCustomSizes(for: item, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
                 }
@@ -631,6 +684,18 @@ struct DetailInspectorView: View {
         panel.prompt = "Export"
         if panel.runModal() == .OK, let dir = panel.url {
             _ = model.exportIconPack(for: [item], to: dir)
+        }
+    }
+
+    private func exportAppearanceVariants(for item: Item) {
+        let panel = NSOpenPanel()
+        panel.title = "Export Light, Dark & Tinted PNGs for \(item.title)"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        if panel.runModal() == .OK, let dir = panel.url {
+            _ = model.exportAppearanceVariants(for: [item], to: dir)
         }
     }
 

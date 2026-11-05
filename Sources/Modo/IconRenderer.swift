@@ -188,12 +188,31 @@ enum IconRenderer {
             )
         }
 
-        if style.monochromeTint && dominant.isSquareLike {
+        let effMode = effectiveAppearanceMode(for: style)
+
+        if effMode == .tinted {
+            // macOS Sequoia / iOS 18 Tinted Silhouette
+            let tintColor = NSColor(
+                srgbRed: CGFloat((style.tintColorHex >> 16) & 0xFF) / 255.0,
+                green: CGFloat((style.tintColorHex >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(style.tintColorHex & 0xFF) / 255.0,
+                alpha: 1.0
+            )
+            if dominant.isSquareLike {
+                ctx.draw(desaturated(trimmedCG), in: glyphRect)
+            } else {
+                ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+                ctx.clip(to: glyphRect, mask: trimmedCG)
+                ctx.setFillColor(tintColor.cgColor)
+                ctx.fill(glyphRect)
+                ctx.endTransparencyLayer()
+            }
+        } else if style.monochromeTint && dominant.isSquareLike {
             // A full-bleed squircle icon has no transparent glyph to silhouette: a flat tint would
             // paint a solid block. Desaturate instead, so the artwork keeps its detail.
             ctx.draw(desaturated(trimmedCG), in: glyphRect)
         } else if style.monochromeTint {
-            let tintRGB: MaterialRGB = switch style.backgroundStyle {
+            let tintRGB: MaterialRGB = switch (effMode == .dark ? RoundBackgroundStyle.darkMaterial : style.backgroundStyle) {
             case .darkMaterial: MaterialRGB(hex: 0xE6E6E8)
             case .customColor: MaterialRGB(hex: style.customHex).materialDeepInk()
             default: dominant.dominant.materialDeepInk()
@@ -219,8 +238,9 @@ enum IconRenderer {
         // 4. Crisp subtle rim highlight
         ctx.saveGState()
         let borderWidth = max(1.0, dim * 0.004)
-        let rimColor: NSColor = style.backgroundStyle == .darkMaterial
-            ? NSColor.white.withAlphaComponent(0.14)
+        let isDarkish = (effMode == .dark || effMode == .tinted || style.backgroundStyle == .darkMaterial)
+        let rimColor: NSColor = isDarkish
+            ? NSColor.white.withAlphaComponent(0.16)
             : NSColor.black.withAlphaComponent(0.08)
         ctx.setStrokeColor(rimColor.cgColor)
         ctx.setLineWidth(borderWidth)
@@ -373,35 +393,102 @@ enum IconRenderer {
         return written
     }
 
+    /// Exports Light, Dark, and Tinted PNG variants for `appTitle` into `directory` (macOS Sequoia & iOS 18 style).
+    static func exportAppearanceVariants(
+        for appTitle: String,
+        sourceImage: NSImage,
+        baseStyle: RoundIconStyle,
+        fallbackHex: UInt32,
+        to directory: URL
+    ) throws -> [URL] {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let safeName = ItemTitle.clean(appTitle)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+
+        var written: [URL] = []
+        let variants: [(String, IconAppearanceMode)] = [
+            ("Light", .light),
+            ("Dark", .dark),
+            ("Tinted", .tinted)
+        ]
+
+        for (suffix, mode) in variants {
+            var s = baseStyle
+            s.appearanceMode = mode
+            let rendered = renderRoundIcon(sourceImage: sourceImage, style: s, fallbackHex: fallbackHex, canvasSize: 1024)
+            let fileURL = directory.appendingPathComponent("\(safeName)-\(suffix).png")
+            if let png = pngData(from: rendered, pixelSize: 1024) {
+                try png.write(to: fileURL, options: .atomic)
+                written.append(fileURL)
+            }
+        }
+        return written
+    }
+
     // MARK: - Private Bitmap Helpers
+
+    static func effectiveAppearanceMode(for style: RoundIconStyle) -> IconAppearanceMode {
+        if style.appearanceMode == .system {
+            let isDark = NSApp?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return isDark ? .dark : .light
+        }
+        return style.appearanceMode
+    }
 
     private static func surfaceColors(
         for style: RoundIconStyle,
         dominant: MaterialRGB,
         edge: MaterialRGB
     ) -> (NSColor, NSColor) {
-        switch style.backgroundStyle {
-        case .googleWhite:
+        let mode = effectiveAppearanceMode(for: style)
+        switch mode {
+        case .dark:
+            // macOS Sequoia / iOS 18 Dark Icon slate plate
             return (
-                NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 1.0),
-                NSColor(srgbRed: 0.955, green: 0.962, blue: 0.976, alpha: 1.0)
+                NSColor(srgbRed: 0.145, green: 0.148, blue: 0.160, alpha: 1.0),
+                NSColor(srgbRed: 0.082, green: 0.084, blue: 0.092, alpha: 1.0)
             )
-        case .materialPastel:
-            let top = dominant.materialPastel(whiteMix: 0.82)
-            let bottom = dominant.materialPastel(whiteMix: 0.72)
-            return (nsColor(top), nsColor(bottom))
-        case .darkMaterial:
-            return (
-                NSColor(srgbRed: 0.155, green: 0.162, blue: 0.180, alpha: 1.0),
-                NSColor(srgbRed: 0.105, green: 0.110, blue: 0.125, alpha: 1.0)
+        case .tinted:
+            // Dual-tone dark plate tinted with user-chosen hue
+            let tint = MaterialRGB(hex: style.tintColorHex)
+            let topTinted = NSColor(
+                srgbRed: 0.08 + (CGFloat(tint.r) / 255.0) * 0.12,
+                green: 0.08 + (CGFloat(tint.g) / 255.0) * 0.12,
+                blue: 0.09 + (CGFloat(tint.b) / 255.0) * 0.12,
+                alpha: 1.0
             )
-        case .adaptiveEdge:
-            let top = edge.materialPastel(whiteMix: 0.25)
-            return (nsColor(top), nsColor(edge))
-        case .customColor:
-            let base = MaterialRGB(hex: style.customHex)
-            let top = base.materialPastel(whiteMix: 0.18)
-            return (nsColor(top), nsColor(base))
+            let bottomTinted = NSColor(
+                srgbRed: 0.04 + (CGFloat(tint.r) / 255.0) * 0.06,
+                green: 0.04 + (CGFloat(tint.g) / 255.0) * 0.06,
+                blue: 0.05 + (CGFloat(tint.b) / 255.0) * 0.06,
+                alpha: 1.0
+            )
+            return (topTinted, bottomTinted)
+        case .light, .system:
+            switch style.backgroundStyle {
+            case .googleWhite:
+                return (
+                    NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 1.0),
+                    NSColor(srgbRed: 0.955, green: 0.962, blue: 0.976, alpha: 1.0)
+                )
+            case .materialPastel:
+                let top = dominant.materialPastel(whiteMix: 0.82)
+                let bottom = dominant.materialPastel(whiteMix: 0.72)
+                return (nsColor(top), nsColor(bottom))
+            case .darkMaterial:
+                return (
+                    NSColor(srgbRed: 0.155, green: 0.162, blue: 0.180, alpha: 1.0),
+                    NSColor(srgbRed: 0.105, green: 0.110, blue: 0.125, alpha: 1.0)
+                )
+            case .adaptiveEdge:
+                let top = edge.materialPastel(whiteMix: 0.25)
+                return (nsColor(top), nsColor(edge))
+            case .customColor:
+                let base = MaterialRGB(hex: style.customHex)
+                let top = base.materialPastel(whiteMix: 0.18)
+                return (nsColor(top), nsColor(base))
+            }
         }
     }
 

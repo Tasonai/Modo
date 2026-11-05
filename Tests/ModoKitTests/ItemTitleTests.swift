@@ -47,6 +47,23 @@ func styleClamping() {
     clamped.resetPosition()
     #expect(clamped.offsetX == 0.0)
     #expect(clamped.offsetY == 0.0)
+
+    // Appearance mode and tinting
+    #expect(clamped.appearanceMode == .light)
+    #expect(clamped.tintColorHex == 0x007AFF)
+
+    let tintedStyle = RoundIconStyle(appearanceMode: .tinted, tintColorHex: 0x34C759)
+    #expect(tintedStyle.appearanceMode == .tinted)
+    #expect(tintedStyle.tintColorHex == 0x34C759)
+
+    // Round-trip encoding
+    if let encoded = try? JSONEncoder().encode(tintedStyle),
+       let decoded = try? JSONDecoder().decode(RoundIconStyle.self, from: encoded) {
+        #expect(decoded.appearanceMode == .tinted)
+        #expect(decoded.tintColorHex == 0x34C759)
+    } else {
+        #expect(Bool(false), "Failed to encode/decode RoundIconStyle")
+    }
 }
 
 @Test("ICO binary header packs multi-size PNG entries")

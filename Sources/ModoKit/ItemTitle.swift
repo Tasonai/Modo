@@ -55,6 +55,16 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
     }
 }
 
+/// Visual appearance theme mode (Light, Dark, Tinted, or Auto/System in macOS Sequoia & iOS 18 style).
+public enum IconAppearanceMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case light = "Light"
+    case dark = "Dark"
+    case tinted = "Tinted"
+    case system = "Auto"
+
+    public var id: String { rawValue }
+}
+
 /// Value type holding all parameters for rendering a Modo adaptive icon.
 public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var backgroundStyle: RoundBackgroundStyle
@@ -78,6 +88,16 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var autoTrim: Bool
     /// Custom background hex color (0xRRGGBB).
     public var customHex: UInt32
+    /// Visual appearance theme mode (macOS Sequoia / iOS 18 style).
+    public var appearanceMode: IconAppearanceMode
+    /// Tint color used in Tinted appearance mode (0xRRGGBB).
+    public var tintColorHex: UInt32
+
+    enum CodingKeys: String, CodingKey {
+        case backgroundStyle, shape, iconScale, offsetX, offsetY
+        case shadowIntensity, innerShadow, fullBleedSquares, monochromeTint
+        case autoTrim, customHex, appearanceMode, tintColorHex
+    }
 
     public init(
         backgroundStyle: RoundBackgroundStyle = .googleWhite,
@@ -90,7 +110,9 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         fullBleedSquares: Bool = false,
         monochromeTint: Bool = false,
         autoTrim: Bool = true,
-        customHex: UInt32 = 0xE8F0FE
+        customHex: UInt32 = 0xE8F0FE,
+        appearanceMode: IconAppearanceMode = .light,
+        tintColorHex: UInt32 = 0x007AFF
     ) {
         self.backgroundStyle = backgroundStyle
         self.shape = shape
@@ -103,6 +125,29 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.monochromeTint = monochromeTint
         self.autoTrim = autoTrim
         self.customHex = customHex & 0xFFFFFF
+        self.appearanceMode = appearanceMode
+        self.tintColorHex = tintColorHex & 0xFFFFFF
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.backgroundStyle = try container.decode(RoundBackgroundStyle.self, forKey: .backgroundStyle)
+        self.shape = try container.decodeIfPresent(IconShape.self, forKey: .shape) ?? .circle
+        let scale = try container.decodeIfPresent(Double.self, forKey: .iconScale) ?? 0.68
+        self.iconScale = min(max(scale, 0.30), 2.50)
+        let ox = try container.decodeIfPresent(Double.self, forKey: .offsetX) ?? 0.0
+        self.offsetX = min(max(ox, -1.0), 1.0)
+        let oy = try container.decodeIfPresent(Double.self, forKey: .offsetY) ?? 0.0
+        self.offsetY = min(max(oy, -1.0), 1.0)
+        let shadow = try container.decodeIfPresent(Double.self, forKey: .shadowIntensity) ?? 0.45
+        self.shadowIntensity = min(max(shadow, 0.0), 1.0)
+        self.innerShadow = try container.decodeIfPresent(Bool.self, forKey: .innerShadow) ?? true
+        self.fullBleedSquares = try container.decodeIfPresent(Bool.self, forKey: .fullBleedSquares) ?? false
+        self.monochromeTint = try container.decodeIfPresent(Bool.self, forKey: .monochromeTint) ?? false
+        self.autoTrim = try container.decodeIfPresent(Bool.self, forKey: .autoTrim) ?? true
+        self.customHex = try container.decodeIfPresent(UInt32.self, forKey: .customHex) ?? 0xE8F0FE
+        self.appearanceMode = try container.decodeIfPresent(IconAppearanceMode.self, forKey: .appearanceMode) ?? .light
+        self.tintColorHex = try container.decodeIfPresent(UInt32.self, forKey: .tintColorHex) ?? 0x007AFF
     }
 
     public mutating func resetPosition() {

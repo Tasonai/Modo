@@ -115,6 +115,9 @@ struct ContentView: View {
                     Button("Standard Pack (.icns, .ico, 1024px .png)") {
                         exportFolderPicker(for: visibleItems)
                     }
+                    Button("Light, Dark & Tinted Kit (macOS 15 / iOS 18)") {
+                        exportAppearanceVariantsPicker(for: visibleItems)
+                    }
                     Button("All Resolutions (16, 32, 48, 64, 128, 256, 512, 1024 px)") {
                         exportCustomSizesPicker(for: visibleItems, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
                     }
@@ -210,6 +213,18 @@ struct ContentView: View {
                 ditto.waitUntilExit()
                 model.statusMessage = "Exported \(sizes.count) resolutions for \(count) apps to \(zip.lastPathComponent)"
             }
+        }
+    }
+
+    private func exportAppearanceVariantsPicker(for items: [Item]) {
+        let panel = NSOpenPanel()
+        panel.title = "Export Light, Dark & Tinted PNGs"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        if panel.runModal() == .OK, let dir = panel.url {
+            _ = model.exportAppearanceVariants(for: items, to: dir)
         }
     }
 

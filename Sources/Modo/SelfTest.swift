@@ -310,6 +310,30 @@ enum SelfTest {
                     let roundSlack = model.roundIcon(for: customApp)
                     check("roundIcon renders SimpleIcon vector", roundSlack.size.width > 0)
                 }
+
+                // Appearance modes: Light, Dark, Tinted (macOS Sequoia / iOS 18)
+                model.style.appearanceMode = .dark
+                model.invalidateCache(for: customApp)
+                let darkIcon = model.roundIcon(for: customApp)
+                check("renders valid Dark appearance icon", darkIcon.size.width > 0)
+
+                model.style.appearanceMode = .tinted
+                model.style.tintColorHex = 0xAF52DE // iOS 18 Purple Tint
+                model.invalidateCache(for: customApp)
+                let tintedIcon = model.roundIcon(for: customApp)
+                check("renders valid Tinted appearance icon", tintedIcon.size.width > 0)
+
+                model.style.appearanceMode = .light
+                model.invalidateCache(for: customApp)
+
+                let appearanceDir = URL(fileURLWithPath: "/tmp/Modo-appearance-test", isDirectory: true)
+                try? FileManager.default.removeItem(at: appearanceDir)
+                let variantCount = model.exportAppearanceVariants(for: [customApp], to: appearanceDir)
+                let hasLight = FileManager.default.fileExists(atPath: appearanceDir.appendingPathComponent("CustomApp-Light.png").path)
+                let hasDark = FileManager.default.fileExists(atPath: appearanceDir.appendingPathComponent("CustomApp-Dark.png").path)
+                let hasTinted = FileManager.default.fileExists(atPath: appearanceDir.appendingPathComponent("CustomApp-Tinted.png").path)
+                check("exportAppearanceVariants generates Light, Dark, and Tinted PNGs", variantCount == 1 && hasLight && hasDark && hasTinted)
+                try? FileManager.default.removeItem(at: appearanceDir)
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
