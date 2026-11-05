@@ -11,6 +11,7 @@ struct DetailInspectorView: View {
     @State private var dragStartOffset: CGPoint?
     @State private var adjustThisAppOnly: Bool = false
     @State private var isDropTargeted: Bool = false
+    @State private var showSimpleIconsSheet: Bool = false
 
     private var effectiveScale: Double {
         item.customScale ?? model.style.iconScale
@@ -80,6 +81,9 @@ struct DetailInspectorView: View {
         }
         .onChange(of: item.id) {
             adjustThisAppOnly = (item.customScale != nil)
+        }
+        .sheet(isPresented: $showSimpleIconsSheet) {
+            SimpleIconsBrowserView(item: item)
         }
     }
 
@@ -237,11 +241,42 @@ struct DetailInspectorView: View {
                 }
             }
 
+            if let suggested = SimpleIconCatalog.find(for: item.title), !hasCustom {
+                HStack(spacing: Space.sm) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Palette.accentText)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Simple Icon match: **\(suggested.title)**")
+                            .font(.caption.weight(.medium))
+                        Text("Official monochrome vector SVG")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Apply SVG") {
+                        model.setCustomArtwork(data: suggested.svgData(), for: item)
+                        item.brandHex = Int(suggested.hex)
+                        try? context.save()
+                    }
+                    .controlSize(.small)
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(Space.sm)
+                .background(Palette.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: Radius.sm))
+            }
+
             Text("Drop an SVG vector or image directly onto this card, or choose a file:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: Space.sm) {
+                Button {
+                    showSimpleIconsSheet = true
+                } label: {
+                    Label("Simple Icons…", systemImage: "sparkles.rectangle.stack")
+                }
+                .controlSize(.small)
+
                 Button {
                     if let data = CustomArtworkHelper.promptUserForArtwork() {
                         model.setCustomArtwork(data: data, for: item)

@@ -300,6 +300,16 @@ enum SelfTest {
                 check("clearing custom artwork resets customImageData to nil", customApp.customImageData == nil)
                 let restoredSource = model.sourceIcon(for: customApp, canvasSize: 256)
                 check("restored source matches default behavior", restoredSource.size.width > 0)
+
+                // Simple Icons 1-click vector matching
+                let slackIcon = SimpleIconCatalog.find(for: "Slack.app")
+                check("SimpleIconCatalog finds match for Slack", slackIcon != nil && slackIcon?.slug == "slack")
+                if let icon = slackIcon {
+                    model.setCustomArtwork(data: icon.svgData(), for: customApp)
+                    check("applying SimpleIcon assigns SVG data", customApp.customImageData != nil)
+                    let roundSlack = model.roundIcon(for: customApp)
+                    check("roundIcon renders SimpleIcon vector", roundSlack.size.width > 0)
+                }
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

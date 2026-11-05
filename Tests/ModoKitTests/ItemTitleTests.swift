@@ -292,3 +292,26 @@ func manifestRules() throws {
 func sha256Known() {
     #expect(IconSetRules.sha256Hex(Data("abc".utf8)) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
 }
+
+@Test("Simple Icons catalog and slug resolution")
+func simpleIconsCatalog() {
+    #expect(SimpleIconCatalog.curated.count >= 40)
+
+    let chrome = SimpleIconCatalog.find(for: "Google Chrome.app")
+    #expect(chrome != nil)
+    #expect(chrome?.slug == "googlechrome")
+    #expect(chrome?.svgString().contains("<svg") == true)
+    #expect(chrome?.svgString().contains("path") == true)
+
+    let slack = SimpleIconCatalog.find(for: "Slack")
+    #expect(slack?.slug == "slack")
+
+    let vscode = SimpleIconCatalog.find(for: "Visual Studio Code")
+    #expect(vscode?.slug == "visualstudiocode")
+
+    let search = SimpleIconCatalog.search(query: "tele")
+    #expect(search.contains(where: { $0.slug == "telegram" }))
+
+    let remote = SimpleIconCatalog.remoteURL(for: "linear")
+    #expect(remote?.absoluteString == "https://cdn.jsdelivr.net/npm/simple-icons/icons/linear.svg")
+}

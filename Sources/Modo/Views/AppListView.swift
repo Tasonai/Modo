@@ -1,3 +1,4 @@
+import ModoKit
 import SwiftData
 import SwiftUI
 
@@ -182,6 +183,13 @@ struct AppListView: View {
             }
         }
         Divider()
+        if let suggested = SimpleIconCatalog.find(for: item.title) {
+            Button("Apply \(suggested.title) Vector (Simple Icons)") {
+                model.setCustomArtwork(data: suggested.svgData(), for: item)
+                item.brandHex = Int(suggested.hex)
+                try? context.save()
+            }
+        }
         Button("Choose Custom Icon / SVG…") {
             model.promptCustomArtwork(for: item)
             try? context.save()
