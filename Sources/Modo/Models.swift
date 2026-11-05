@@ -113,6 +113,7 @@ final class AppModel {
     var statusMessage = "Ready"
     var showUpdateSheet: Bool = false
     var showBatchCreator: Bool = false
+    var showShowcaseStudio: Bool = false
     var batchInitialFolderURL: URL? = nil
 
     var viewMode: AppViewMode = .list {

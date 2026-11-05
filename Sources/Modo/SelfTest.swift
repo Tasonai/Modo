@@ -425,6 +425,20 @@ enum SelfTest {
                 let safeName = BatchIconEngine.safePackName("My Awesome Design Pack! 2026")
                 check("BatchIconEngine formats safe pack name", safeName == "My-Awesome-Design-Pack-2026")
                 try? fm.removeItem(at: batchDir)
+
+                // Modo CLI Engine verification
+                check("ModoCLI handles --version", ModoCLI.run(arguments: ["--version"]) == 0)
+                check("ModoCLI handles --help", ModoCLI.run(arguments: ["--help"]) == 0)
+                check("ModoCLI rejects unknown commands", ModoCLI.run(arguments: ["invalid_subcommand_test"]) == 1)
+
+                // Showcase & App Store Hero Engine
+                let testIcon = NSImage(size: NSSize(width: 128, height: 128))
+                let heroBanner = ShowcaseEngine.renderShowcase(
+                    icon: testIcon,
+                    options: ShowcaseExportOptions(theme: .ambientMesh, layout: .heroSingle, width: 480, height: 270)
+                )
+                check("ShowcaseEngine renders hero presentation banner", heroBanner.size.width == 480 && heroBanner.size.height == 270)
+                check("ShowcaseTheme provides 5 backdrop styles", ShowcaseTheme.allCases.count == 5)
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

@@ -1,6 +1,6 @@
 {
   "version": "1.5.0",
-  "build": "202611051816",
+  "build": "202611051832",
   "releaseDate": "2026-11-05",
   "title": "Modo 1.5.0 — AI Glyph Studio & OTA Updates",
   "releaseNotes": "• Over-the-Air (OTA) automated update engine with SHA-256 verification\n• In-app Check for Updates modal with live download progress\n• AI Glyph Studio: 9 procedural geometric styles + neural logo generation\n• Multi-resolution export & Material You pastel palettes\n• Windows PE32+ native installer & portable suite",
@@ -30,7 +30,7 @@
       "platform": "windows",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.5.0/Modo-Windows-x64.zip",
-      "sha256": "7e56124eb76ca358acb1454735dfeacf6ddbc4f40739c63fc3937f3f9f644dbb",
+      "sha256": "8dca1cb14b97c4ab5517f5d1943ed16002a8b8e1284f907ba94224f7443d344e",
       "sizeBytes": 200934,
       "isPrimary": false
     },
@@ -39,8 +39,8 @@
       "platform": "macos",
       "format": "pkg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.5.0/Modo-macOS-Installer.pkg",
-      "sha256": "9d1508ec290d193fdcf9ae9ca48e7f5157e1b4b5e8db4c3641062d8e4720abe0",
-      "sizeBytes": 3218199,
+      "sha256": "3184a501801c033e793eda701bc287402cbfc30666ea5224137bc606283a76f2",
+      "sizeBytes": 3340089,
       "isPrimary": false
     },
     {
@@ -48,8 +48,8 @@
       "platform": "macos",
       "format": "dmg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.5.0/Modo-macOS.dmg",
-      "sha256": "4358ad962929b9bf3ba01d60dd08928ac4e75e65d9dbeb9407ce477f2c90d9f5",
-      "sizeBytes": 3664217,
+      "sha256": "abf0c65c118e02c53c8aa7327d4499835a528e094a37ac890bdeb6b1a6520411",
+      "sizeBytes": 3809604,
       "isPrimary": false
     },
     {
@@ -57,8 +57,8 @@
       "platform": "macos",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.5.0/Modo-macOS.zip",
-      "sha256": "2ee316ac430bf946a02ad10fffee6bf700853acf09190001ae1e65e62005c14f",
-      "sizeBytes": 3218445,
+      "sha256": "72cc081c1173bcf8e64a7049c567633deab0786cbf1a9102299f124a982e4581",
+      "sizeBytes": 3340308,
       "isPrimary": true
     }
   ]

@@ -16,6 +16,22 @@ import SwiftUI
 struct ModoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = AppModel(container: Store.makeContainer())
+    @AppStorage("showMenuBarExtra") private var showMenuBarExtra = true
+
+    init() {
+        let args = Array(CommandLine.arguments.dropFirst())
+        if !args.isEmpty && !SelfTest.requested && !args[0].hasPrefix("-psn") {
+            let first = args[0].lowercased()
+            let knownCommands: Set<String> = [
+                "style", "restore", "folder", "batch", "showcase",
+                "--help", "-h", "help", "--version", "-v", "version"
+            ]
+            if knownCommands.contains(first) {
+                let code = ModoCLI.run(arguments: args)
+                exit(code)
+            }
+        }
+    }
 
     var body: some Scene {
         Window("Modo", id: "main") {
@@ -75,6 +91,13 @@ struct ModoApp: App {
                 .themed()
         }
         .windowResizability(.contentSize)
+
+        MenuBarExtra("Modo Quick Drop", systemImage: "circle.grid.2x2.fill", isInserted: $showMenuBarExtra) {
+            QuickDropMenuBarView()
+                .environment(model)
+                .themed()
+        }
+        .menuBarExtraStyle(.window)
     }
 }
 

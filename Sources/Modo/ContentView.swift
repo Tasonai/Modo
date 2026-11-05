@@ -165,6 +165,12 @@ struct ContentView: View {
             BatchCreatorSheetView()
                 .themed()
         }
+        .sheet(isPresented: $model.showShowcaseStudio) {
+            if let item = activeItem {
+                ShowcaseSheetView(item: item)
+                    .themed()
+            }
+        }
         .task {
             SeedData.insertIfRequested(into: model)
             if !Store.isOverridden && items.isEmpty {

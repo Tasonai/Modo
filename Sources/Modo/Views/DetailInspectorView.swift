@@ -743,6 +743,10 @@ struct DetailInspectorView: View {
                 Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
                     exportCustomSizes(for: item, sizes: [16, 32, 180, 192, 512], title: "Favicon Kit")
                 }
+                Divider()
+                Button("App Showcase & README Hero Banner…") {
+                    model.showShowcaseStudio = true
+                }
             } label: {
                 Label("Export…", systemImage: "square.and.arrow.up")
             }

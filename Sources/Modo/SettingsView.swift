@@ -63,6 +63,8 @@ struct GeneralSettings: View {
     @AppStorage("exportIncludesICO") private var exportIncludesICO = true
     @AppStorage("autoReapplyIcons") private var autoReapplyIcons = true
     @AppStorage("iconSetCatalogURL") private var iconSetCatalogURL = ""
+    @AppStorage("showMenuBarExtra") private var showMenuBarExtra = true
+    @State private var cliStatus = ""
 
     var body: some View {
         @Bindable var model = model
@@ -76,12 +78,58 @@ struct GeneralSettings: View {
             Toggle("Expand full-bleed square icons to fill circle", isOn: $model.style.fullBleedSquares)
         }
 
-        Section("macOS Integration & Export") {
+        Section("macOS Integration & Menu Bar") {
+            Toggle("Show Modo Quick Drop in Menu Bar", isOn: $showMenuBarExtra)
             Toggle("Include /System/Applications when scanning", isOn: $scanSystemApps)
             Toggle("Create ~/Applications/Round Icons alias for read-only apps", isOn: $createAliasOnReadOnly)
             Toggle("Export multi-size Windows .ico alongside Apple .icns", isOn: $exportIncludesICO)
             Toggle("Re-apply Modo icons after an app is updated", isOn: $autoReapplyIcons)
             TextField("Icon set catalog URL", text: $iconSetCatalogURL, prompt: Text("https://…/catalog.json"))
+        }
+
+        Section("Command Line Tool (modo)") {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Install 'modo' in terminal")
+                        .font(.body)
+                    Text("Automate icon styling, batch export, and folder customization from scripts.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Install CLI…") {
+                    installCLITool()
+                }
+            }
+            if !cliStatus.isEmpty {
+                Text(cliStatus)
+                    .font(.caption)
+                    .foregroundStyle(Palette.accent)
+            }
+        }
+    }
+
+    private func installCLITool() {
+        guard let execPath = Bundle.main.executablePath else { return }
+        let target = "/usr/local/bin/modo"
+        let fm = FileManager.default
+
+        // Try direct symlink
+        try? fm.removeItem(atPath: target)
+        do {
+            try fm.createSymbolicLink(atPath: target, withDestinationPath: execPath)
+            cliStatus = "✓ Installed 'modo' to \(target)"
+        } catch {
+            // Suggest terminal command
+            let altDir = ("~/.local/bin" as NSString).expandingTildeInPath
+            try? fm.createDirectory(atPath: altDir, withIntermediateDirectories: true)
+            let altTarget = altDir + "/modo"
+            try? fm.removeItem(atPath: altTarget)
+            if (try? fm.createSymbolicLink(atPath: altTarget, withDestinationPath: execPath)) != nil {
+                cliStatus = "✓ Installed to \(altTarget) (ensure ~/.local/bin is in PATH)"
+            } else {
+                cliStatus = "Run in terminal: sudo ln -sf \"\(execPath)\" /usr/local/bin/modo"
+            }
         }
     }
 }
