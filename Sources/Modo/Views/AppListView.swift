@@ -182,6 +182,24 @@ struct AppListView: View {
             }
         }
         Divider()
+        Button("Choose Custom Icon / SVG…") {
+            model.promptCustomArtwork(for: item)
+            try? context.save()
+        }
+        Button("Paste Custom Icon") {
+            if model.pasteCustomArtwork(for: item) {
+                try? context.save()
+            }
+        }
+        .disabled(!CustomArtworkHelper.canPasteArtwork())
+
+        if item.customImageData != nil {
+            Button("Reset to Default Icon") {
+                model.clearCustomArtwork(for: item)
+                try? context.save()
+            }
+        }
+        Divider()
         Button(item.isStarred ? "Remove from Favorites" : "Add to Favorites") {
             item.isStarred.toggle()
             try? context.save()
@@ -199,7 +217,9 @@ struct AppListView: View {
 
 struct AppRowView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.modelContext) private var context
     let item: Item
+    @State private var isTargeted = false
 
     var body: some View {
         HStack(spacing: Space.md) {
@@ -217,6 +237,12 @@ struct AppRowView: View {
                         Image(systemName: "star.fill")
                             .font(.caption2)
                             .foregroundStyle(.yellow)
+                    }
+                    if item.customImageData != nil {
+                        Image(systemName: "sparkles")
+                            .font(.caption2)
+                            .foregroundStyle(Palette.accentText)
+                            .help("Custom SVG / image assigned")
                     }
                     if item.customScale != nil {
                         Image(systemName: "slider.horizontal.2")
@@ -243,6 +269,16 @@ struct AppRowView: View {
             }
         }
         .padding(.vertical, Space.xs)
+        .padding(.horizontal, isTargeted ? Space.xs : 0)
+        .background(isTargeted ? Palette.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first, let data = CustomArtworkHelper.loadArtworkData(from: url) else { return false }
+            model.setCustomArtwork(data: data, for: item)
+            try? context.save()
+            return true
+        } isTargeted: { targeted in
+            isTargeted = targeted
+        }
     }
 }
 
@@ -250,9 +286,11 @@ struct AppRowView: View {
 
 struct AppGridCellView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.modelContext) private var context
     let item: Item
     let size: Double
     let isSelected: Bool
+    @State private var isTargeted = false
 
     var body: some View {
         let cardShape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
@@ -280,23 +318,43 @@ struct AppGridCellView: View {
                 .foregroundStyle(isSelected ? .primary : .secondary)
                 .frame(maxWidth: .infinity)
 
-            if item.isApplied {
-                Text("Styled")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Palette.accentText)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Palette.accent.opacity(0.16), in: Capsule())
+            HStack(spacing: 3) {
+                if item.customImageData != nil {
+                    let isSVG = CustomArtworkHelper.isSVGData(item.customImageData!)
+                    Text(isSVG ? "SVG" : "Custom")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Palette.accentText)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Palette.accent.opacity(0.14), in: Capsule())
+                }
+
+                if item.isApplied {
+                    Text("Styled")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Palette.accentText)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Palette.accent.opacity(0.16), in: Capsule())
+                }
             }
         }
         .padding(Space.xs)
         .background(
             cardShape
-                .fill(isSelected ? Palette.accent.opacity(0.12) : Color.clear)
+                .fill(isTargeted ? Palette.accent.opacity(0.20) : (isSelected ? Palette.accent.opacity(0.12) : Color.clear))
         )
         .overlay(
             cardShape
-                .strokeBorder(isSelected ? Palette.accent : Color.clear, lineWidth: 1.5)
+                .strokeBorder(isTargeted ? Palette.accent : (isSelected ? Palette.accent : Color.clear), lineWidth: isTargeted ? 2.0 : 1.5)
         )
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first, let data = CustomArtworkHelper.loadArtworkData(from: url) else { return false }
+            model.setCustomArtwork(data: data, for: item)
+            try? context.save()
+            return true
+        } isTargeted: { targeted in
+            isTargeted = targeted
+        }
     }
 }

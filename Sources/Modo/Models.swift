@@ -20,6 +20,7 @@ final class Item {
     var customScale: Double?
     var customOffsetX: Double?
     var customOffsetY: Double?
+    @Attribute(.externalStorage) var customImageData: Data?
 
     init(
         title: String,
@@ -32,7 +33,8 @@ final class Item {
         isApplied: Bool = false,
         customScale: Double? = nil,
         customOffsetX: Double? = nil,
-        customOffsetY: Double? = nil
+        customOffsetY: Double? = nil,
+        customImageData: Data? = nil
     ) {
         self.id = UUID()
         self.title = ItemTitle.clean(title)
@@ -47,6 +49,7 @@ final class Item {
         self.customScale = customScale
         self.customOffsetX = customOffsetX
         self.customOffsetY = customOffsetY
+        self.customImageData = customImageData
     }
 }
 
@@ -294,8 +297,11 @@ final class AppModel {
         statusMessage = "Removed icon set \(set.manifest.name)"
     }
 
-    /// The artwork Modo styles for `item`: the active set's picture for this app, else the app's own icon.
+    /// The artwork Modo styles for `item`: custom user artwork, or active set's picture, or the app's own icon.
     func sourceIcon(for item: Item, canvasSize: Int) -> NSImage {
+        if let customData = item.customImageData, let img = NSImage(data: customData) {
+            return img
+        }
         if let set = activeIconSet, let image = IconSetStore.image(for: item.bundleIdentifier, in: set) {
             return image
         }
@@ -334,6 +340,55 @@ final class AppModel {
     /// Clears the cached rendered bitmap for a specific item.
     func invalidateCache(for item: Item) {
         roundCache[item.id] = nil
+        originalCache[item.id] = nil
+    }
+
+    /// Assigns custom vector SVG or raster image data as the glyph for `item`.
+    func setCustomArtwork(data: Data, for item: Item) {
+        item.customImageData = data
+        invalidateCache(for: item)
+        let isSVG = CustomArtworkHelper.isSVGData(data)
+        statusMessage = "Custom \(isSVG ? "vector SVG" : "image") assigned to \(item.title)"
+    }
+
+    /// Clears any custom icon for `item`, restoring the system default icon.
+    func clearCustomArtwork(for item: Item) {
+        item.customImageData = nil
+        invalidateCache(for: item)
+        statusMessage = "Restored default icon for \(item.title)"
+    }
+
+    /// Assigns custom artwork from clipboard if available.
+    @discardableResult
+    func pasteCustomArtwork(for item: Item) -> Bool {
+        guard let data = CustomArtworkHelper.loadArtworkData(from: .general) else {
+            statusMessage = "Clipboard does not contain an image or SVG"
+            return false
+        }
+        setCustomArtwork(data: data, for: item)
+        return true
+    }
+
+    /// Prompts user with open panel to select custom artwork for `item`.
+    func promptCustomArtwork(for item: Item) {
+        if let data = CustomArtworkHelper.promptUserForArtwork() {
+            setCustomArtwork(data: data, for: item)
+        }
+    }
+
+    /// Prompts user with open panel to select custom artwork for the currently selected item.
+    func promptCustomArtworkForSelection() {
+        guard let id = selection, let item = (try? container.mainContext.fetch(FetchDescriptor<Item>()))?.first(where: { $0.id == id }) else { return }
+        promptCustomArtwork(for: item)
+        try? container.mainContext.save()
+    }
+
+    /// Assigns custom artwork from clipboard to the currently selected item.
+    func pasteCustomArtworkForSelection() {
+        guard let id = selection, let item = (try? container.mainContext.fetch(FetchDescriptor<Item>()))?.first(where: { $0.id == id }) else { return }
+        if pasteCustomArtwork(for: item) {
+            try? container.mainContext.save()
+        }
     }
 
     /// Returns the cached circular Google Pixel / Material You icon for `item` under its effective style.

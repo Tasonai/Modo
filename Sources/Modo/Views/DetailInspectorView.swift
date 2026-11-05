@@ -10,6 +10,7 @@ struct DetailInspectorView: View {
     let allVisibleItems: [Item]
     @State private var dragStartOffset: CGPoint?
     @State private var adjustThisAppOnly: Bool = false
+    @State private var isDropTargeted: Bool = false
 
     private var effectiveScale: Double {
         item.customScale ?? model.style.iconScale
@@ -53,6 +54,10 @@ struct DetailInspectorView: View {
                 comparisonCard
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("comparison", area: "detail")
+
+                customArtworkCard
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .gridProbe("custom_artwork", area: "detail")
 
                 iconPacksCard
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,18 +116,41 @@ struct DetailInspectorView: View {
 
     private var comparisonCard: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        let hasCustom = (item.customImageData != nil)
+        let isSVG = hasCustom && CustomArtworkHelper.isSVGData(item.customImageData!)
+
         return HStack(spacing: Space.xxl) {
             Spacer(minLength: 0)
             VStack(spacing: Space.sm) {
-                Image(nsImage: model.originalIcon(for: item))
+                Image(nsImage: model.sourceIcon(for: item, canvasSize: 256))
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 96, height: 96)
-                Text("Original")
-                    .font(.callout.weight(.medium))
-                Text("macOS Default")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if hasCustom {
+                    Text("Custom Glyph")
+                        .font(.callout.weight(.medium))
+                    HStack(spacing: 4) {
+                        Text(isSVG ? "Vector SVG" : "Custom Image")
+                            .font(.caption)
+                            .foregroundStyle(Palette.accentText)
+                        Button {
+                            model.clearCustomArtwork(for: item)
+                            try? context.save()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Restore default macOS icon")
+                    }
+                } else {
+                    Text("Original")
+                        .font(.callout.weight(.medium))
+                    Text("macOS Default")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             VStack(spacing: Space.xs) {
@@ -178,7 +206,85 @@ struct DetailInspectorView: View {
         }
         .padding(Space.lg)
         .background(.background.secondary, in: shape)
-        .overlay(shape.strokeBorder(.separator, lineWidth: 1))
+        .overlay(shape.strokeBorder(isDropTargeted ? Palette.accent : Color(nsColor: .separatorColor), lineWidth: isDropTargeted ? 2 : 1))
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first, let data = CustomArtworkHelper.loadArtworkData(from: url) else { return false }
+            model.setCustomArtwork(data: data, for: item)
+            try? context.save()
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
+    }
+
+    private var customArtworkCard: some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        let hasCustom = (item.customImageData != nil)
+        let isSVG = hasCustom && CustomArtworkHelper.isSVGData(item.customImageData!)
+
+        return VStack(alignment: .leading, spacing: Space.sm) {
+            HStack {
+                Label("Custom Glyph & SVG", systemImage: isSVG ? "sparkles" : "photo.on.rectangle.angled")
+                    .font(.headline)
+                Spacer()
+                if hasCustom {
+                    Text(isSVG ? "Vector SVG Active" : "Custom Artwork Active")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Palette.accentText)
+                        .padding(.horizontal, Space.sm)
+                        .padding(.vertical, 2)
+                        .background(Palette.accent.opacity(0.14), in: Capsule())
+                }
+            }
+
+            Text("Drop an SVG vector or image directly onto this card, or choose a file:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: Space.sm) {
+                Button {
+                    if let data = CustomArtworkHelper.promptUserForArtwork() {
+                        model.setCustomArtwork(data: data, for: item)
+                        try? context.save()
+                    }
+                } label: {
+                    Label("Choose File…", systemImage: "photo.badge.plus")
+                }
+                .controlSize(.small)
+
+                Button {
+                    if model.pasteCustomArtwork(for: item) {
+                        try? context.save()
+                    }
+                } label: {
+                    Label("Paste Image", systemImage: "doc.on.clipboard")
+                }
+                .controlSize(.small)
+                .disabled(!CustomArtworkHelper.canPasteArtwork())
+
+                if hasCustom {
+                    Spacer()
+                    Button(role: .destructive) {
+                        model.clearCustomArtwork(for: item)
+                        try? context.save()
+                    } label: {
+                        Label("Reset to Default", systemImage: "arrow.uturn.backward")
+                    }
+                    .controlSize(.small)
+                }
+            }
+        }
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
+        .overlay(cardShape.strokeBorder(isDropTargeted ? Palette.accent : Color(nsColor: .separatorColor), lineWidth: isDropTargeted ? 2 : 1))
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first, let data = CustomArtworkHelper.loadArtworkData(from: url) else { return false }
+            model.setCustomArtwork(data: data, for: item)
+            try? context.save()
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
     }
 
     private var iconPacksCard: some View {

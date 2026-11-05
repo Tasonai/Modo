@@ -43,6 +43,15 @@ struct ModoApp: App {
                         model.style.backgroundStyle = preset
                     }
                 }
+                Divider()
+                Button("Choose Custom Icon / SVG…") {
+                    model.promptCustomArtworkForSelection()
+                }
+                .keyboardShortcut("i", modifiers: [.command, .shift])
+                Button("Paste Custom Icon") {
+                    model.pasteCustomArtworkForSelection()
+                }
+                .keyboardShortcut("v", modifiers: [.command, .shift])
             }
         }
 

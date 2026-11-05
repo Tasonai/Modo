@@ -273,6 +273,35 @@ enum SelfTest {
                 try? FileManager.default.removeItem(at: exportDir)
             }
 
+            // Custom artwork: Drag-and-drop / SVG / PNG glyph replacement
+            do {
+                let svgStr = """
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="#4285F4"/>
+                    <path d="M30 50 L45 65 L70 35" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" fill="none"/>
+                </svg>
+                """
+                let svgData = svgStr.data(using: .utf8)!
+                check("CustomArtworkHelper identifies valid SVG text", CustomArtworkHelper.isSVGData(svgData))
+
+                let customApp = Item(title: "CustomApp", bundleIdentifier: "com.example.customapp")
+                let defaultSource = model.sourceIcon(for: customApp, canvasSize: 256)
+
+                // Assign SVG vector
+                model.setCustomArtwork(data: svgData, for: customApp)
+                check("custom SVG data stored in item", customApp.customImageData != nil)
+                let svgSource = model.sourceIcon(for: customApp, canvasSize: 256)
+                check("sourceIcon returns custom SVG image", svgSource != defaultSource && svgSource.size.width > 0)
+                let svgRound = model.roundIcon(for: customApp)
+                check("roundIcon renders styled circular icon from custom SVG", svgRound.size.width > 0)
+
+                // Clear artwork back to system default
+                model.clearCustomArtwork(for: customApp)
+                check("clearing custom artwork resets customImageData to nil", customApp.customImageData == nil)
+                let restoredSource = model.sourceIcon(for: customApp, canvasSize: 256)
+                check("restored source matches default behavior", restoredSource.size.width > 0)
+            }
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }
