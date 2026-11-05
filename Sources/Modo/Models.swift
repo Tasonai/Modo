@@ -106,6 +106,7 @@ final class AppModel {
     var search = ""
     var settingsTab: SettingsTab = .general
     var statusMessage = "Ready"
+    var showUpdateSheet: Bool = false
 
     var viewMode: AppViewMode = .list {
         didSet {

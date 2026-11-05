@@ -42,9 +42,46 @@ def main() -> None:
         check=True,
     )
 
-    # 3. Compute SHA256 Checksums
+    # 3. Generate OTA Update Manifest (dist/update.json)
     import hashlib
+    import json
+    from datetime import datetime
 
+    assets = []
+    for p in sorted(DIST_DIR.glob("*")):
+        if not p.is_file() or p.name in ("checksums.txt", "update.json"):
+            continue
+        sha256 = hashlib.sha256(p.read_bytes()).hexdigest()
+        size = p.stat().st_size
+        name = p.name
+
+        platform = "macos" if "macOS" in name or "mac" in name.lower() else ("windows" if "Windows" in name or "win" in name.lower() else "universal")
+        fmt = "zip" if name.endswith(".zip") else ("dmg" if name.endswith(".dmg") else ("pkg" if name.endswith(".pkg") else ("exe" if name.endswith(".exe") else "zip")))
+        is_primary = (name == "Modo-macOS.zip") or (name == "Modo-Windows-Setup.exe")
+
+        assets.append({
+            "name": name,
+            "platform": platform,
+            "format": fmt,
+            "downloadURL": f"https://github.com/atoma/modo/releases/download/v1.5.0/{name}",
+            "sha256": sha256,
+            "sizeBytes": size,
+            "isPrimary": is_primary
+        })
+
+    manifest = {
+        "version": "1.5.0",
+        "build": datetime.now().strftime("%Y%m%d%H%M"),
+        "releaseDate": datetime.now().strftime("%Y-%m-%d"),
+        "title": "Modo 1.5.0 — AI Glyph Studio & OTA Updates",
+        "releaseNotes": "• Over-the-Air (OTA) automated update engine with SHA-256 verification\n• In-app Check for Updates modal with live download progress\n• AI Glyph Studio: 9 procedural geometric styles + neural logo generation\n• Multi-resolution export & Material You pastel palettes\n• Windows PE32+ native installer & portable suite",
+        "minOSVersion": "14.0",
+        "isMandatory": False,
+        "assets": assets
+    }
+    (DIST_DIR / "update.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    # 4. Compute SHA256 Checksums
     checksum_lines = []
     for p in sorted(DIST_DIR.glob("*")):
         if p.is_file() and p.name != "checksums.txt":

@@ -350,6 +350,39 @@ enum SelfTest {
                 check("AI geometric vector assigned to item", customApp.customImageData != nil)
                 let aiRound = model.roundIcon(for: customApp)
                 check("roundIcon renders styled icon from AI vector", aiRound.size.width > 0)
+
+                // OTA Auto-Update: Manifest parsing, version comparator, and checksum verification
+                let testManifestJSON = """
+                {
+                  "version": "9.9.9",
+                  "releaseDate": "2026-11-05",
+                  "title": "Modo 9.9.9 — Future Release",
+                  "releaseNotes": "OTA test release notes",
+                  "isMandatory": false,
+                  "assets": [
+                    {
+                      "name": "Modo-macOS.zip",
+                      "platform": "macos",
+                      "format": "zip",
+                      "downloadURL": "https://example.com/Modo-macOS.zip",
+                      "sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+                      "sizeBytes": 2048,
+                      "isPrimary": true
+                    }
+                  ]
+                }
+                """
+                let mData = testManifestJSON.data(using: .utf8)!
+                let manifest = try JSONDecoder().decode(UpdateManifest.self, from: mData)
+                check("OTAUpdateEngine detects newer version available", OTAUpdateEngine.isUpdateAvailable(manifest: manifest, currentVersion: "1.5.0"))
+                check("OTAUpdateEngine reports current version as not newer", !OTAUpdateEngine.isUpdateAvailable(manifest: manifest, currentVersion: "9.9.9"))
+                let bestAsset = OTAUpdateEngine.findBestAsset(in: manifest, for: .macos)
+                check("OTAUpdateEngine selects macOS zip asset", bestAsset?.format == .zip && bestAsset?.name == "Modo-macOS.zip")
+
+                let payload = "Modo OTA Update Verification Payload".data(using: .utf8)!
+                let validHash = OTAUpdateEngine.sha256(data: payload)
+                check("OTAUpdateEngine validates matching SHA-256", OTAUpdateEngine.verifyChecksum(data: payload, expectedSHA256: validHash))
+                check("OTAUpdateEngine rejects tampered checksum", !OTAUpdateEngine.verifyChecksum(data: payload, expectedSHA256: "0000000000000000000000000000000000000000000000000000000000000000"))
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

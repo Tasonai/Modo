@@ -1,0 +1,65 @@
+{
+  "version": "1.5.0",
+  "build": "202611051743",
+  "releaseDate": "2026-11-05",
+  "title": "Modo 1.5.0 — AI Glyph Studio & OTA Updates",
+  "releaseNotes": "• Over-the-Air (OTA) automated update engine with SHA-256 verification\n• In-app Check for Updates modal with live download progress\n• AI Glyph Studio: 9 procedural geometric styles + neural logo generation\n• Multi-resolution export & Material You pastel palettes\n• Windows PE32+ native installer & portable suite",
+  "minOSVersion": "14.0",
+  "isMandatory": false,
+  "assets": [
+    {
+      "name": "Modo-Windows-Portable.exe",
+      "platform": "windows",
+      "format": "exe",
+      "downloadURL": "https://github.com/atoma/modo/releases/download/v1.5.0/Modo-Windows-Portable.exe",
+      "sha256": "b46b6b87267f879aa689c3df4ba771e93032939e5f526f4117c3b11cf14a5de5",
+      "sizeBytes": 400384,
+      "isPrimary": false
+    },
+    {
+      "name": "Modo-Windows-Setup.exe",
+      "platform": "windows",
+      "format": "exe",
+      "downloadURL": "https://github.com/atoma/modo/releases/download/v1.5.0/Modo-Windows-Setup.exe",
+      "sha256": "b46b6b87267f879aa689c3df4ba771e93032939e5f526f4117c3b11cf14a5de5",
+      "sizeBytes": 400384,
+      "isPrimary": true
+    },
+    {
+      "name": "Modo-Windows-x64.zip",
+      "platform": "windows",
+      "format": "zip",
+      "downloadURL": "https://github.com/atoma/modo/releases/download/v1.5.0/Modo-Windows-x64.zip",
+      "sha256": "2369e97bf1460d79b3ea6fe123b3f45e1a18e7c5872a0b854048706308105760",
+      "sizeBytes": 200934,
+      "isPrimary": false
+    },
+    {
+      "name": "Modo-macOS-Installer.pkg",
+      "platform": "macos",
+      "format": "pkg",
+      "downloadURL": "https://github.com/atoma/modo/releases/download/v1.5.0/Modo-macOS-Installer.pkg",
+      "sha256": "5c37d6a783117f792ee5e8c2139760068b8558f3123ee0e340ffa68d10fe6b29",
+      "sizeBytes": 3083422,
+      "isPrimary": false
+    },
+    {
+      "name": "Modo-macOS.dmg",
+      "platform": "macos",
+      "format": "dmg",
+      "downloadURL": "https://github.com/atoma/modo/releases/download/v1.5.0/Modo-macOS.dmg",
+      "sha256": "98ad46a15e0c203ce1c8e58c079ae20bf6f205cbc016e3db6dd8c096695d31e5",
+      "sizeBytes": 3663027,
+      "isPrimary": false
+    },
+    {
+      "name": "Modo-macOS.zip",
+      "platform": "macos",
+      "format": "zip",
+      "downloadURL": "https://github.com/atoma/modo/releases/download/v1.5.0/Modo-macOS.zip",
+      "sha256": "2dac8179196470d44435a83bddde56eea162b95ef3502b2b1d94e466e12216d1",
+      "sizeBytes": 3083179,
+      "isPrimary": true
+    }
+  ]
+}

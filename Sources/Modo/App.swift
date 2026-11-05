@@ -29,6 +29,15 @@ struct ModoApp: App {
         .defaultSize(width: 1120, height: 720)
         .windowToolbarStyle(.unified)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    model.showUpdateSheet = true
+                    Task {
+                        await OTAUpdateService.shared.checkForUpdates(manual: true)
+                    }
+                }
+                Divider()
+            }
             SidebarCommands()
             ToolbarCommands()
             CommandGroup(replacing: .newItem) {

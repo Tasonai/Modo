@@ -150,6 +150,10 @@ struct ContentView: View {
         .sheet(isPresented: $showThemingWizard) {
             SystemThemingWizardView(allItems: visibleItems.isEmpty ? items : visibleItems)
         }
+        .sheet(isPresented: $model.showUpdateSheet) {
+            OTAUpdateSheetView()
+                .themed()
+        }
         .task {
             SeedData.insertIfRequested(into: model)
             if !Store.isOverridden && items.isEmpty {
@@ -157,6 +161,11 @@ struct ContentView: View {
             }
             if model.selection == nil {
                 model.selection = visibleItems.first?.id
+            }
+            if !Store.isOverridden && !SelfTest.requested && OTAUpdateService.shared.autoCheckEnabled {
+                Task {
+                    await OTAUpdateService.shared.checkForUpdates(manual: false)
+                }
             }
             SelfTest.runIfRequested(model: model)
             Snapshot.runIfRequested(model: model, openSettings: openSettings)
