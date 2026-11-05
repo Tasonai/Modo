@@ -17,6 +17,9 @@ final class Item {
     var isStarred: Bool
     var isApplied: Bool
     var createdAt: Date
+    var customScale: Double?
+    var customOffsetX: Double?
+    var customOffsetY: Double?
 
     init(
         title: String,
@@ -26,7 +29,10 @@ final class Item {
         symbolName: String = "app.fill",
         brandHex: Int = 0x1A73E8,
         isStarred: Bool = false,
-        isApplied: Bool = false
+        isApplied: Bool = false,
+        customScale: Double? = nil,
+        customOffsetX: Double? = nil,
+        customOffsetY: Double? = nil
     ) {
         self.id = UUID()
         self.title = ItemTitle.clean(title)
@@ -38,6 +44,9 @@ final class Item {
         self.isStarred = isStarred
         self.isApplied = isApplied
         self.createdAt = .now
+        self.customScale = customScale
+        self.customOffsetX = customOffsetX
+        self.customOffsetY = customOffsetY
     }
 }
 
@@ -76,6 +85,14 @@ enum AppCategoryFilter: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// View presentation mode in the main app list (Compact List vs Responsive Gallery Grid).
+enum AppViewMode: String, CaseIterable, Identifiable {
+    case list = "List"
+    case grid = "Grid"
+
+    var id: String { rawValue }
+}
+
 /// Shared UI and icon rendering state for the main window and menu commands.
 @Observable
 final class AppModel {
@@ -86,6 +103,24 @@ final class AppModel {
     var search = ""
     var settingsTab: SettingsTab = .general
     var statusMessage = "Ready"
+
+    var viewMode: AppViewMode = .list {
+        didSet {
+            if persistsPreferences { UserDefaults.standard.set(viewMode.rawValue, forKey: Self.viewModeKey) }
+        }
+    }
+
+    var gridIconSize: Double = 64.0 {
+        didSet {
+            let clamped = min(max(gridIconSize, 36.0), 160.0)
+            if clamped != gridIconSize { gridIconSize = clamped }
+            if persistsPreferences { UserDefaults.standard.set(gridIconSize, forKey: Self.gridIconSizeKey) }
+        }
+    }
+
+    private static let viewModeKey = "modo.viewMode"
+    private static let gridIconSizeKey = "modo.gridIconSize"
+
     var activePackId: String = "pixel_pure" {
         didSet {
             if persistsPreferences { UserDefaults.standard.set(activePackId, forKey: Self.packKey) }
@@ -212,6 +247,13 @@ final class AppModel {
            let saved = try? JSONDecoder().decode([CustomIconPack].self, from: data) {
             customPacks = saved
         }
+        if let modeStr = defaults.string(forKey: Self.viewModeKey), let mode = AppViewMode(rawValue: modeStr) {
+            viewMode = mode
+        }
+        let savedGridSize = defaults.double(forKey: Self.gridIconSizeKey)
+        if savedGridSize >= 36.0 && savedGridSize <= 160.0 {
+            gridIconSize = savedGridSize
+        }
         activeIconSetID = defaults.string(forKey: Self.iconSetKey)
         activePackId = defaults.string(forKey: Self.packKey) ?? activePackId
         if styleOfPack(id: activePackId) != style {
@@ -280,7 +322,21 @@ final class AppModel {
         return img
     }
 
-    /// Returns the cached circular Google Pixel / Material You icon for `item` under the current `style`.
+    /// The effective style for `item`: blends global studio style with any item-specific scale/offset overrides.
+    func effectiveStyle(for item: Item) -> RoundIconStyle {
+        var s = style
+        if let scale = item.customScale { s.iconScale = scale }
+        if let ox = item.customOffsetX { s.offsetX = ox }
+        if let oy = item.customOffsetY { s.offsetY = oy }
+        return s
+    }
+
+    /// Clears the cached rendered bitmap for a specific item.
+    func invalidateCache(for item: Item) {
+        roundCache[item.id] = nil
+    }
+
+    /// Returns the cached circular Google Pixel / Material You icon for `item` under its effective style.
     func roundIcon(for item: Item) -> NSImage {
         if let cached = roundCache[item.id] {
             return cached
@@ -288,7 +344,7 @@ final class AppModel {
         let source = sourceIcon(for: item, canvasSize: 256)
         let rendered = IconRenderer.renderRoundIcon(
             sourceImage: source,
-            style: style,
+            style: effectiveStyle(for: item),
             fallbackHex: UInt32(clamping: item.brandHex),
             canvasSize: 256
         )
@@ -418,7 +474,7 @@ final class AppModel {
         let source = sourceIcon(for: item, canvasSize: 1024)
         let hiResRound = IconRenderer.renderRoundIcon(
             sourceImage: source,
-            style: style,
+            style: effectiveStyle(for: item),
             fallbackHex: UInt32(clamping: item.brandHex),
             canvasSize: 1024
         )
@@ -437,7 +493,7 @@ final class AppModel {
             let source = sourceIcon(for: item, canvasSize: 512)
             let round = IconRenderer.renderRoundIcon(
                 sourceImage: source,
-                style: style,
+                style: effectiveStyle(for: item),
                 fallbackHex: UInt32(clamping: item.brandHex),
                 canvasSize: 512
             )
@@ -479,7 +535,7 @@ final class AppModel {
             if let urls = try? IconRenderer.exportIconPack(
                 for: item.title,
                 sourceImage: source,
-                style: style,
+                style: effectiveStyle(for: item),
                 fallbackHex: UInt32(clamping: item.brandHex),
                 to: directory
             ), !urls.isEmpty {
@@ -487,6 +543,27 @@ final class AppModel {
             }
         }
         statusMessage = "Exported \(count) icon sets (.icns, .ico, .png) to \(directory.lastPathComponent)"
+        return count
+    }
+
+    /// Exports PNG icons in specific pixel resolutions for `items` into `directory`.
+    @discardableResult
+    func exportCustomSizes(for items: [Item], sizes: [Int], to directory: URL) -> Int {
+        var count = 0
+        for item in items {
+            let source = sourceIcon(for: item, canvasSize: 1024)
+            if let urls = try? IconRenderer.exportPNGSizes(
+                for: item.title,
+                sourceImage: source,
+                style: effectiveStyle(for: item),
+                fallbackHex: UInt32(clamping: item.brandHex),
+                sizes: sizes,
+                to: directory
+            ), !urls.isEmpty {
+                count += 1
+            }
+        }
+        statusMessage = "Exported \(sizes.count) resolutions for \(count) apps to \(directory.lastPathComponent)"
         return count
     }
 }

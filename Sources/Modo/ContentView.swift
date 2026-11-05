@@ -43,7 +43,11 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 208, max: 260)
         } content: {
             AppListView(items: visibleItems)
-                .navigationSplitViewColumnWidth(min: 280, ideal: 328, max: 420)
+                .navigationSplitViewColumnWidth(
+                    min: 280,
+                    ideal: model.viewMode == .grid ? 460 : 328,
+                    max: model.viewMode == .grid ? 850 : 440
+                )
         } detail: {
             if let item = activeItem {
                 DetailInspectorView(item: item, allVisibleItems: visibleItems)
@@ -107,12 +111,20 @@ struct ContentView: View {
                 .help("Apply the current Modo style to all listed apps (⇧⌘A)")
                 .disabled(visibleItems.isEmpty)
 
-                Button {
-                    exportFolderPicker(for: visibleItems)
+                Menu {
+                    Button("Standard Pack (.icns, .ico, 1024px .png)") {
+                        exportFolderPicker(for: visibleItems)
+                    }
+                    Button("All Resolutions (16, 32, 48, 64, 128, 256, 512, 1024 px)") {
+                        exportCustomSizesPicker(for: visibleItems, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
+                    }
+                    Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
+                        exportCustomSizesPicker(for: visibleItems, sizes: [16, 32, 180, 192, 512], title: "Web Favicon Kit")
+                    }
                 } label: {
-                    Label("Export Pack…", systemImage: "square.and.arrow.up")
+                    Label("Export…", systemImage: "square.and.arrow.up")
                 }
-                .help("Export .icns, .ico, and 1024px .png icon pack (⌘E)")
+                .help("Export icon packs or custom multi-resolution PNGs (⌘E)")
                 .disabled(visibleItems.isEmpty)
 
                 Button {
@@ -174,6 +186,29 @@ struct ContentView: View {
                 try? ditto.run()
                 ditto.waitUntilExit()
                 model.statusMessage = "Exported \(count) icon sets to \(zip.lastPathComponent)"
+            }
+        }
+    }
+
+    private func exportCustomSizesPicker(for targets: [Item], sizes: [Int], title: String) {
+        let panel = NSOpenPanel()
+        panel.title = "Export \(title)"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export Here"
+        if panel.runModal() == .OK, let url = panel.url {
+            let safeName = title.replacingOccurrences(of: " ", with: "-")
+            let folder = url.appendingPathComponent("Modo-\(safeName)", isDirectory: true)
+            let count = model.exportCustomSizes(for: targets, sizes: sizes, to: folder)
+            if count > 0 {
+                let zip = url.appendingPathComponent("Modo-\(safeName).zip")
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-c", "-k", "--keepParent", folder.path, zip.path]
+                try? ditto.run()
+                ditto.waitUntilExit()
+                model.statusMessage = "Exported \(sizes.count) resolutions for \(count) apps to \(zip.lastPathComponent)"
             }
         }
     }

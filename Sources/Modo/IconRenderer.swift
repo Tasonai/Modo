@@ -345,6 +345,34 @@ enum IconRenderer {
         return written
     }
 
+    /// Exports PNG icons in specific pixel resolutions (e.g. 16, 32, 48, 64, 128, 256, 512, 1024) into `directory`.
+    static func exportPNGSizes(
+        for appTitle: String,
+        sourceImage: NSImage,
+        style: RoundIconStyle,
+        fallbackHex: UInt32,
+        sizes: [Int],
+        to directory: URL
+    ) throws -> [URL] {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let safeName = ItemTitle.clean(appTitle)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+
+        let master = renderRoundIcon(sourceImage: sourceImage, style: style, fallbackHex: fallbackHex, canvasSize: 1024)
+        var written: [URL] = []
+
+        for sz in sizes.sorted() {
+            guard sz >= 16 && sz <= 2048 else { continue }
+            let fileURL = directory.appendingPathComponent("\(safeName)-\(sz)x\(sz).png")
+            if let png = pngData(from: master, pixelSize: sz) {
+                try png.write(to: fileURL, options: .atomic)
+                written.append(fileURL)
+            }
+        }
+        return written
+    }
+
     // MARK: - Private Bitmap Helpers
 
     private static func surfaceColors(

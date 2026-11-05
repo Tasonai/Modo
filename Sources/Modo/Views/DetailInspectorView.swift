@@ -9,6 +9,28 @@ struct DetailInspectorView: View {
     @Bindable var item: Item
     let allVisibleItems: [Item]
     @State private var dragStartOffset: CGPoint?
+    @State private var adjustThisAppOnly: Bool = false
+
+    private var effectiveScale: Double {
+        item.customScale ?? model.style.iconScale
+    }
+
+    private var itemScaleBinding: Binding<Double> {
+        Binding(
+            get: { item.customScale ?? model.style.iconScale },
+            set: { newScale in
+                if adjustThisAppOnly {
+                    item.customScale = newScale
+                    try? context.save()
+                    model.invalidateCache(for: item)
+                } else {
+                    item.customScale = nil
+                    try? context.save()
+                    model.style.iconScale = newScale
+                }
+            }
+        )
+    }
 
     private var customColorBinding: Binding<Color> {
         Binding(
@@ -47,6 +69,12 @@ struct DetailInspectorView: View {
             .padding(Space.margin)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .gridArea("detail", inset: Space.margin)
+        }
+        .onAppear {
+            adjustThisAppOnly = (item.customScale != nil)
+        }
+        .onChange(of: item.id) {
+            adjustThisAppOnly = (item.customScale != nil)
         }
     }
 
@@ -101,9 +129,17 @@ struct DetailInspectorView: View {
                 Image(systemName: "arrow.right.circle.fill")
                     .font(.title2)
                     .foregroundStyle(Palette.accentText)
-                Text("\(Int((model.style.iconScale * 100).rounded()))% Scale")
+                Text("\(Int((effectiveScale * 100).rounded()))% Scale")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
+                if item.customScale != nil {
+                    Text("Per-App")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Palette.accentText)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Palette.accent.opacity(0.14), in: Capsule())
+                }
             }
 
             VStack(spacing: Space.sm) {
@@ -276,17 +312,45 @@ struct DetailInspectorView: View {
 
             Divider()
 
-            LabeledContent("Glyph Scale (\(Int((model.style.iconScale * 100).rounded()))%)") {
-                HStack(spacing: Space.sm) {
-                    Slider(value: $model.style.iconScale, in: 0.30...2.50)
-                        .frame(width: 176)
-                    Button("100%") { model.style.iconScale = 1.0 }
-                        .controlSize(.small)
-                        .help("Set scale to 100%")
-                    Button("135%") { model.style.iconScale = 1.35 }
-                        .controlSize(.small)
-                        .help("Zoom icon to 135% inside the icon shape")
+            LabeledContent {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: Space.sm) {
+                        Slider(value: itemScaleBinding, in: 0.30...2.50)
+                            .frame(width: 176)
+                        Button("100%") { setScale(1.0) }
+                            .controlSize(.small)
+                            .help("Set scale to 100%")
+                        Button("135%") { setScale(1.35) }
+                            .controlSize(.small)
+                            .help("Zoom icon to 135% inside the icon shape")
+                    }
+
+                    HStack(spacing: Space.sm) {
+                        Toggle("This app only", isOn: $adjustThisAppOnly)
+                            .toggleStyle(.checkbox)
+                            .font(.caption)
+
+                        if let custom = item.customScale {
+                            Text("Custom override: \(Int((custom * 100).rounded()))%")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(Palette.accentText)
+                            Button {
+                                item.customScale = nil
+                                adjustThisAppOnly = false
+                                try? context.save()
+                                model.invalidateCache(for: item)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Reset to global style scale")
+                        }
+                    }
                 }
+            } label: {
+                Text("Glyph Scale (\(Int((effectiveScale * 100).rounded()))%)")
             }
 
             LabeledContent("Horizontal X (\(Int((model.style.offsetX * 100).rounded()))%)") {
@@ -382,12 +446,62 @@ struct DetailInspectorView: View {
             }
             .disabled(!item.isApplied)
 
+            Menu {
+                Button("Standard Icon Pack (.icns, .ico, 1024px .png)") {
+                    exportPack(for: item)
+                }
+                Button("All Resolutions (16 to 1024 px PNG)") {
+                    exportCustomSizes(for: item, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
+                }
+                Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
+                    exportCustomSizes(for: item, sizes: [16, 32, 180, 192, 512], title: "Favicon Kit")
+                }
+            } label: {
+                Label("Export…", systemImage: "square.and.arrow.up")
+            }
+
             Spacer()
 
             Text(model.statusMessage)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+        }
+    }
+
+    private func setScale(_ value: Double) {
+        if adjustThisAppOnly {
+            item.customScale = value
+            try? context.save()
+            model.invalidateCache(for: item)
+        } else {
+            item.customScale = nil
+            try? context.save()
+            model.style.iconScale = value
+        }
+    }
+
+    private func exportPack(for item: Item) {
+        let panel = NSOpenPanel()
+        panel.title = "Export Icon Pack for \(item.title)"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        if panel.runModal() == .OK, let dir = panel.url {
+            _ = model.exportIconPack(for: [item], to: dir)
+        }
+    }
+
+    private func exportCustomSizes(for item: Item, sizes: [Int], title: String) {
+        let panel = NSOpenPanel()
+        panel.title = "Export \(title) for \(item.title)"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        if panel.runModal() == .OK, let dir = panel.url {
+            _ = model.exportCustomSizes(for: [item], sizes: sizes, to: dir)
         }
     }
 }

@@ -244,6 +244,35 @@ enum SelfTest {
                 try? FileManager.default.removeItem(at: file)
             }
 
+            // Icon sizing: grid view mode, slider bounds, per-app scale overrides, multi-resolution export
+            do {
+                model.viewMode = .grid
+                check("view mode switches to grid", model.viewMode == .grid)
+                model.gridIconSize = 250.0
+                check("grid icon size clamps to max bounds", model.gridIconSize == 160.0)
+                model.gridIconSize = 10.0
+                check("grid icon size clamps to min bounds", model.gridIconSize == 36.0)
+                model.gridIconSize = 72.0
+                model.viewMode = .list
+
+                let zoomApp = Item(title: "ZoomApp", bundleIdentifier: "com.example.zoomapp")
+                zoomApp.customScale = 1.45
+                check("per-app scale overrides global style", model.effectiveStyle(for: zoomApp).iconScale == 1.45 && model.style.iconScale != 1.45)
+                let customRender = model.roundIcon(for: zoomApp)
+                check("per-app scale produces a valid rendered bitmap", customRender.size.width > 0)
+                zoomApp.customScale = nil
+                model.invalidateCache(for: zoomApp)
+                check("clearing custom scale restores global style", model.effectiveStyle(for: zoomApp).iconScale == model.style.iconScale)
+
+                let exportDir = URL(fileURLWithPath: "/tmp/Modo-sizes-test", isDirectory: true)
+                try? FileManager.default.removeItem(at: exportDir)
+                let exportedCount = model.exportCustomSizes(for: [zoomApp], sizes: [16, 32, 64, 128, 512], to: exportDir)
+                let has16 = FileManager.default.fileExists(atPath: exportDir.appendingPathComponent("ZoomApp-16x16.png").path)
+                let has512 = FileManager.default.fileExists(atPath: exportDir.appendingPathComponent("ZoomApp-512x512.png").path)
+                check("multi-resolution export writes requested sizes", exportedCount == 1 && has16 && has512)
+                try? FileManager.default.removeItem(at: exportDir)
+            }
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }
