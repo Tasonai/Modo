@@ -89,7 +89,13 @@ public enum ModoCLI {
             }
         }
 
-        let sourceImage = NSWorkspace.shared.icon(forFile: url.path)
+        let appTitle = url.deletingPathExtension().lastPathComponent
+        let sourceImage: NSImage
+        if let vector = SimpleIconCatalog.find(for: appTitle), let svgImg = NSImage(data: vector.svgData()) {
+            sourceImage = svgImg
+        } else {
+            sourceImage = NSWorkspace.shared.icon(forFile: url.path)
+        }
         let style = RoundIconStyle(
             backgroundStyle: bgStyle,
             shape: shape,
@@ -396,10 +402,18 @@ public enum ModoCLI {
             print("Applying \(matchedPack.name) to \(apps.count) applications...")
 
             var count = 0
+            var vectorCount = 0
             for appURL in apps {
-                let wsIcon = NSWorkspace.shared.icon(forFile: appURL.path)
+                let appTitle = appURL.deletingPathExtension().lastPathComponent
+                let sourceImage: NSImage
+                if let vector = SimpleIconCatalog.find(for: appTitle), let svgImg = NSImage(data: vector.svgData()) {
+                    sourceImage = svgImg
+                    vectorCount += 1
+                } else {
+                    sourceImage = NSWorkspace.shared.icon(forFile: appURL.path)
+                }
                 let rendered = IconRenderer.renderRoundIcon(
-                    sourceImage: wsIcon,
+                    sourceImage: sourceImage,
                     style: matchedPack.style,
                     fallbackHex: matchedPack.accentHex
                 )
@@ -407,7 +421,7 @@ public enum ModoCLI {
                     count += 1
                 }
             }
-            print("✓ Successfully styled \(count)/\(apps.count) applications with \(matchedPack.name)!")
+            print("✓ Successfully styled \(count)/\(apps.count) applications with \(matchedPack.name) (\(vectorCount) vector brand logos matched)!")
             _ = Process.launchedProcess(launchPath: "/usr/bin/killall", arguments: ["Dock"])
         } else {
             print("Run with '--apply' to apply this theme to installed applications in /Applications.")

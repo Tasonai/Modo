@@ -140,6 +140,13 @@ final class AppModel {
         }
     }
 
+    var autoVectorizePacks: Bool = true {
+        didSet {
+            if persistsPreferences { UserDefaults.standard.set(autoVectorizePacks, forKey: Self.autoVectorizeKey) }
+        }
+    }
+    private static let autoVectorizeKey = "modo.autoVectorizePacks"
+
     var style: RoundIconStyle = RoundIconStyle() {
         didSet {
             roundCache.removeAll()
@@ -181,10 +188,24 @@ final class AppModel {
         statusMessage = "Saved pack \(pack.name)"
     }
 
-    func applyCustomPack(_ pack: CustomIconPack) {
+    func applyCustomPack(_ pack: CustomIconPack, items: [Item] = []) {
         style = pack.style
         activePackId = pack.id
-        statusMessage = "Activated \(pack.name) pack"
+        var matched = 0
+        if autoVectorizePacks && !items.isEmpty {
+            for item in items {
+                if item.customImageData == nil, let vector = SimpleIconCatalog.find(for: item.title) {
+                    setCustomArtwork(data: vector.svgData(), for: item)
+                    item.brandHex = Int(vector.hex)
+                    matched += 1
+                }
+            }
+        }
+        if matched > 0 {
+            statusMessage = "Activated \(pack.name) pack (auto-matched \(matched) brand vectors)"
+        } else {
+            statusMessage = "Activated \(pack.name) pack"
+        }
     }
 
     /// Writes `packs` to a `.modopack` file.
@@ -222,10 +243,54 @@ final class AppModel {
     }
 
     /// Selects and activates an icon design pack, updating all rendering parameters.
-    func applyPack(_ pack: IconPack) {
+    /// When `autoVectorizePacks` is enabled, automatically matches applications to official brand SVG logos.
+    func applyPack(_ pack: IconPack, items: [Item] = []) {
         style = pack.style
         activePackId = pack.id
-        statusMessage = "Activated \(pack.name) pack"
+        var matched = 0
+        if autoVectorizePacks && !items.isEmpty {
+            for item in items {
+                if item.customImageData == nil, let vector = SimpleIconCatalog.find(for: item.title) {
+                    setCustomArtwork(data: vector.svgData(), for: item)
+                    item.brandHex = Int(vector.hex)
+                    matched += 1
+                }
+            }
+        }
+        if matched > 0 {
+            statusMessage = "Activated \(pack.name) pack (auto-matched \(matched) brand vectors)"
+        } else {
+            statusMessage = "Activated \(pack.name) pack"
+        }
+    }
+
+    /// Auto-matches and assigns official SVG brand logos to all provided items from the curated catalog.
+    @discardableResult
+    func autoVectorizeAll(items: [Item], overwriteExisting: Bool = false) -> Int {
+        var count = 0
+        for item in items {
+            if overwriteExisting || item.customImageData == nil {
+                if let vector = SimpleIconCatalog.find(for: item.title) {
+                    setCustomArtwork(data: vector.svgData(), for: item)
+                    item.brandHex = Int(vector.hex)
+                    count += 1
+                }
+            }
+        }
+        statusMessage = "Auto-matched \(count) brand vectors"
+        return count
+    }
+
+    /// Resets all items to their original system macOS icons by clearing custom vector artwork.
+    @discardableResult
+    func resetAllToOriginalArtwork(items: [Item]) -> Int {
+        var count = 0
+        for item in items where item.customImageData != nil {
+            clearCustomArtwork(for: item)
+            count += 1
+        }
+        statusMessage = "Reset \(count) apps to original macOS icons"
+        return count
     }
 
     private var originalCache: [UUID: NSImage] = [:]
@@ -314,6 +379,9 @@ final class AppModel {
             gridIconSize = savedGridSize
         }
         activeIconSetID = defaults.string(forKey: Self.iconSetKey)
+        if defaults.object(forKey: Self.autoVectorizeKey) != nil {
+            autoVectorizePacks = defaults.bool(forKey: Self.autoVectorizeKey)
+        }
         activePackId = defaults.string(forKey: Self.packKey) ?? activePackId
         if styleOfPack(id: activePackId) != style {
             activePackId = Self.customPackId
@@ -667,6 +735,10 @@ final class AppModel {
     func applyRoundIconsToAll(_ items: [Item]) {
         guard !items.isEmpty else { return }
         for item in items {
+            if autoVectorizePacks && item.customImageData == nil, let vector = SimpleIconCatalog.find(for: item.title) {
+                setCustomArtwork(data: vector.svgData(), for: item)
+                item.brandHex = Int(vector.hex)
+            }
             let source = sourceIcon(for: item, canvasSize: 512)
             let round = IconRenderer.renderRoundIcon(
                 sourceImage: source,

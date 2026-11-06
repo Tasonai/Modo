@@ -227,6 +227,15 @@ enum SelfTest {
                 model.deleteCustomPack(saved)
             }
             check("deleting a custom pack removes it", !model.customPacks.contains { $0.name == "Selftest Pack" })
+
+            let testSlackApp = Item(title: "Slack.app", bundlePath: "/Applications/Slack.app", symbolName: "message", brandHex: 0x4A154B)
+            model.applyPack(.visionOSGlass, items: [testSlackApp])
+            check("applying pack auto-vectorizes matching Slack app with brand SVG", testSlackApp.customImageData != nil)
+            check("applying pack sets brand hex on auto-vectorized app", testSlackApp.brandHex == 0x4A154B)
+            model.resetAllToOriginalArtwork(items: [testSlackApp])
+            check("resetAllToOriginalArtwork clears customImageData", testSlackApp.customImageData == nil)
+            model.autoVectorizeAll(items: [testSlackApp])
+            check("autoVectorizeAll re-assigns brand vector", testSlackApp.customImageData != nil)
             do {
                 let before = model.customPacks.count
                 model.style.shape = .pebble

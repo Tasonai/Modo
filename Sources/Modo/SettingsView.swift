@@ -76,6 +76,8 @@ struct GeneralSettings: View {
             }
             Toggle("Automatically trim transparent icon margins", isOn: $model.style.autoTrim)
             Toggle("Expand full-bleed square icons to fill circle", isOn: $model.style.fullBleedSquares)
+            Toggle("Auto-match official brand vectors on pack selection", isOn: $model.autoVectorizePacks)
+                .help("When choosing an icon pack, automatically replaces macOS squircle icons with clean official vector brand logos (Simple Icons).")
         }
 
         Section("macOS Integration & Menu Bar") {

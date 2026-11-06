@@ -23,7 +23,7 @@ struct SidebarView: View {
             Section("Icon Packs") {
                 ForEach(IconPack.allPacks) { pack in
                     Button {
-                        model.applyPack(pack)
+                        model.applyPack(pack, items: items)
                     } label: {
                         HStack(spacing: Space.sm) {
                             Image(systemName: pack.iconSymbol)
@@ -41,6 +41,26 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                     .help("\(pack.name) — \(pack.subtitle)")
                 }
+
+                Menu {
+                    Toggle("Auto-match Brand Vectors on Pack Selection", isOn: $model.autoVectorizePacks)
+                    Divider()
+                    Button {
+                        model.autoVectorizeAll(items: items)
+                    } label: {
+                        Label("Auto-match Brand Vectors for All Apps", systemImage: "sparkles")
+                    }
+                    Button(role: .destructive) {
+                        model.resetAllToOriginalArtwork(items: items)
+                    } label: {
+                        Label("Reset All to Original App Icons", systemImage: "arrow.counterclockwise")
+                    }
+                } label: {
+                    Label("Vector Options…", systemImage: "sparkles")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .menuStyle(.borderlessButton)
             }
 
             Section("Icon Sets") {
@@ -96,7 +116,7 @@ struct SidebarView: View {
             Section("My Packs") {
                 ForEach(model.customPacks) { pack in
                     Button {
-                        model.applyCustomPack(pack)
+                        model.applyCustomPack(pack, items: items)
                     } label: {
                         HStack(spacing: Space.sm) {
                             Image(systemName: "star.square")

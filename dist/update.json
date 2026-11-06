@@ -1,7 +1,7 @@
 {
   "version": "1.7.0",
-  "build": "202611061319",
-  "releaseDate": "2026-11-06",
+  "build": "202611070000",
+  "releaseDate": "2026-11-07",
   "title": "Modo 1.7.0 — Developer Studio, SVG Export, 3D Parallax & System Presets",
   "releaseNotes": "• Developer Export Suite: Xcode Asset Catalog (AppIcon.appiconset) & Web Favicon Kit (.ico, manifest, HTML snippet)\n• Scalable Vector Export: Pure SVG vector generator with materials & filter shaders\n• Interactive 3D Parallax Tilt: Apple TV-style perspective physics and dynamic specular glare\n• One-Click System Theming & Presets: VisionOS Glass, iOS 18 Tinted, Obsidian Titanium, Prism Cyber\n• Enhanced MenuBar Companion: Fast status bar access with material switcher & wallpaper matcher\n• Official Homebrew Tap: brew install --cask tasonai/tap/modo",
   "minOSVersion": "14.0",
@@ -48,7 +48,7 @@
       "platform": "windows",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-x64.zip",
-      "sha256": "0d868101832831e4cb057fb50ce1c64d41debcb0f4a6b4bf0bcbe81feb9595c2",
+      "sha256": "245ddaa716132c9e8406eaddf443fcdb071001fbd48d05938dee0a8d23cd2823",
       "sizeBytes": 203723,
       "isPrimary": false
     },
@@ -57,8 +57,8 @@
       "platform": "macos",
       "format": "pkg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS-Installer.pkg",
-      "sha256": "2ca21f70ed98195c9bddcfe094d5a184a24945f6849a50440103528f77bf1189",
-      "sizeBytes": 3422131,
+      "sha256": "1c4a9c4f1868394d8e754016347f903f24615c56cf543e1f03edd7ee0ce8034b",
+      "sizeBytes": 3437535,
       "isPrimary": false
     },
     {
@@ -66,8 +66,8 @@
       "platform": "macos",
       "format": "dmg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.dmg",
-      "sha256": "474bf43acdb81714155615b6b3885430752215f84f81ebca2f92f5675d37038a",
-      "sizeBytes": 3890302,
+      "sha256": "21118b61fcacab9b2db227776dd14496e55212c27c3a0ab0fb82768f31d54c34",
+      "sizeBytes": 3925199,
       "isPrimary": false
     },
     {
@@ -75,8 +75,8 @@
       "platform": "macos",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.zip",
-      "sha256": "09dbfeaad465f42aff5e9711ca9fcf7204eb1e6eef586b139d1fa1da98a5d2e6",
-      "sizeBytes": 3422014,
+      "sha256": "a4a5ba8e802d8de74ab83374f4a732458ef41b768cd2e13361dfa6b0ae4cc059",
+      "sizeBytes": 3437682,
       "isPrimary": true
     }
   ]

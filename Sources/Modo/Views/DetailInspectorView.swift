@@ -455,7 +455,7 @@ struct DetailInspectorView: View {
         let isSelected = model.activePackId == pack.id
         let btnShape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         return Button {
-            model.applyPack(pack)
+            model.applyPack(pack, items: allVisibleItems)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
