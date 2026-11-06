@@ -461,6 +461,14 @@ enum SelfTest {
                 let prismImg = model.roundIcon(for: customApp)
                 check("roundIcon renders Prism Chromatic shader", prismImg.size.width > 0)
                 model.style.surfaceMaterial = .smooth
+
+                // Scalable Vector Graphics (SVG) Export Engine
+                let svgOutput = SVGExportEngine.generateSVG(
+                    title: "Selftest App",
+                    style: RoundIconStyle(backgroundStyle: .materialPastel, shape: .squircle),
+                    dominantHex: 0x8B5CF6
+                )
+                check("SVGExportEngine produces valid SVG XML", svgOutput.contains("<svg") && svgOutput.contains("</svg>") && svgOutput.contains("linearGradient"))
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

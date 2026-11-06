@@ -196,6 +196,7 @@ struct DetailInspectorView: View {
                 Image(nsImage: item.isFolder ? model.folderIcon(for: item) : model.roundIcon(for: item))
                     .resizable()
                     .interpolation(.high)
+                    .parallaxTilt(maxTilt: 16.0, enableGlare: true)
                     .frame(width: 96, height: 96)
                     .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.86), value: model.style.offsetX)
                     .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.86), value: model.style.offsetY)
@@ -764,6 +765,9 @@ struct DetailInspectorView: View {
                 Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
                     exportCustomSizes(for: item, sizes: [16, 32, 180, 192, 512], title: "Favicon Kit")
                 }
+                Button("Scalable Vector Graphic (.svg)") {
+                    exportSVG(for: item)
+                }
                 Divider()
                 Button("App Showcase & README Hero Banner…") {
                     model.showShowcaseStudio = true
@@ -779,6 +783,44 @@ struct DetailInspectorView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
+    }
+
+    private func exportSVG(for item: Item) {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.svg]
+        panel.nameFieldStringValue = "\(item.title).svg"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let style = model.effectiveStyle(for: item)
+        var glyphSVG: String? = nil
+        var base64PNG: String? = nil
+
+        if let data = item.customImageData {
+            if CustomArtworkHelper.isSVGData(data), let str = String(data: data, encoding: .utf8) {
+                glyphSVG = str
+            } else {
+                base64PNG = data.base64EncodedString()
+            }
+        } else {
+            let src = model.sourceIcon(for: item, canvasSize: 512)
+            if let pngData = IconRenderer.pngData(from: src, pixelSize: 512) {
+                base64PNG = pngData.base64EncodedString()
+            }
+        }
+
+        let svgContent = SVGExportEngine.generateSVG(
+            title: item.title,
+            style: style,
+            dominantHex: UInt32(clamping: item.brandHex),
+            glyphSVGPath: glyphSVG,
+            rasterBase64PNG: base64PNG,
+            canvasSize: 512
+        )
+
+        try? svgContent.write(to: url, atomically: true, encoding: String.Encoding.utf8)
+        model.statusMessage = "Exported SVG to \(url.lastPathComponent)"
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     private func setScale(_ value: Double) {
