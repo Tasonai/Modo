@@ -17,7 +17,7 @@ namespace ShellIntegration {
 std::wstring GetAppDataRoot() {
     wchar_t buf[MAX_PATH] = {0};
     SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, buf);
-    std::wstring dir = std::wstring(buf) + L"\\IconMaker";
+    std::wstring dir = std::wstring(buf) + L"\\Modo";
     CreateDirectoryW(dir.c_str(), NULL);
     CreateDirectoryW((dir + L"\\icons").c_str(), NULL);
     CreateDirectoryW((dir + L"\\backup").c_str(), NULL);
@@ -665,6 +665,40 @@ bool RestoreFolderIcon(const std::wstring& folderPath) {
     return true;
 }
 
+bool RegisterShellContextMenu(const std::wstring& exePath, bool enable) {
+    if (enable) {
+        if (exePath.empty()) return false;
+        std::wstring cmdExe = L"\"" + exePath + L"\" style \"%1\"";
+        std::wstring cmdFolder = L"\"" + exePath + L"\" folder \"%1\"";
+        std::wstring iconSpec = L"\"" + exePath + L"\",0";
+
+        // 1. Files: .exe
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle", L"", L"Стилизовать иконку в Modo...");
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle", L"Icon", iconSpec);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle\\command", L"", cmdExe);
+
+        // 2. Shortcuts: .lnk
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle", L"", L"Стилизовать иконку в Modo...");
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle", L"Icon", iconSpec);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle\\command", L"", cmdExe);
+
+        // 3. Folders: Directory
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder", L"", L"Изменить цвет папки в Modo...");
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder", L"Icon", iconSpec);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder\\command", L"", cmdFolder);
+
+        return true;
+    } else {
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle\\command");
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle");
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle\\command");
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle");
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder\\command");
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder");
+        return true;
+    }
+}
+
 void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
     wchar_t selfPath[MAX_PATH * 2] = {0};
     if (!GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) return;
@@ -674,10 +708,10 @@ void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
 
     std::wstring progDir = std::wstring(localAppData) + L"\\Programs";
     CreateDirectoryW(progDir.c_str(), NULL);
-    std::wstring appDir = progDir + L"\\IconMaker";
+    std::wstring appDir = progDir + L"\\Modo";
     CreateDirectoryW(appDir.c_str(), NULL);
 
-    std::wstring installedExe = appDir + L"\\IconMaker.exe";
+    std::wstring installedExe = appDir + L"\\Modo.exe";
     if (_wcsicmp(selfPath, installedExe.c_str()) != 0) {
         CopyFileW(selfPath, installedExe.c_str(), FALSE);
     } else {
@@ -707,12 +741,16 @@ void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {
     makeShortcut(CSIDL_DESKTOPDIRECTORY, L"Modo Studio.lnk");
     makeShortcut(CSIDL_PROGRAMS, L"Modo Studio.lnk");
 
+    // Enable Windows Explorer right-click context menu integration
+    RegisterShellContextMenu(installedExe, true);
+
     if (showConfirmation && hwnd) {
         MessageBoxW(
             hwnd,
-            L"IconMaker Studio успешно установлен!\n\n"
-            L"• Папка: %LOCALAPPDATA%\\Programs\\IconMaker\\IconMaker.exe\n"
-            L"• Ярлыки созданы на Рабочем столе и в меню «Пуск».",
+            L"Modo Studio успешно установлен!\n\n"
+            L"• Папка: %LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\n"
+            L"• Ярлыки созданы на Рабочем столе и в меню «Пуск».\n"
+            L"• В меню правой кнопки мыши Проводника добавлены пункты «Стилизовать в Modo...».",
             L"Modo Studio",
             MB_ICONINFORMATION
         );

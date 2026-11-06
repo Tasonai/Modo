@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+; ====================================================================
+; Modo — Remove Windows Explorer Right-Click Context Menu Integration
+; Removes all Modo shell menu keys from HKEY_CURRENT_USER
+; ====================================================================
+
+[-HKEY_CURRENT_USER\Software\Classes\exefile\shell\ModoStyle]
+[-HKEY_CURRENT_USER\Software\Classes\lnkfile\shell\ModoStyle]
+[-HKEY_CURRENT_USER\Software\Classes\Directory\shell\ModoFolder]

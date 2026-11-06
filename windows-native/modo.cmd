@@ -2,7 +2,7 @@
 setlocal
 set "MODO_EXE=%~dp0Modo-Windows-Portable.exe"
 if not exist "%MODO_EXE%" (
-    set "MODO_EXE=%LOCALAPPDATA%\Programs\IconMaker\IconMaker.exe"
+    set "MODO_EXE=%LOCALAPPDATA%\Programs\Modo\Modo.exe"
 )
 
 if "%~1"=="" goto help
@@ -12,16 +12,42 @@ if "%~1"=="help" goto help
 if "%~1"=="--version" goto version
 if "%~1"=="-v" goto version
 if "%~1"=="version" goto version
+if "%~1"=="shell" (
+    if "%~2"=="--enable" goto shell_enable
+    if "%~2"=="--disable" goto shell_disable
+    echo Unknown option for shell. Use: modo shell --enable  or  modo shell --disable
+    exit /b 1
+)
 
 "%MODO_EXE%" %*
 exit /b %ERRORLEVEL%
 
+:shell_enable
+reg import "%~dp0Modo-Enable-ContextMenu.reg" >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo [Modo] Windows Explorer context menu enabled successfully.
+    exit /b 0
+) else (
+    "%MODO_EXE%" shell --enable
+    exit /b %ERRORLEVEL%
+)
+
+:shell_disable
+reg import "%~dp0Modo-Disable-ContextMenu.reg" >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo [Modo] Windows Explorer context menu disabled successfully.
+    exit /b 0
+) else (
+    "%MODO_EXE%" shell --disable
+    exit /b %ERRORLEVEL%
+)
+
 :version
-echo Modo 1.6.0 (Windows x64) — Native Adaptive Icon Studio by Atoma
+echo Modo 1.7.0 (Windows x64) — Native Adaptive Icon Studio by Atoma
 exit /b 0
 
 :help
-echo Modo — Native Adaptive Icon Studio (v1.6.0 Windows)
+echo Modo — Native Adaptive Icon Studio (v1.7.0 Windows)
 echo.
 echo USAGE:
 echo   modo ^<command^> [options]
@@ -30,6 +56,8 @@ echo COMMANDS:
 echo   style ^<exe_or_lnk^>    Apply adaptive styling to Windows shortcut or executable
 echo   restore ^<path^>        Restore original icon
 echo   folder ^<folder_path^>  Style folder using desktop.ini and custom palette
+echo   shell --enable         Enable Windows Explorer right-click context menu
+echo   shell --disable        Disable Windows Explorer right-click context menu
 echo   version                Show version
 echo   help                   Show this help message
 echo.

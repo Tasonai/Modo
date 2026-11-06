@@ -169,8 +169,19 @@ def main() -> None:
     shutil.copy2(stripped_exe, portable_exe)
     shutil.copy2(stripped_exe, setup_exe)
 
+    enable_reg = WIN_DIR / "Modo-Enable-ContextMenu.reg"
+    disable_reg = WIN_DIR / "Modo-Disable-ContextMenu.reg"
+    if enable_reg.exists():
+        shutil.copy2(enable_reg, DIST_DIR / "Modo-Enable-ContextMenu.reg")
+    if disable_reg.exists():
+        shutil.copy2(disable_reg, DIST_DIR / "Modo-Disable-ContextMenu.reg")
+
     with zipfile.ZipFile(zip_bundle, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(portable_exe, arcname="Modo/Modo.exe")
+        if enable_reg.exists():
+            zf.write(enable_reg, arcname="Modo/Modo-Enable-ContextMenu.reg")
+        if disable_reg.exists():
+            zf.write(disable_reg, arcname="Modo/Modo-Disable-ContextMenu.reg")
 
     print("\n========================================================")
     print("  ЧИСТЫЕ PE32+ ФАЙЛЫ БЕЗ ОВЕРЛЕЯ И ДРОППЕРА ГОТОВЫ")

@@ -302,8 +302,13 @@ enum SelfTest {
                 check("restored source matches default behavior", restoredSource.size.width > 0)
 
                 // Simple Icons 1-click vector matching
+                check("SimpleIconCatalog has at least 50 curated brand icons", SimpleIconCatalog.curated.count >= 50)
                 let slackIcon = SimpleIconCatalog.find(for: "Slack.app")
                 check("SimpleIconCatalog finds match for Slack", slackIcon != nil && slackIcon?.slug == "slack")
+                let cursorIcon = SimpleIconCatalog.find(for: "Cursor.app")
+                check("SimpleIconCatalog finds match for Cursor", cursorIcon != nil && cursorIcon?.slug == "cursor")
+                let psIcon = SimpleIconCatalog.find(for: "Adobe Photoshop")
+                check("SimpleIconCatalog finds match for Photoshop alias", psIcon != nil && psIcon?.slug == "adobephotoshop")
                 if let icon = slackIcon {
                     model.setCustomArtwork(data: icon.svgData(), for: customApp)
                     check("applying SimpleIcon assigns SVG data", customApp.customImageData != nil)

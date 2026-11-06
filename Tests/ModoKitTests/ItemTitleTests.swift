@@ -348,7 +348,7 @@ func sha256Known() {
 
 @Test("Simple Icons catalog and slug resolution")
 func simpleIconsCatalog() {
-    #expect(SimpleIconCatalog.curated.count >= 40)
+    #expect(SimpleIconCatalog.curated.count >= 50)
 
     let chrome = SimpleIconCatalog.find(for: "Google Chrome.app")
     #expect(chrome != nil)
@@ -361,6 +361,18 @@ func simpleIconsCatalog() {
 
     let vscode = SimpleIconCatalog.find(for: "Visual Studio Code")
     #expect(vscode?.slug == "visualstudiocode")
+
+    let cursor = SimpleIconCatalog.find(for: "Cursor.app")
+    #expect(cursor?.slug == "cursor")
+
+    let ps = SimpleIconCatalog.find(for: "Photoshop")
+    #expect(ps?.slug == "adobephotoshop")
+
+    let nvim = SimpleIconCatalog.find(for: "nvim")
+    #expect(nvim?.slug == "neovim")
+
+    let canva = SimpleIconCatalog.find(for: "Canva")
+    #expect(canva?.slug == "canva")
 
     let search = SimpleIconCatalog.search(query: "tele")
     #expect(search.contains(where: { $0.slug == "telegram" }))

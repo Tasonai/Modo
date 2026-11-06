@@ -1529,6 +1529,23 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     GetPngEncoderClsid(&g_pngClsid);
     LoadStyleConfig();
 
+    if (lpCmdLine && (wcsstr(lpCmdLine, L"shell --enable") != nullptr || wcsstr(lpCmdLine, L"--enable-shell") != nullptr)) {
+        wchar_t exePath[MAX_PATH * 2] = {0};
+        GetModuleFileNameW(NULL, exePath, MAX_PATH * 2 - 1);
+        ShellIntegration::RegisterShellContextMenu(exePath, true);
+        MessageBoxW(NULL, L"Интеграция с контекстным меню Проводника успешно включена!", L"Modo Studio", MB_ICONINFORMATION);
+        GdiplusShutdown(g_gdiplusToken);
+        CoUninitialize();
+        return 0;
+    }
+    if (lpCmdLine && (wcsstr(lpCmdLine, L"shell --disable") != nullptr || wcsstr(lpCmdLine, L"--disable-shell") != nullptr)) {
+        ShellIntegration::RegisterShellContextMenu(L"", false);
+        MessageBoxW(NULL, L"Интеграция с контекстным меню Проводника отключена.", L"Modo Studio", MB_ICONINFORMATION);
+        GdiplusShutdown(g_gdiplusToken);
+        CoUninitialize();
+        return 0;
+    }
+
     WNDCLASSEXW wc = {0};
     wc.cbSize = sizeof(wc);
     wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
