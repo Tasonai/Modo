@@ -98,7 +98,8 @@ struct DetailInspectorView: View {
             adjustThisAppOnly = (item.customScale != nil)
         }
         .sheet(isPresented: $showSimpleIconsSheet) {
-            SimpleIconsBrowserView(item: item)
+            GlyphLibraryView(targetItem: item, allItems: allVisibleItems)
+                .environment(model)
         }
         .sheet(isPresented: $showAIGlyphStudio) {
             AIGlyphStudioView(item: item)

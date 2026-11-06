@@ -383,6 +383,8 @@ public enum ModoCLI {
             matchedPack = .prismGlowCyber
         case "neumorphic", "tactile":
             matchedPack = .neumorphicTactile
+        case "simpleicons", "simple", "minimal", "glyph":
+            matchedPack = .simpleIcons
         default:
             matchedPack = IconPack.find(id: themeId)
         }

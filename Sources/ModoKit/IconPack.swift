@@ -287,7 +287,8 @@ public struct IconPack: Identifiable, Hashable, Sendable {
         .ios18Tinted,
         .obsidianTitanium,
         .prismGlowCyber,
-        .neumorphicTactile
+        .neumorphicTactile,
+        .simpleIcons
     ]
 
     /// Translucent frosted glass with dynamic specular refraction (visionOS style).
@@ -379,6 +380,25 @@ public struct IconPack: Identifiable, Hashable, Sendable {
             surfaceMaterial: .neumorphic
         ),
         accentHex: 0x6366F1
+    )
+
+    /// Ultra-minimalist Nothing OS & Simple Icons style: clean monochrome vector glyphs on deep obsidian discs.
+    public static let simpleIcons = IconPack(
+        id: "simple_icons",
+        name: "Simple Icons",
+        subtitle: "Monochrome official brand glyphs on matte dark discs",
+        category: "Minimalist",
+        iconSymbol: "sparkle",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .squircle,
+            iconScale: 0.65,
+            shadowIntensity: 0.35,
+            innerShadow: false,
+            monochromeTint: true,
+            surfaceMaterial: .smooth
+        ),
+        accentHex: 0x111111
     )
 
     /// Finds a pack matching the given ID or falls back to Pixel Pure.

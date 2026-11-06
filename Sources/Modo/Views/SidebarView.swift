@@ -8,6 +8,7 @@ struct SidebarView: View {
     @Environment(AppModel.self) private var model
     let items: [Item]
     @State private var showIconSets = false
+    @State private var showGlyphLibrary = false
 
     var body: some View {
         @Bindable var model = model
@@ -113,6 +114,22 @@ struct SidebarView: View {
                 .buttonStyle(.plain)
             }
 
+            Section("Vector & Brand Glyphs") {
+                Button {
+                    showGlyphLibrary = true
+                } label: {
+                    HStack(spacing: Space.sm) {
+                        Image(systemName: "sparkles.square.filled.on.square")
+                            .foregroundStyle(Palette.accentText)
+                        Text("Simple Icons & Glyphs…")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Browse official Simple Icons brand logos & Apple SF Symbols")
+            }
+
             Section("My Packs") {
                 ForEach(model.customPacks) { pack in
                     Button {
@@ -177,6 +194,10 @@ struct SidebarView: View {
         }
         .sheet(isPresented: $showIconSets) {
             IconSetBrowserView()
+                .environment(model)
+        }
+        .sheet(isPresented: $showGlyphLibrary) {
+            GlyphLibraryView(allItems: items)
                 .environment(model)
         }
     }

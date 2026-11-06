@@ -219,6 +219,8 @@ enum SelfTest {
             check("applying Nordic Frost sets its arctic style", model.style.customHex == 0x2E3440 && model.activePackName == "Nordic Frost")
             model.applyPack(.cyberHex)
             check("applying a pack sets its shape", model.style.shape == .hexagon && model.activePackName == "Cyber Hex")
+            model.applyPack(.simpleIcons)
+            check("applying Simple Icons sets minimal monochrome style", model.style.monochromeTint && model.activePackName == "Simple Icons")
             model.style.iconScale = 0.5
             check("manual edit leaves the pack", model.activePackName == "Custom Style")
             model.saveCurrentStyleAsPack(named: "Selftest Pack")

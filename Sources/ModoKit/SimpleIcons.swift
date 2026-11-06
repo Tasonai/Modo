@@ -6,18 +6,29 @@ public struct SimpleIcon: Identifiable, Sendable, Hashable {
     public let slug: String
     public let hex: UInt32
     public let path: String
+    public let rawSVG: String?
 
     public var id: String { slug }
 
-    public init(title: String, slug: String, hex: UInt32, path: String) {
+    public init(title: String, slug: String, hex: UInt32, path: String, rawSVG: String? = nil) {
         self.title = title
         self.slug = slug
         self.hex = hex
         self.path = path
+        self.rawSVG = rawSVG
     }
 
     /// Returns the SVG string for this icon with the given hex fill, or its brand hex if omitted.
     public func svgString(fillHex: UInt32? = nil) -> String {
+        if let raw = rawSVG, !raw.isEmpty {
+            if let fill = fillHex {
+                let hexStr = String(format: "%06X", fill & 0xFFFFFF)
+                if raw.contains("fill=") {
+                    return raw.replacingOccurrences(of: "fill=\"[^\"]*\"", with: "fill=\"#\(hexStr)\"", options: .regularExpression)
+                }
+            }
+            return raw
+        }
         let color = fillHex ?? hex
         let hexStr = String(format: "%06X", color & 0xFFFFFF)
         return """
@@ -156,5 +167,55 @@ public enum SimpleIconCatalog {
         let clean = slug.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !clean.isEmpty else { return nil }
         return URL(string: "https://cdn.jsdelivr.net/npm/simple-icons/icons/\(clean).svg")
+    }
+
+    private static let cacheDirectory: URL = {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let dir = appSupport.appendingPathComponent("Modo/SimpleIconsCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    /// Searches locally first, then attempts to fetch official SVG from CDN and caches to disk.
+    public static func fetch(slugOrTitle: String) async -> SimpleIcon? {
+        if let local = find(for: slugOrTitle) {
+            return local
+        }
+        let slug = normalizeSlug(slugOrTitle)
+        guard !slug.isEmpty else { return nil }
+
+        // Check local disk cache
+        let cachedFile = cacheDirectory.appendingPathComponent("\(slug).svg")
+        if let data = try? Data(contentsOf: cachedFile), let svgText = String(data: data, encoding: .utf8) {
+            return SimpleIcon(
+                title: slug.capitalized,
+                slug: slug,
+                hex: 0x111111,
+                path: "",
+                rawSVG: svgText
+            )
+        }
+
+        // Fetch from jsDelivr CDN
+        guard let url = remoteURL(for: slug) else { return nil }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 6.0
+        guard let (data, resp) = try? await URLSession.shared.data(for: req),
+              let http = resp as? HTTPURLResponse, http.statusCode == 200,
+              let svgText = String(data: data, encoding: .utf8), !svgText.isEmpty else {
+            return nil
+        }
+
+        // Cache on disk for instant offline access next time
+        try? data.write(to: cachedFile, options: .atomic)
+
+        return SimpleIcon(
+            title: slug.capitalized,
+            slug: slug,
+            hex: 0x111111,
+            path: "",
+            rawSVG: svgText
+        )
     }
 }

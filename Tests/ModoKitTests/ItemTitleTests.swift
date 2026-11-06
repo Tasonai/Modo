@@ -115,7 +115,11 @@ func icoBinaryFormat() {
 @Test("IconShape and IconPack catalogs verification")
 func iconPacksCatalog() {
     #expect(IconShape.allCases.count == 5)
-    #expect(IconPack.allPacks.count == 18)
+    #expect(IconPack.allPacks.count == 19)
+
+    let simpleIcons = IconPack.find(id: "simple_icons")
+    #expect(simpleIcons.style.monochromeTint == true)
+    #expect(simpleIcons.style.shape == .squircle)
 
     let pixel = IconPack.find(id: "pixel_pure")
     #expect(pixel.style.shape == .circle)
