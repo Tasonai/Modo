@@ -38,8 +38,10 @@ BODY = """## Modo 1.7.0 — Official Release by Atoma
 - **✨ Interactive 3D Parallax Tilt**: Apple TV-style perspective physics and moving specular glare in the icon inspector.
 - **🎨 One-Click System Theming & Presets**: Signature packs including VisionOS Glass, iOS 18 Tinted Dark, Obsidian Titanium, Prism Cyber, and Neumorphic Tactile.
 - **🚀 Enhanced MenuBar Extra Companion**: Quick access to surface materials, wallpaper palette sync, and system theming wizard directly from macOS menu bar.
+- **💎 Top-50+ Curated Brand Glyphs Catalog**: Cursor, Claude, Perplexity, Ghostty, Warp, Alacritty, TablePlus, Insomnia, Alfred, CleanMyMac, Canva, Photoshop, Illustrator, Premiere Pro, IntelliJ IDEA, PyCharm, WebStorm, Android Studio, Rust, Go, Neovim, Tailscale, Tor Browser, Bluesky, Twitch, and more.
+- **🪟 Windows Explorer Shell Integration**: Right-click context menu "Стилизовать иконку в Modo..." on `.exe`/`.lnk` and "Изменить цвет папки в Modo..." on folders registered under `HKEY_CURRENT_USER` (no admin rights needed), automatic setup registration, CLI `modo shell --enable / --disable`, and standalone `.reg` scripts.
 - **🍺 Official Homebrew Cask**: Install effortlessly via `brew install --cask tasonai/tap/modo`.
-- **⚡ Extended Terminal CLI `modo`**: Added `modo export` and `modo theme` commands.
+- **⚡ Extended Terminal CLI `modo`**: Added `modo export`, `modo theme`, and `modo shell` commands.
 
 ### 📦 Artifacts & Checksums:
 Verify integrity against `checksums.txt`.
