@@ -38,6 +38,7 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
     case darkMaterial = "dark_material"
     case adaptiveEdge = "adaptive_edge"
     case customColor = "custom_color"
+    case wallpaperDynamic = "wallpaper_dynamic"
 
     public var id: String { rawValue }
 
@@ -48,6 +49,7 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
         case .darkMaterial: "Dark Material"
         case .adaptiveEdge: "Adaptive Edge"
         case .customColor: "Custom Color"
+        case .wallpaperDynamic: "Wallpaper Dynamic"
         }
     }
 
@@ -58,6 +60,7 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
         case .darkMaterial: "Deep Pixel dark surface (#1E1F22) with luminous rim"
         case .adaptiveEdge: "Samples the outer edge of the original icon"
         case .customColor: "Uses your chosen hex surface color"
+        case .wallpaperDynamic: "Extracts harmonic Material You pastel from current desktop wallpaper"
         }
     }
 
@@ -68,6 +71,38 @@ public enum RoundBackgroundStyle: String, CaseIterable, Codable, Sendable, Ident
         case .darkMaterial: "moon.circle.fill"
         case .adaptiveEdge: "eyedropper.halffull"
         case .customColor: "slider.horizontal.below.circle.lefthalf.filled"
+        case .wallpaperDynamic: "sparkles.rectangle.stack"
+        }
+    }
+}
+
+/// Surface texture and finish applied to the icon background shape.
+public enum SurfaceMaterial: String, CaseIterable, Codable, Sendable, Identifiable {
+    case smooth = "smooth"
+    case frostedGlass = "frosted_glass"
+    case brushedTitanium = "brushed_titanium"
+    case neumorphic = "neumorphic"
+    case prismGlow = "prism_glow"
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .smooth: "Smooth Flat"
+        case .frostedGlass: "Frosted Glass"
+        case .brushedTitanium: "Brushed Titanium"
+        case .neumorphic: "Neumorphic Emboss"
+        case .prismGlow: "Prism Chromatic"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .smooth: "circle.circle"
+        case .frostedGlass: "sparkle"
+        case .brushedTitanium: "shield.righthalf.filled"
+        case .neumorphic: "circle.bottomhalf.filled"
+        case .prismGlow: "rainbow"
         }
     }
 }
@@ -109,11 +144,13 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var appearanceMode: IconAppearanceMode
     /// Tint color used in Tinted appearance mode (0xRRGGBB).
     public var tintColorHex: UInt32
+    /// Tactile surface finish and shader material.
+    public var surfaceMaterial: SurfaceMaterial
 
     enum CodingKeys: String, CodingKey {
         case backgroundStyle, shape, iconScale, offsetX, offsetY
         case shadowIntensity, innerShadow, fullBleedSquares, monochromeTint
-        case autoTrim, customHex, appearanceMode, tintColorHex
+        case autoTrim, customHex, appearanceMode, tintColorHex, surfaceMaterial
     }
 
     public init(
@@ -129,7 +166,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         autoTrim: Bool = true,
         customHex: UInt32 = 0xE8F0FE,
         appearanceMode: IconAppearanceMode = .light,
-        tintColorHex: UInt32 = 0x007AFF
+        tintColorHex: UInt32 = 0x007AFF,
+        surfaceMaterial: SurfaceMaterial = .smooth
     ) {
         self.backgroundStyle = backgroundStyle
         self.shape = shape
@@ -144,6 +182,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.customHex = customHex & 0xFFFFFF
         self.appearanceMode = appearanceMode
         self.tintColorHex = tintColorHex & 0xFFFFFF
+        self.surfaceMaterial = surfaceMaterial
     }
 
     public init(from decoder: Decoder) throws {
@@ -165,6 +204,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.customHex = try container.decodeIfPresent(UInt32.self, forKey: .customHex) ?? 0xE8F0FE
         self.appearanceMode = try container.decodeIfPresent(IconAppearanceMode.self, forKey: .appearanceMode) ?? .light
         self.tintColorHex = try container.decodeIfPresent(UInt32.self, forKey: .tintColorHex) ?? 0x007AFF
+        self.surfaceMaterial = try container.decodeIfPresent(SurfaceMaterial.self, forKey: .surfaceMaterial) ?? .smooth
     }
 
     public mutating func resetPosition() {

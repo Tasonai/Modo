@@ -94,10 +94,26 @@ def main():
     upload_url_base = upload_url_template.split("{")[0]
     print(f"Release ID: {release_id}, Upload URL: {upload_url_base}")
 
+    existing_assets = {a["name"]: a["id"] for a in data.get("assets", [])}
+
     # 2. Upload Assets
     for p in sorted(DIST_DIR.glob("*")):
         if not p.is_file():
             continue
+
+        if p.name in existing_assets:
+            del_id = existing_assets[p.name]
+            del_req = urllib.request.Request(
+                f"https://api.github.com/repos/{REPO}/releases/assets/{del_id}",
+                headers=headers,
+                method="DELETE"
+            )
+            try:
+                with urllib.request.urlopen(del_req) as _:
+                    pass
+            except Exception as e:
+                print(f"  Warning: couldn't delete existing asset {p.name}: {e}")
+
         print(f"Uploading {p.name} ({p.stat().st_size / 1024:.1f} KB)...")
         mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         file_data = p.read_bytes()

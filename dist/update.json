@@ -1,7 +1,7 @@
 {
   "version": "1.6.0",
-  "build": "202611051848",
-  "releaseDate": "2026-11-05",
+  "build": "202611061240",
+  "releaseDate": "2026-11-06",
   "title": "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI",
   "releaseNotes": "• Folder Icon Styler: 9 gradient palettes & 4 embossed badge styles for macOS Finder & Windows Explorer\n• Batch Iconset & Pack Creator: folder scan & multi-format export (.modopack, .icns, .ico, .png, .zip)\n• MenuBar Extra Companion: Quick Drag & Drop icon styling from macOS status bar\n• Terminal CLI 'modo': full headless command-line automation\n• App Store & Showcase Studio: high-resolution hero presentation banners\n• Raycast & Alfred launcher integrations",
   "minOSVersion": "14.0",
@@ -30,7 +30,7 @@
       "platform": "windows",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-Windows-x64.zip",
-      "sha256": "3de43ddcc43aba2b8c265bbf156023b2bb560c702dd683c553c1e1dbfaf16ffd",
+      "sha256": "4c2a441842ad4197e094d36a2cb3af2bd0a06abf7ac4a0c6eb38f0fb862fe311",
       "sizeBytes": 200934,
       "isPrimary": false
     },
@@ -39,8 +39,8 @@
       "platform": "macos",
       "format": "pkg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-macOS-Installer.pkg",
-      "sha256": "52caabee422671c636f85509ba501688c95476d2db0cf9455f3d070f5e093dd5",
-      "sizeBytes": 3340107,
+      "sha256": "fe23e0c7050ebebc95239b4e83369febe587becd8bf7f2de38412fd977d4d27b",
+      "sizeBytes": 3359153,
       "isPrimary": false
     },
     {
@@ -48,8 +48,8 @@
       "platform": "macos",
       "format": "dmg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-macOS.dmg",
-      "sha256": "31360bf5def50330c8f31e013babc8f1b7de15132883e26184c8893bed130b6a",
-      "sizeBytes": 3809611,
+      "sha256": "106e5fb8bb0083f45cb9aae468237ee800f132ec43d19858f1f9afc5d35b47c6",
+      "sizeBytes": 3818770,
       "isPrimary": false
     },
     {
@@ -57,8 +57,8 @@
       "platform": "macos",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-macOS.zip",
-      "sha256": "70b63a14a0ed438837d65fad174731d89f8fdcf241f633e4bfd367a3dc018c20",
-      "sizeBytes": 3340314,
+      "sha256": "d74f7798a01d0a47867ba1e94aa3870b3ebd2e7f49ddc7d1dd07a2d08609bbf5",
+      "sizeBytes": 3359082,
       "isPrimary": true
     }
   ]

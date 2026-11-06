@@ -551,6 +551,16 @@ struct DetailInspectorView: View {
                 .frame(width: 240)
             }
 
+            LabeledContent("Surface Finish & Texture") {
+                Picker("Surface Material", selection: $model.style.surfaceMaterial) {
+                    ForEach(SurfaceMaterial.allCases) { mat in
+                        Label(mat.title, systemImage: mat.symbol).tag(mat)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 240)
+            }
+
             LabeledContent("Color & Eyedropper") {
                 HStack(spacing: Space.sm) {
                     Button {
@@ -563,6 +573,17 @@ struct DetailInspectorView: View {
                     }
                     .controlSize(.small)
                     .help("Pick any color from the icon or screen with macOS Eyedropper")
+
+                    Button {
+                        let pal = WallpaperPaletteEngine.currentWallpaperPalette()
+                        model.style.customHex = pal.pastelHex
+                        model.style.backgroundStyle = .wallpaperDynamic
+                        model.statusMessage = "Matched Desktop Wallpaper palette"
+                    } label: {
+                        Label("Match Wallpaper", systemImage: "sparkles.rectangle.stack")
+                    }
+                    .controlSize(.small)
+                    .help("Extract harmonic Material You palette from macOS desktop wallpaper")
 
                     ColorPicker("Custom Surface Color", selection: customColorBinding, supportsOpacity: false)
                         .labelsHidden()

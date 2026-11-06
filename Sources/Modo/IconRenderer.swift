@@ -156,6 +156,9 @@ enum IconRenderer {
             )
         }
 
+        // Apply Surface Material Shader Pass (Glass, Titanium, Neumorphic, Prism)
+        drawSurfaceMaterial(in: ctx, rect: circleRect, path: circlePath, material: style.surfaceMaterial)
+
         // 3. Foreground glyph placement inside the circular mask (supports >100% zoom, X/Y pan, and optical radius normalization)
         let opticalFactor: CGFloat = style.autoTrim
             ? min(max(0.50 / max(dominant.opticalRadiusNorm, 0.42), 0.72), 1.08)
@@ -488,8 +491,113 @@ enum IconRenderer {
                 let base = MaterialRGB(hex: style.customHex)
                 let top = base.materialPastel(whiteMix: 0.18)
                 return (nsColor(top), nsColor(base))
+            case .wallpaperDynamic:
+                let pal = WallpaperPaletteEngine.currentWallpaperPalette()
+                let pastelRGB = MaterialRGB(hex: pal.pastelHex)
+                let top = pastelRGB.materialPastel(whiteMix: 0.12)
+                return (nsColor(top), nsColor(pastelRGB))
             }
         }
+    }
+
+    private static func drawSurfaceMaterial(
+        in ctx: CGContext,
+        rect: CGRect,
+        path: CGPath,
+        material: SurfaceMaterial
+    ) {
+        guard material != .smooth else { return }
+        ctx.saveGState()
+
+        switch material {
+        case .smooth:
+            break
+
+        case .frostedGlass:
+            // 1. Diagonal specular sweep (translucent white highlight)
+            let sweepColors = [
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.32),
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.08),
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.0)
+            ] as CFArray
+            if let sweepGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: sweepColors, locations: [0.0, 0.45, 1.0]) {
+                ctx.drawLinearGradient(
+                    sweepGrad,
+                    start: CGPoint(x: rect.minX, y: rect.maxY),
+                    end: CGPoint(x: rect.maxX, y: rect.minY),
+                    options: []
+                )
+            }
+            // 2. Translucent top edge glow
+            let topGlow = CGPath(roundedRect: CGRect(x: rect.minX, y: rect.midY, width: rect.width, height: rect.height * 0.5), cornerWidth: rect.width * 0.1, cornerHeight: rect.width * 0.1, transform: nil)
+            ctx.addPath(topGlow)
+            ctx.setFillColor(CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.08))
+            ctx.fillPath()
+
+        case .brushedTitanium:
+            // Multi-reflection metallic sheen
+            let metalColors = [
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.16),
+                CGColor(srgbRed: 0.0, green: 0.0, blue: 0.0, alpha: 0.12),
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.22),
+                CGColor(srgbRed: 0.0, green: 0.0, blue: 0.0, alpha: 0.14),
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.10)
+            ] as CFArray
+            if let metalGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: metalColors, locations: [0.0, 0.28, 0.52, 0.78, 1.0]) {
+                ctx.drawLinearGradient(
+                    metalGrad,
+                    start: CGPoint(x: rect.minX, y: rect.maxY),
+                    end: CGPoint(x: rect.maxX, y: rect.minY),
+                    options: []
+                )
+            }
+            // Fine horizontal hairline grain
+            ctx.setStrokeColor(CGColor(gray: 1.0, alpha: 0.04))
+            ctx.setLineWidth(1.0)
+            var y = rect.minY + 4
+            while y < rect.maxY {
+                ctx.move(to: CGPoint(x: rect.minX, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
+                y += 6
+            }
+            ctx.strokePath()
+
+        case .neumorphic:
+            // Soft tactile dual shading: top-left highlight + bottom-right shade
+            let innerHighlight = [
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.28),
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.0),
+                CGColor(srgbRed: 0.0, green: 0.0, blue: 0.0, alpha: 0.22)
+            ] as CFArray
+            if let neuGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: innerHighlight, locations: [0.0, 0.5, 1.0]) {
+                ctx.drawLinearGradient(
+                    neuGrad,
+                    start: CGPoint(x: rect.minX, y: rect.maxY),
+                    end: CGPoint(x: rect.maxX, y: rect.minY),
+                    options: []
+                )
+            }
+
+        case .prismGlow:
+            // Holographic spectral dispersion
+            let rainbow = [
+                CGColor(srgbRed: 0.95, green: 0.35, blue: 0.45, alpha: 0.18),
+                CGColor(srgbRed: 0.95, green: 0.75, blue: 0.25, alpha: 0.16),
+                CGColor(srgbRed: 0.30, green: 0.85, blue: 0.55, alpha: 0.18),
+                CGColor(srgbRed: 0.25, green: 0.65, blue: 0.95, alpha: 0.20),
+                CGColor(srgbRed: 0.75, green: 0.35, blue: 0.95, alpha: 0.18)
+            ] as CFArray
+            if let rainbowGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: rainbow, locations: [0.0, 0.25, 0.50, 0.75, 1.0]) {
+                ctx.drawLinearGradient(
+                    rainbowGrad,
+                    start: CGPoint(x: rect.minX, y: rect.minY),
+                    end: CGPoint(x: rect.maxX, y: rect.maxY),
+                    options: []
+                )
+            }
+        }
+
+        ctx.restoreGState()
     }
 
     private static func nsColor(_ rgb: MaterialRGB) -> NSColor {

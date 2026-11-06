@@ -439,6 +439,28 @@ enum SelfTest {
                 )
                 check("ShowcaseEngine renders hero presentation banner", heroBanner.size.width == 480 && heroBanner.size.height == 270)
                 check("ShowcaseTheme provides 5 backdrop styles", ShowcaseTheme.allCases.count == 5)
+
+                // Live Desktop Wallpaper Dynamic Palette Matcher
+                let wallPal = WallpaperPaletteEngine.currentWallpaperPalette()
+                check("WallpaperPaletteEngine returns valid palette", wallPal.primaryHex > 0 && wallPal.pastelHex > 0)
+                model.style.backgroundStyle = .wallpaperDynamic
+                let wallImg = model.roundIcon(for: customApp)
+                check("roundIcon renders with wallpaper dynamic theme", wallImg.size.width > 0)
+
+                // Advanced Surface Materials & Shaders
+                model.style.surfaceMaterial = .frostedGlass
+                let glassImg = model.roundIcon(for: customApp)
+                check("roundIcon renders Frosted Glass shader", glassImg.size.width > 0)
+                model.style.surfaceMaterial = .brushedTitanium
+                let titaniumImg = model.roundIcon(for: customApp)
+                check("roundIcon renders Brushed Titanium shader", titaniumImg.size.width > 0)
+                model.style.surfaceMaterial = .neumorphic
+                let neuImg = model.roundIcon(for: customApp)
+                check("roundIcon renders Neumorphic Emboss shader", neuImg.size.width > 0)
+                model.style.surfaceMaterial = .prismGlow
+                let prismImg = model.roundIcon(for: customApp)
+                check("roundIcon renders Prism Chromatic shader", prismImg.size.width > 0)
+                model.style.surfaceMaterial = .smooth
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
