@@ -114,6 +114,7 @@ final class AppModel {
     var showUpdateSheet: Bool = false
     var showBatchCreator: Bool = false
     var showShowcaseStudio: Bool = false
+    var showSystemTheming: Bool = false
     var batchInitialFolderURL: URL? = nil
 
     var viewMode: AppViewMode = .list {

@@ -23,7 +23,7 @@ struct ModoApp: App {
         if !args.isEmpty && !SelfTest.requested && !args[0].hasPrefix("-psn") {
             let first = args[0].lowercased()
             let knownCommands: Set<String> = [
-                "style", "restore", "folder", "batch", "showcase",
+                "style", "restore", "folder", "batch", "showcase", "export", "theme",
                 "--help", "-h", "help", "--version", "-v", "version"
             ]
             if knownCommands.contains(first) {

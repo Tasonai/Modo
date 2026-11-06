@@ -1,6 +1,6 @@
 cask "modo" do
-  version "1.6.0"
-  sha256 "106e5fb8bb0083f45cb9aae468237ee800f132ec43d19858f1f9afc5d35b47c6"
+  version "1.7.0"
+  sha256 "a4554bb3303fb711a966e8fc5db0ecd047a2905c4f1f445e98d7b57cceedbb28"
 
   url "https://github.com/Tasonai/Modo/releases/download/v#{version}/Modo-macOS.dmg"
   name "Modo"
@@ -13,7 +13,7 @@ cask "modo" do
   end
 
   auto_updates true
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Modo.app"
   binary "#{appdir}/Modo.app/Contents/MacOS/Modo", target: "modo"

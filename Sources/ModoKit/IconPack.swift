@@ -282,8 +282,104 @@ public struct IconPack: Identifiable, Hashable, Sendable {
         .tokyoNight,
         .draculaVamp,
         .sunsetPebble,
-        .fluentSoft
+        .fluentSoft,
+        .visionOSGlass,
+        .ios18Tinted,
+        .obsidianTitanium,
+        .prismGlowCyber,
+        .neumorphicTactile
     ]
+
+    /// Translucent frosted glass with dynamic specular refraction (visionOS style).
+    public static let visionOSGlass = IconPack(
+        id: "visionos_glass",
+        name: "VisionOS Glass",
+        subtitle: "Translucent frosted glass with dynamic specular refraction",
+        category: "Apple",
+        iconSymbol: "cube.transparent.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .squircle,
+            iconScale: 0.70,
+            shadowIntensity: 0.40,
+            innerShadow: true,
+            surfaceMaterial: .frostedGlass
+        ),
+        accentHex: 0x38BDF8
+    )
+
+    /// Deep dark appearance with monochrome neon accent (macOS Sequoia / iOS 18 style).
+    public static let ios18Tinted = IconPack(
+        id: "ios18_tinted",
+        name: "iOS 18 Tinted",
+        subtitle: "Deep dark appearance with monochrome neon accent",
+        category: "Apple",
+        iconSymbol: "circle.lefthalf.filled.righthalf.striped.horizontal",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .squircle,
+            iconScale: 0.68,
+            shadowIntensity: 0.45,
+            innerShadow: true,
+            appearanceMode: .tinted,
+            surfaceMaterial: .smooth
+        ),
+        accentHex: 0x0A84FF
+    )
+
+    /// Aerospace brushed titanium surface with satin metallic grain.
+    public static let obsidianTitanium = IconPack(
+        id: "obsidian_titanium",
+        name: "Obsidian Titanium",
+        subtitle: "Aerospace brushed titanium surface with satin metallic grain",
+        category: "Atoma",
+        iconSymbol: "shield.pattern.checkered",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .squircle,
+            iconScale: 0.66,
+            shadowIntensity: 0.50,
+            innerShadow: true,
+            surfaceMaterial: .brushedTitanium
+        ),
+        accentHex: 0x64748B
+    )
+
+    /// Iridescent chromatic prism glow on deep dark hexagonal plate.
+    public static let prismGlowCyber = IconPack(
+        id: "prism_glow_cyber",
+        name: "Prism Cyber",
+        subtitle: "Iridescent chromatic prism glow on dark hexagonal plate",
+        category: "Tech",
+        iconSymbol: "sparkle.magnifyingglass",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .hexagon,
+            iconScale: 0.66,
+            shadowIntensity: 0.50,
+            innerShadow: true,
+            surfaceMaterial: .prismGlow
+        ),
+        accentHex: 0xEC4899
+    )
+
+    /// Soft extruded 3D bevel with dual directional ambient highlights.
+    public static let neumorphicTactile = IconPack(
+        id: "neumorphic_tactile",
+        name: "Neumorphic Tactile",
+        subtitle: "Soft extruded 3D bevel with tactile physical elevation",
+        category: "Aesthetic",
+        iconSymbol: "square.inset.filled",
+        style: RoundIconStyle(
+            backgroundStyle: .materialPastel,
+            shape: .roundedRect,
+            iconScale: 0.70,
+            shadowIntensity: 0.35,
+            innerShadow: true,
+            surfaceMaterial: .neumorphic
+        ),
+        accentHex: 0x6366F1
+    )
 
     /// Finds a pack matching the given ID or falls back to Pixel Pure.
     public static func find(id: String) -> IconPack {

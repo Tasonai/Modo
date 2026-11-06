@@ -5,7 +5,7 @@ import ModoKit
 // MARK: - Modo Command-Line Interface Engine
 
 public enum ModoCLI {
-    public static let version = "1.6.0"
+    public static let version = "1.7.0"
 
     /// Dispatches command line arguments. Returns process exit code.
     public static func run(arguments: [String]) -> Int32 {
@@ -38,6 +38,12 @@ public enum ModoCLI {
 
         case "showcase":
             return handleShowcase(args: Array(arguments.dropFirst()))
+
+        case "export":
+            return handleExport(args: Array(arguments.dropFirst()))
+
+        case "theme":
+            return handleTheme(args: Array(arguments.dropFirst()))
 
         default:
             print("Unknown command: '\(command)'. Run 'modo --help' for usage.")
@@ -274,6 +280,141 @@ public enum ModoCLI {
         }
     }
 
+    private static func handleExport(args: [String]) -> Int32 {
+        guard !args.isEmpty else {
+            print("Usage: modo export <app_or_image_path> [--type <xcode|web|svg>] [--out <output_dir>]")
+            return 1
+        }
+
+        let inputPath = (args[0] as NSString).expandingTildeInPath
+        let inputURL = URL(fileURLWithPath: inputPath)
+        guard FileManager.default.fileExists(atPath: inputURL.path) else {
+            print("Error: Input path not found: \(inputURL.path)")
+            return 1
+        }
+
+        var exportType = "xcode"
+        var outDir = FileManager.default.currentDirectoryPath
+
+        var i = 1
+        while i < args.count {
+            switch args[i] {
+            case "--type":
+                if i + 1 < args.count { exportType = args[i + 1].lowercased(); i += 1 }
+            case "--out":
+                if i + 1 < args.count { outDir = (args[i + 1] as NSString).expandingTildeInPath; i += 1 }
+            default: break
+            }
+            i += 1
+        }
+
+        let destURL = URL(fileURLWithPath: outDir)
+        let appName = inputURL.deletingPathExtension().lastPathComponent
+
+        let baseImg: NSImage
+        if inputURL.pathExtension.lowercased() == "app" {
+            baseImg = NSWorkspace.shared.icon(forFile: inputURL.path)
+        } else {
+            baseImg = NSImage(contentsOf: inputURL) ?? NSWorkspace.shared.icon(forFile: inputURL.path)
+        }
+
+        do {
+            switch exportType {
+            case "xcode", "appiconset":
+                let out = try DeveloperExportEngine.exportAppIconSet(from: baseImg, appName: appName, destination: destURL)
+                print("✓ Exported Xcode Asset Catalog: \(out.path)")
+                return 0
+
+            case "web", "favicons":
+                let out = try DeveloperExportEngine.exportWebFaviconKit(from: baseImg, appName: appName, destination: destURL)
+                print("✓ Exported Web Favicon Kit: \(out.path)")
+                return 0
+
+            case "svg":
+                let svg = SVGExportEngine.generateSVG(
+                    title: appName,
+                    style: RoundIconStyle(backgroundStyle: .darkMaterial, shape: .squircle, iconScale: 0.68),
+                    dominantHex: 0x1A73E8,
+                    canvasSize: 512
+                )
+                let svgURL = destURL.appendingPathComponent("\(appName).svg")
+                try svg.write(to: svgURL, atomically: true, encoding: .utf8)
+                print("✓ Exported SVG: \(svgURL.path)")
+                return 0
+
+            default:
+                print("Error: Unknown export type '\(exportType)'. Use 'xcode', 'web', or 'svg'.")
+                return 1
+            }
+        } catch {
+            print("✗ Export failed: \(error.localizedDescription)")
+            return 1
+        }
+    }
+
+    private static func handleTheme(args: [String]) -> Int32 {
+        guard !args.isEmpty else {
+            print("Usage: modo theme <ios18|visionos|titanium|nord|catppuccin|prism> [--apply]")
+            return 1
+        }
+
+        let themeId = args[0].lowercased()
+        let shouldApply = args.contains("--apply")
+
+        let matchedPack: IconPack
+        switch themeId {
+        case "ios18", "ios-18", "tinted":
+            matchedPack = .ios18Tinted
+        case "visionos", "glass":
+            matchedPack = .visionOSGlass
+        case "titanium", "obsidian":
+            matchedPack = .obsidianTitanium
+        case "nord", "arctic":
+            matchedPack = .nordicFrost
+        case "catppuccin", "mocha":
+            matchedPack = .catppuccinMocha
+        case "prism", "cyber":
+            matchedPack = .prismGlowCyber
+        case "neumorphic", "tactile":
+            matchedPack = .neumorphicTactile
+        default:
+            matchedPack = IconPack.find(id: themeId)
+        }
+
+        print("Selected Theme: \(matchedPack.name) (\(matchedPack.subtitle))")
+        print("  • Shape: \(matchedPack.style.shape.title)")
+        print("  • Background: \(matchedPack.style.backgroundStyle.title)")
+        print("  • Surface Material: \(matchedPack.style.surfaceMaterial.title)")
+
+        if shouldApply {
+            let appsURL = URL(fileURLWithPath: "/Applications")
+            guard let contents = try? FileManager.default.contentsOfDirectory(at: appsURL, includingPropertiesForKeys: nil) else {
+                print("Error: Cannot read /Applications")
+                return 1
+            }
+            let apps = contents.filter { $0.pathExtension.lowercased() == "app" }
+            print("Applying \(matchedPack.name) to \(apps.count) applications...")
+
+            var count = 0
+            for appURL in apps {
+                let wsIcon = NSWorkspace.shared.icon(forFile: appURL.path)
+                let rendered = IconRenderer.renderRoundIcon(
+                    sourceImage: wsIcon,
+                    style: matchedPack.style,
+                    fallbackHex: matchedPack.accentHex
+                )
+                if NSWorkspace.shared.setIcon(rendered, forFile: appURL.path, options: []) {
+                    count += 1
+                }
+            }
+            print("✓ Successfully styled \(count)/\(apps.count) applications with \(matchedPack.name)!")
+            _ = Process.launchedProcess(launchPath: "/usr/bin/killall", arguments: ["Dock"])
+        } else {
+            print("Run with '--apply' to apply this theme to installed applications in /Applications.")
+        }
+        return 0
+    }
+
     private static func printHelp() {
         print("""
         Modo — Native macOS Adaptive Icon Studio (v\(version))
@@ -296,11 +437,19 @@ public enum ModoCLI {
                                    --out <banner.png>
                                    --theme <mesh|studio|white|sunset|cyber>
                                    --layout <hero|triple|card>
+          export <app_path>      Developer Export: Xcode Asset Catalog or Web Favicon Kit
+                                   --type <xcode|web|svg>
+                                   --out <output_dir>
+          theme <theme_name>     One-Click System Theming (ios18, visionos, titanium, nord, catppuccin, prism)
+                                   --apply (apply to all /Applications)
           version                Print Modo CLI version
           help                   Show this help message
 
         EXAMPLES:
           modo style /Applications/Slack.app --shape squircle --bg pastel
+          modo export /Applications/Slack.app --type xcode --out ~/Desktop
+          modo export /Applications/Slack.app --type web --out ~/Desktop
+          modo theme visionos --apply
           modo folder ~/Projects/Client --color sunsetOrange
           modo batch ~/Design/Logos --out ~/Desktop/Icons
           modo showcase /Applications/Safari.app --out ./safari-banner.png --theme mesh

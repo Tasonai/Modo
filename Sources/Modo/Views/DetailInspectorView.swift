@@ -762,10 +762,14 @@ struct DetailInspectorView: View {
                 Button("All Resolutions (16 to 1024 px PNG)") {
                     exportCustomSizes(for: item, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
                 }
-                Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
-                    exportCustomSizes(for: item, sizes: [16, 32, 180, 192, 512], title: "Favicon Kit")
+                Divider()
+                Button("Xcode Asset Catalog (AppIcon.appiconset)…") {
+                    exportXcodeAppIconSet(for: item)
                 }
-                Button("Scalable Vector Graphic (.svg)") {
+                Button("Web Favicon Kit (.ico, manifest, HTML)…") {
+                    exportWebFaviconKit(for: item)
+                }
+                Button("Scalable Vector Graphic (.svg)…") {
                     exportSVG(for: item)
                 }
                 Divider()
@@ -782,6 +786,44 @@ struct DetailInspectorView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+        }
+    }
+
+    private func exportXcodeAppIconSet(for item: Item) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export AppIcon.appiconset"
+        panel.message = "Choose destination folder for \(item.title).appiconset"
+        guard panel.runModal() == .OK, let dir = panel.url else { return }
+
+        let icon = model.roundIcon(for: item)
+        do {
+            let outURL = try DeveloperExportEngine.exportAppIconSet(from: icon, appName: item.title, destination: dir)
+            model.statusMessage = "Exported Xcode Asset Catalog to \(outURL.lastPathComponent)"
+            NSWorkspace.shared.activateFileViewerSelecting([outURL])
+        } catch {
+            model.statusMessage = "Export failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportWebFaviconKit(for item: Item) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export Favicon Kit"
+        panel.message = "Choose destination folder for \(item.title) Web Favicon Bundle"
+        guard panel.runModal() == .OK, let dir = panel.url else { return }
+
+        let icon = model.roundIcon(for: item)
+        do {
+            let outURL = try DeveloperExportEngine.exportWebFaviconKit(from: icon, appName: item.title, destination: dir)
+            model.statusMessage = "Exported Web Favicon Kit to \(outURL.lastPathComponent)"
+            NSWorkspace.shared.activateFileViewerSelecting([outURL])
+        } catch {
+            model.statusMessage = "Export failed: \(error.localizedDescription)"
         }
     }
 

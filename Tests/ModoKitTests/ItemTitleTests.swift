@@ -115,7 +115,7 @@ func icoBinaryFormat() {
 @Test("IconShape and IconPack catalogs verification")
 func iconPacksCatalog() {
     #expect(IconShape.allCases.count == 5)
-    #expect(IconPack.allPacks.count == 13)
+    #expect(IconPack.allPacks.count == 18)
 
     let pixel = IconPack.find(id: "pixel_pure")
     #expect(pixel.style.shape == .circle)
@@ -128,6 +128,12 @@ func iconPacksCatalog() {
     let nord = IconPack.find(id: "nordic_frost")
     #expect(nord.style.shape == .squircle)
     #expect(nord.accentHex == 0x88C0D0)
+
+    let vision = IconPack.find(id: "visionos_glass")
+    #expect(vision.style.surfaceMaterial == .frostedGlass)
+
+    let ios18 = IconPack.find(id: "ios18_tinted")
+    #expect(ios18.style.appearanceMode == .tinted)
 
     let tokyo = IconPack.find(id: "tokyo_night")
     #expect(tokyo.style.shape == .hexagon)

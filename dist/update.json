@@ -1,9 +1,9 @@
 {
-  "version": "1.6.0",
-  "build": "202611061256",
+  "version": "1.7.0",
+  "build": "202611061308",
   "releaseDate": "2026-11-06",
-  "title": "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI",
-  "releaseNotes": "• Folder Icon Styler: 9 gradient palettes & 4 embossed badge styles for macOS Finder & Windows Explorer\n• Batch Iconset & Pack Creator: folder scan & multi-format export (.modopack, .icns, .ico, .png, .zip)\n• MenuBar Extra Companion: Quick Drag & Drop icon styling from macOS status bar\n• Terminal CLI 'modo': full headless command-line automation\n• App Store & Showcase Studio: high-resolution hero presentation banners\n• Raycast & Alfred launcher integrations",
+  "title": "Modo 1.7.0 — Developer Studio, SVG Export, 3D Parallax & System Presets",
+  "releaseNotes": "• Developer Export Suite: Xcode Asset Catalog (AppIcon.appiconset) & Web Favicon Kit (.ico, manifest, HTML snippet)\n• Scalable Vector Export: Pure SVG vector generator with materials & filter shaders\n• Interactive 3D Parallax Tilt: Apple TV-style perspective physics and dynamic specular glare\n• One-Click System Theming & Presets: VisionOS Glass, iOS 18 Tinted, Obsidian Titanium, Prism Cyber\n• Enhanced MenuBar Companion: Fast status bar access with material switcher & wallpaper matcher\n• Official Homebrew Tap: brew install --cask tasonai/tap/modo",
   "minOSVersion": "14.0",
   "isMandatory": false,
   "assets": [
@@ -11,7 +11,7 @@
       "name": "Modo-Windows-Portable.exe",
       "platform": "windows",
       "format": "exe",
-      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-Windows-Portable.exe",
+      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-Portable.exe",
       "sha256": "b46b6b87267f879aa689c3df4ba771e93032939e5f526f4117c3b11cf14a5de5",
       "sizeBytes": 400384,
       "isPrimary": false
@@ -20,7 +20,7 @@
       "name": "Modo-Windows-Setup.exe",
       "platform": "windows",
       "format": "exe",
-      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-Windows-Setup.exe",
+      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-Setup.exe",
       "sha256": "b46b6b87267f879aa689c3df4ba771e93032939e5f526f4117c3b11cf14a5de5",
       "sizeBytes": 400384,
       "isPrimary": true
@@ -29,8 +29,8 @@
       "name": "Modo-Windows-x64.zip",
       "platform": "windows",
       "format": "zip",
-      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-Windows-x64.zip",
-      "sha256": "7820202031a09188a5b99f64f636b1ef90bbd8b5234311170cdeeb994ff2e89c",
+      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-x64.zip",
+      "sha256": "9daa86eee30e58fac0557c6f640993620077f9d5f8686cc13cc39b024101ffcd",
       "sizeBytes": 200934,
       "isPrimary": false
     },
@@ -38,27 +38,27 @@
       "name": "Modo-macOS-Installer.pkg",
       "platform": "macos",
       "format": "pkg",
-      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-macOS-Installer.pkg",
-      "sha256": "a15fa1a6884f42566b42620bf35e9b240edd6bb74185369e74e29d4200cf02df",
-      "sizeBytes": 3376980,
+      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS-Installer.pkg",
+      "sha256": "cda6d7e4b595e2a6c47cc93626b6e0d12a39c1700a609dcd45d12a081061e28a",
+      "sizeBytes": 3417408,
       "isPrimary": false
     },
     {
       "name": "Modo-macOS.dmg",
       "platform": "macos",
       "format": "dmg",
-      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-macOS.dmg",
-      "sha256": "be6cce6a637682555da32d705d6c25bc7efe95a336c0835d734f8d90780dbdd4",
-      "sizeBytes": 3834031,
+      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.dmg",
+      "sha256": "a4554bb3303fb711a966e8fc5db0ecd047a2905c4f1f445e98d7b57cceedbb28",
+      "sizeBytes": 3884702,
       "isPrimary": false
     },
     {
       "name": "Modo-macOS.zip",
       "platform": "macos",
       "format": "zip",
-      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.6.0/Modo-macOS.zip",
-      "sha256": "5bd163fd7efcf759c6d7528640c490474cbde80ba9f79499ad43b5afa6dac5ce",
-      "sizeBytes": 3377526,
+      "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.zip",
+      "sha256": "305496b3741cf1ac49866e8edf0f6f6f7dc2bfb65b6fd4b3ca906ac0db81764b",
+      "sizeBytes": 3417439,
       "isPrimary": true
     }
   ]

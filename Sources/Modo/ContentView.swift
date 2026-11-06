@@ -105,7 +105,7 @@ struct ContentView: View {
                 .help("Choose surface preset")
 
                 Button {
-                    showThemingWizard = true
+                    model.showSystemTheming = true
                 } label: {
                     Label("Theme System…", systemImage: "wand.and.stars")
                 }
@@ -154,7 +154,7 @@ struct ContentView: View {
             }
         }
         .noInitialFocus()
-        .sheet(isPresented: $showThemingWizard) {
+        .sheet(isPresented: $model.showSystemTheming) {
             SystemThemingWizardView(allItems: visibleItems.isEmpty ? items : visibleItems)
         }
         .sheet(isPresented: $model.showUpdateSheet) {

@@ -149,6 +149,84 @@ struct QuickDropMenuBarView: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                // Surface Materials
+                HStack(spacing: 3) {
+                    ForEach(SurfaceMaterial.allCases) { mat in
+                        Button {
+                            model.style.surfaceMaterial = mat
+                        } label: {
+                            Text(mat.title)
+                                .font(.system(size: 9, weight: model.style.surfaceMaterial == mat ? .bold : .regular))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 3)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(model.style.surfaceMaterial == mat ? Palette.accent : Color.primary.opacity(0.06))
+                                )
+                                .foregroundStyle(model.style.surfaceMaterial == mat ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // 1-Click Signature Presets & Wallpaper
+                HStack(spacing: 4) {
+                    Button {
+                        if let screen = NSScreen.main,
+                           let url = NSWorkspace.shared.desktopImageURL(for: screen),
+                           let img = NSImage(contentsOf: url) {
+                            let pal = WallpaperPaletteEngine.extractPalette(from: img)
+                            model.style.backgroundStyle = .customColor
+                            model.style.customHex = pal.darkHex
+                            statusMessage = "Synced with Wallpaper"
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "sparkles")
+                            Text("Wallpaper")
+                        }
+                        .font(.system(size: 9, weight: .medium))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
+                    }
+                    .buttonStyle(.plain)
+
+                    ForEach([IconPack.visionOSGlass, .ios18Tinted, .obsidianTitanium]) { pack in
+                        Button {
+                            model.applyPack(pack)
+                            statusMessage = "Applied \(pack.name)"
+                        } label: {
+                            Text(pack.name)
+                                .font(.system(size: 9, weight: model.activePackId == pack.id ? .bold : .regular))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 3)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(model.activePackId == pack.id ? Palette.accent : Color.primary.opacity(0.06)))
+                                .foregroundStyle(model.activePackId == pack.id ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Button {
+                    NSApp.activate(ignoringOtherApps: true)
+                    for window in NSApp.windows where window.identifier?.rawValue == "main" || window.title == "Modo" {
+                        window.makeKeyAndOrderFront(nil)
+                    }
+                    model.showSystemTheming = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "wand.and.stars")
+                        Text("1-Click System Theming Wizard…")
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Palette.accent.opacity(0.12)))
+                    .foregroundStyle(Palette.accentText)
+                }
+                .buttonStyle(.plain)
             }
 
             Divider()

@@ -63,18 +63,18 @@ def main() -> None:
             "name": name,
             "platform": platform,
             "format": fmt,
-            "downloadURL": f"https://github.com/Tasonai/Modo/releases/download/v1.6.0/{name}",
+            "downloadURL": f"https://github.com/Tasonai/Modo/releases/download/v1.7.0/{name}",
             "sha256": sha256,
             "sizeBytes": size,
             "isPrimary": is_primary
         })
 
     manifest = {
-        "version": "1.6.0",
+        "version": "1.7.0",
         "build": datetime.now().strftime("%Y%m%d%H%M"),
         "releaseDate": datetime.now().strftime("%Y-%m-%d"),
-        "title": "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI",
-        "releaseNotes": "• Folder Icon Styler: 9 gradient palettes & 4 embossed badge styles for macOS Finder & Windows Explorer\n• Batch Iconset & Pack Creator: folder scan & multi-format export (.modopack, .icns, .ico, .png, .zip)\n• MenuBar Extra Companion: Quick Drag & Drop icon styling from macOS status bar\n• Terminal CLI 'modo': full headless command-line automation\n• App Store & Showcase Studio: high-resolution hero presentation banners\n• Raycast & Alfred launcher integrations",
+        "title": "Modo 1.7.0 — Developer Studio, SVG Export, 3D Parallax & System Presets",
+        "releaseNotes": "• Developer Export Suite: Xcode Asset Catalog (AppIcon.appiconset) & Web Favicon Kit (.ico, manifest, HTML snippet)\n• Scalable Vector Export: Pure SVG vector generator with materials & filter shaders\n• Interactive 3D Parallax Tilt: Apple TV-style perspective physics and dynamic specular glare\n• One-Click System Theming & Presets: VisionOS Glass, iOS 18 Tinted, Obsidian Titanium, Prism Cyber\n• Enhanced MenuBar Companion: Fast status bar access with material switcher & wallpaper matcher\n• Official Homebrew Tap: brew install --cask tasonai/tap/modo",
         "minOSVersion": "14.0",
         "isMandatory": False,
         "assets": assets

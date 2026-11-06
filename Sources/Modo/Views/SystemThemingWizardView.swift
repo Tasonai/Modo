@@ -267,6 +267,19 @@ struct SystemThemingWizardView: View {
                     .frame(maxWidth: 420)
                 }
 
+                // Surface Material Texture
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Text("Surface Material")
+                        .font(.headline)
+                    Picker("Material", selection: $model.style.surfaceMaterial) {
+                        ForEach(SurfaceMaterial.allCases) { m in
+                            Text(m.title).tag(m)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 480)
+                }
+
                 // Live Preview of selected apps
                 VStack(alignment: .leading, spacing: Space.xs) {
                     Text("Live Preview (\(min(selectedItems.count, 6)) Apps)")

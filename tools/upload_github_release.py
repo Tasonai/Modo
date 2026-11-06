@@ -28,19 +28,18 @@ def get_token():
 
 TOKEN = get_token()
 REPO = "Tasonai/Modo"
-TAG = "v1.6.0"
-TITLE = "Modo 1.6.0 — Folder Styler, Batch Creator, MenuBar & CLI"
-BODY = """## Modo 1.6.0 — Official Release by Atoma
+TAG = "v1.7.0"
+TITLE = "Modo 1.7.0 — Developer Studio, SVG Export, 3D Parallax & System Presets"
+BODY = """## Modo 1.7.0 — Official Release by Atoma
 
-### 🚀 What's New in v1.6.0:
-- **📁 Folder Icon Styler**: Custom macOS Finder & Windows Explorer folder tinting with 9 rich gradient palettes and 4 engraved embossed glyph styles (SF Symbols, Simple Icons, AI Studio).
-- **📦 Batch Iconset & Pack Creator**: Drag-and-drop an entire folder of artwork or logos to automatically generate `.modopack`, multi-size `.icns`, Windows `.ico`, 1024px `.png`, and `.zip` archives.
-- **🚀 MenuBar Extra (Quick Drop Companion)**: Instant drag-and-drop icon styling right from the macOS status bar without launching the full window.
-- **⚡ Terminal CLI `modo`**: Full headless automation for terminal power-users (`modo style`, `modo folder`, `modo batch`, `modo showcase`).
-- **🎨 App Store & Portfolio Showcase Studio**: Generate high-res 1920×1080 and 1280×640 hero presentation graphics with ambient lighting and contact shadows for GitHub README and App Store.
-- **🌐 Documentation & Web Showcase**: Interactive web playground and docs hosted via GitHub Pages.
-- **🔌 Raycast & Alfred Integrations**: Ready-to-use workflows for styling apps directly from launcher search.
-- **🪟 Windows Explorer desktop.ini Parity**: Native folder icon customization for Windows 10/11.
+### 🚀 What's New in v1.7.0:
+- **🛠 Developer Export Suite**: One-click generation of Xcode Asset Catalogs (`AppIcon.appiconset` with complete `Contents.json` for macOS/iOS) and complete Web Favicon bundles (`favicon.ico`, `apple-touch-icon.png`, `site.webmanifest`, HTML snippet).
+- **📐 Pure Scalable Vector Export (.svg)**: Pure SVG engine with XML filters for realistic material rendering (frosted glass, brushed titanium, neumorphic emboss, prism glow).
+- **✨ Interactive 3D Parallax Tilt**: Apple TV-style perspective physics and moving specular glare in the icon inspector.
+- **🎨 One-Click System Theming & Presets**: Signature packs including VisionOS Glass, iOS 18 Tinted Dark, Obsidian Titanium, Prism Cyber, and Neumorphic Tactile.
+- **🚀 Enhanced MenuBar Extra Companion**: Quick access to surface materials, wallpaper palette sync, and system theming wizard directly from macOS menu bar.
+- **🍺 Official Homebrew Cask**: Install effortlessly via `brew install --cask tasonai/tap/modo`.
+- **⚡ Extended Terminal CLI `modo`**: Added `modo export` and `modo theme` commands.
 
 ### 📦 Artifacts & Checksums:
 Verify integrity against `checksums.txt`.

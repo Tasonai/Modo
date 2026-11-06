@@ -469,6 +469,19 @@ enum SelfTest {
                     dominantHex: 0x8B5CF6
                 )
                 check("SVGExportEngine produces valid SVG XML", svgOutput.contains("<svg") && svgOutput.contains("</svg>") && svgOutput.contains("linearGradient"))
+
+                // Developer Export Engine: Xcode Asset Catalog & Web Favicon Bundle
+                let appIconSetJSON = DeveloperExportEngine.generateAppIconSetContentsJSON()
+                check("DeveloperExportEngine produces valid AppIcon.appiconset Contents.json", appIconSetJSON.contains("\"author\" : \"Modo by Atoma\"") && appIconSetJSON.contains("icon_1024x1024.png"))
+                let webManifest = DeveloperExportEngine.generateWebManifest(name: "Modo")
+                check("DeveloperExportEngine produces valid site.webmanifest", webManifest.contains("\"name\" : \"Modo\"") && webManifest.contains("android-chrome-512x512.png"))
+
+                // System Presets: VisionOS Glass & iOS 18 Tinted
+                let visionPack = IconPack.find(id: "visionos_glass")
+                check("VisionOS Glass preset defines frosted glass material", visionPack.style.surfaceMaterial == .frostedGlass)
+                let ios18Pack = IconPack.find(id: "ios18_tinted")
+                check("iOS 18 Tinted preset defines tinted appearance", ios18Pack.style.appearanceMode == .tinted)
+                check("ModoCLI handles theme command", ModoCLI.run(arguments: ["theme", "visionos"]) == 0)
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
