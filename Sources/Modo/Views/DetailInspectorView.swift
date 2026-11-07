@@ -13,6 +13,8 @@ struct DetailInspectorView: View {
     @State private var isDropTargeted: Bool = false
     @State private var showSimpleIconsSheet: Bool = false
     @State private var showAIGlyphStudio: Bool = false
+    @State private var vectorVariants: [VectorVariant] = []
+    @State private var isLoadingCDNVariants: Bool = false
 
     private var effectiveScale: Double {
         item.customScale ?? model.style.iconScale
@@ -66,6 +68,10 @@ struct DetailInspectorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("comparison", area: "detail")
 
+                vectorVariantsCard
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .gridProbe("vector_variants", area: "detail")
+
                 if item.isFolder {
                     folderCustomizationCard
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,9 +99,14 @@ struct DetailInspectorView: View {
         }
         .onAppear {
             adjustThisAppOnly = (item.customScale != nil)
+            refreshVectorVariants()
         }
         .onChange(of: item.id) {
             adjustThisAppOnly = (item.customScale != nil)
+            refreshVectorVariants()
+        }
+        .onChange(of: item.title) {
+            refreshVectorVariants()
         }
         .sheet(isPresented: $showSimpleIconsSheet) {
             GlyphLibraryView(targetItem: item, allItems: allVisibleItems)
@@ -238,6 +249,275 @@ struct DetailInspectorView: View {
             return true
         } isTargeted: { targeted in
             isDropTargeted = targeted
+        }
+    }
+
+    // MARK: - Vector Variants Card & Selection
+    private var vectorVariantsCard: some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+
+        return VStack(alignment: .leading, spacing: Space.sm) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Space.xs) {
+                        Image(systemName: "square.stack.3d.up.fill")
+                            .foregroundStyle(Palette.accentText)
+                        Text("Векторные варианты оформления")
+                            .font(.headline)
+                    }
+                    Text("Автоматический подбор и генерация векторных стилей для \(item.title)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if isLoadingCDNVariants {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Поиск в CDN…")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.trailing, 4)
+                }
+
+                Button {
+                    showSimpleIconsSheet = true
+                } label: {
+                    Label("Все глифы…", systemImage: "magnifyingglass")
+                }
+                .controlSize(.small)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Space.sm) {
+                    ForEach(vectorVariants) { variant in
+                        variantTile(variant)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
+        .overlay(cardShape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
+    }
+
+    private func variantTile(_ variant: VectorVariant) -> some View {
+        let isSelected = variant.isActive(
+            customImageData: item.customImageData,
+            currentSymbolName: item.symbolName,
+            currentBrandHex: item.brandHex
+        )
+        let tileShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+
+        return Button {
+            applyVectorVariant(variant)
+        } label: {
+            VStack(spacing: 6) {
+                HStack {
+                    Text(variant.badge)
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(
+                            isSelected ? Palette.accent.opacity(0.18) : Color.primary.opacity(0.06),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(isSelected ? Palette.accentText : .secondary)
+
+                    Spacer(minLength: 0)
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Palette.accentText)
+                    }
+                }
+
+                // Center Icon Preview
+                ZStack {
+                    Circle()
+                        .fill(Color.primary.opacity(0.04))
+                        .frame(width: 46, height: 46)
+
+                    variantPreviewImage(variant)
+                        .frame(width: 36, height: 36)
+                }
+                .frame(height: 50)
+
+                VStack(spacing: 1) {
+                    Text(variant.title)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+
+                    Text(variant.subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                if isSelected {
+                    Text("Выбрано")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Palette.accentText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Palette.accent.opacity(0.12), in: Capsule())
+                } else {
+                    Text("Применить")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                }
+            }
+            .padding(Space.sm)
+            .frame(width: 124, height: 140)
+            .background(isSelected ? Palette.accent.opacity(0.08) : Color(nsColor: .controlBackgroundColor).opacity(0.6), in: tileShape)
+            .overlay(
+                tileShape.strokeBorder(
+                    isSelected ? Palette.accent : Color(nsColor: .separatorColor).opacity(0.7),
+                    lineWidth: isSelected ? 2 : 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func variantPreviewImage(_ variant: VectorVariant) -> some View {
+        switch variant.kind {
+        case .original:
+            Image(nsImage: model.originalIcon(for: item))
+                .resizable()
+                .scaledToFit()
+
+        case .brandMono:
+            if let data = variant.applicationData, let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundStyle(.white)
+                    .padding(5)
+                    .background(Color.black.opacity(0.85), in: Circle())
+            } else {
+                Image(systemName: "sparkles")
+                    .font(.title3)
+            }
+
+        case .brandColor:
+            let hex = UInt32(variant.brandHex ?? 0x1A73E8)
+            let bColor = Color(hex: hex)
+            if let data = variant.applicationData, let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(5)
+                    .background(bColor.opacity(0.16), in: Circle())
+            } else {
+                Image(systemName: "app.fill")
+                    .font(.title3)
+                    .foregroundStyle(bColor)
+            }
+
+        case .sfSymbol:
+            if let sym = variant.symbolName {
+                Image(systemName: sym)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.primary)
+            } else if let data = variant.applicationData, let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+            }
+
+        case .monogram, .geometric:
+            if let data = variant.applicationData, let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(3)
+            } else {
+                Image(systemName: "sparkle")
+                    .font(.title3)
+            }
+
+        case .remoteCDN:
+            if let data = variant.applicationData, let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(5)
+                    .background(Palette.accent.opacity(0.12), in: Circle())
+            } else {
+                Image(systemName: "arrow.down.circle")
+                    .font(.title3)
+            }
+        }
+    }
+
+    private func applyVectorVariant(_ variant: VectorVariant) {
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
+
+        switch variant.kind {
+        case .original:
+            model.clearCustomArtwork(for: item)
+        case .brandMono, .brandColor, .remoteCDN:
+            if let data = variant.applicationData {
+                model.setCustomArtwork(data: data, for: item)
+            }
+            if let brandHex = variant.brandHex {
+                item.brandHex = brandHex
+            }
+        case .sfSymbol:
+            if let data = variant.applicationData {
+                model.setCustomArtwork(data: data, for: item)
+            }
+            if let sym = variant.symbolName {
+                item.symbolName = sym
+            }
+        case .monogram, .geometric:
+            if let data = variant.applicationData {
+                model.setCustomArtwork(data: data, for: item)
+            }
+            if let brandHex = variant.brandHex {
+                item.brandHex = brandHex
+            }
+        }
+
+        model.invalidateCache(for: item)
+        try? context.save()
+    }
+
+    private func refreshVectorVariants() {
+        let local = VectorVariantEngine.resolveLocalVariants(
+            title: item.title,
+            bundleIdentifier: item.bundleIdentifier,
+            categoryName: item.categoryName,
+            brandHex: item.brandHex
+        )
+        vectorVariants = local
+
+        let hasBrand = local.contains { $0.kind == .brandMono }
+        guard !hasBrand && !item.title.isEmpty else { return }
+
+        isLoadingCDNVariants = true
+        let title = item.title
+        Task {
+            let remote = await VectorVariantEngine.fetchRemoteBrandVariants(for: title)
+            await MainActor.run {
+                if !remote.isEmpty && self.item.title == title {
+                    var updated = self.vectorVariants
+                    let insertIndex = min(1, updated.count)
+                    updated.insert(contentsOf: remote, at: insertIndex)
+                    self.vectorVariants = updated
+                }
+                self.isLoadingCDNVariants = false
+            }
         }
     }
 

@@ -498,6 +498,20 @@ enum SelfTest {
                 let ios18Pack = IconPack.find(id: "ios18_tinted")
                 check("iOS 18 Tinted preset defines tinted appearance", ios18Pack.style.appearanceMode == .tinted)
                 check("ModoCLI handles theme command", ModoCLI.run(arguments: ["theme", "visionos"]) == 0)
+
+                // Vector Variant Engine & Discovery
+                let vVariants = VectorVariantEngine.resolveLocalVariants(
+                    title: "Slack",
+                    bundleIdentifier: "com.tinyspeck.slackmacgap",
+                    categoryName: "Communication",
+                    brandHex: 0x4A154B
+                )
+                check("VectorVariantEngine resolves local variants suite", vVariants.count >= 6)
+                check("VectorVariantEngine includes original system variant", vVariants.contains { $0.kind == .original })
+                check("VectorVariantEngine includes official brand mono vector", vVariants.contains { $0.kind == .brandMono && $0.badge == "Simple Icons" })
+                check("VectorVariantEngine includes official brand color vector", vVariants.contains { $0.kind == .brandColor })
+                check("VectorVariantEngine includes procedural monogram vector", vVariants.contains { $0.kind == .monogram })
+                check("VectorVariantEngine includes procedural geometric vector", vVariants.contains { $0.kind == .geometric })
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
