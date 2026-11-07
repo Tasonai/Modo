@@ -98,11 +98,16 @@ struct IconPackDef {
     COLORREF customColor;
 };
 
-static const IconPackDef kIconPacks[14] = {
+static const IconPackDef kIconPacks[19] = {
     { L"Pixel Pure",   PRESET_GOOGLE_WHITE,    SHAPE_CIRCLE,   0.68, 0.40, true,  false, RGB(232, 240, 254) },
     { L"Material You", PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.35, true,  false, RGB(232, 240, 254) },
     { L"Modo Noir",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.66, 0.50, true,  false, RGB(232, 240, 254) },
     { L"Atoma Mono",   PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.30, false, true,  RGB(232, 240, 254) },
+    { L"WhiteSur",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.74, 0.38, true,  false, RGB(0, 122, 255) },
+    { L"Tela",         PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.30, false, false, RGB(45, 114, 217) },
+    { L"Lawnicons",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.65, 0.35, false, true,  RGB(56, 189, 248) },
+    { L"macOSicons",   PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.72, 0.42, true,  false, RGB(243, 244, 246) },
+    { L"Tabler",       PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.40, false, true,  RGB(24, 24, 27) },
     { L"Simple Icons", PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.65, 0.25, false, true,  RGB(32, 33, 36) },
     { L"Squircle",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.72, 0.35, true,  false, RGB(232, 240, 254) },
     { L"Paper",        PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.25, false, false, RGB(246, 243, 235) },

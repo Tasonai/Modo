@@ -1313,7 +1313,8 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hShapeSub, L"Форма подложки (Surface)");
 
     HMENU hPackSub = CreatePopupMenu();
-    for (int i = 0; i < 8; ++i) {
+    int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
+    for (int i = 0; i < totalPacks; ++i) {
         UINT flags = (g_activePack == i ? MF_CHECKED : MF_UNCHECKED) | MF_STRING;
         AppendMenuW(hPackSub, flags, IDM_STYLE_PACK_BASE + i, kIconPacks[i].name);
     }
@@ -1460,12 +1461,27 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 MB_OK | MB_ICONINFORMATION
             );
             break;
-        default:
-            if (cmd >= IDM_STYLE_PACK_BASE && cmd < IDM_STYLE_PACK_BASE + 8) {
+        default: {
+            int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
+            if (cmd >= IDM_STYLE_PACK_BASE && cmd < IDM_STYLE_PACK_BASE + totalPacks) {
                 int packIdx = cmd - IDM_STYLE_PACK_BASE;
-                HandleWidgetClick(hwnd, (WidgetID)(W_PACK_0 + packIdx), dummyPt);
+                const IconPackDef& pk = kIconPacks[packIdx];
+                g_style.preset = pk.preset;
+                g_style.shape = pk.shape;
+                g_style.scale = pk.scale;
+                g_style.shadow = pk.shadow;
+                g_style.innerShadow = pk.innerShadow;
+                g_style.monochrome = pk.monochrome;
+                g_style.customColor = pk.customColor;
+                g_style.offsetX = 0.0;
+                g_style.offsetY = 0.0;
+                g_activePack = packIdx;
+                SaveStyleConfig();
+                InvalidateAllThumbs();
+                InvalidateRect(hwnd, NULL, FALSE);
             }
             break;
+        }
     }
 }
 

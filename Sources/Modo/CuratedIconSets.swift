@@ -23,6 +23,30 @@ enum CuratedIconSets {
             iconCount: 10
         ),
         CuratedPack(
+            id: "whitesur-icons",
+            name: "WhiteSur macOS",
+            author: "vinceliuice & Community",
+            license: "GPL-3.0",
+            description: "macOS Big Sur & Sequoia squircle aesthetic with modern Apple system styling",
+            iconCount: 10
+        ),
+        CuratedPack(
+            id: "tela-icons",
+            name: "Tela Minimal",
+            author: "vinceliuice",
+            license: "GPL-3.0",
+            description: "Clean geometric flat vector icons with vibrant color accents",
+            iconCount: 10
+        ),
+        CuratedPack(
+            id: "lawnicons-pack",
+            name: "Lawnicons Themed",
+            author: "Lawnchair Team",
+            license: "Apache-2.0",
+            description: "Minimalist monochrome line glyphs inspired by Material You & iOS 18 Tinted",
+            iconCount: 10
+        ),
+        CuratedPack(
             id: "catppuccin-icons",
             name: "Catppuccin Pastel",
             author: "Catppuccin Community",
@@ -36,6 +60,38 @@ enum CuratedIconSets {
             author: "Arctic Ice Studio",
             license: "MIT",
             description: "Arctic cold slate and polar ice blue clean aesthetic",
+            iconCount: 10
+        ),
+        CuratedPack(
+            id: "macosicons-hub",
+            name: "macOSicons Curated",
+            author: "macOSicons Community",
+            license: "CC-BY-NC-4.0",
+            description: "Community replacement icons from the macosicons.com directory",
+            iconCount: 10
+        ),
+        CuratedPack(
+            id: "mac-icons-pro",
+            name: "Mac Icons Pro",
+            author: "sameerasw",
+            license: "MIT",
+            description: "Handcrafted desktop icons strictly following Apple Human Interface Guidelines",
+            iconCount: 10
+        ),
+        CuratedPack(
+            id: "macos-folders-system",
+            name: "macOS Folders & System",
+            author: "adamshack",
+            license: "MIT",
+            description: "Finder folders, developer tooling, and system utility icons",
+            iconCount: 10
+        ),
+        CuratedPack(
+            id: "tabler-lucide",
+            name: "Tabler & Lucide Vector",
+            author: "Tabler & Lucide Teams",
+            license: "MIT",
+            description: "Precision stroke vector icons for developer workspaces and utilities",
             iconCount: 10
         )
     ]

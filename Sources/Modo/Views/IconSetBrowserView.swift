@@ -150,8 +150,15 @@ struct IconSetBrowserView: View {
     private func iconForPack(_ id: String) -> String {
         switch id {
         case "papirus-minimal": "square.grid.2x2.fill"
+        case "whitesur-icons": "apple.logo"
+        case "tela-icons": "circle.grid.cross.fill"
+        case "lawnicons-pack": "sparkles.square.filled.on.square"
         case "catppuccin-icons": "cup.and.saucer.fill"
         case "nordic-frost": "snowflake"
+        case "macosicons-hub": "macwindow.on.rectangle"
+        case "mac-icons-pro": "app.fill"
+        case "macos-folders-system": "folder.fill"
+        case "tabler-lucide": "square.and.pencil"
         default: "photo.stack"
         }
     }

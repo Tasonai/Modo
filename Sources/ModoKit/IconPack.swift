@@ -288,8 +288,145 @@ public struct IconPack: Identifiable, Hashable, Sendable {
         .obsidianTitanium,
         .prismGlowCyber,
         .neumorphicTactile,
-        .simpleIcons
+        .simpleIcons,
+        .whiteSur,
+        .telaCircle,
+        .lawniconsThemed,
+        .macOSiconsCommunity,
+        .macIconsPro,
+        .macosFoldersSystem,
+        .tablerLucide
     ]
+
+    /// WhiteSur macOS theme with clean squircle plate and Apple system styling.
+    public static let whiteSur = IconPack(
+        id: "whitesur_macos",
+        name: "WhiteSur macOS",
+        subtitle: "Apple Big Sur & Sequoia squircle plate with subtle gradient",
+        category: "Apple",
+        iconSymbol: "apple.logo",
+        style: RoundIconStyle(
+            backgroundStyle: .googleWhite,
+            shape: .squircle,
+            iconScale: 0.74,
+            shadowIntensity: 0.38,
+            innerShadow: true,
+            monochromeTint: false
+        ),
+        accentHex: 0x007AFF
+    )
+
+    /// Tela minimal theme with flat geometric circular styling and vibrant accent.
+    public static let telaCircle = IconPack(
+        id: "tela_circle",
+        name: "Tela Minimal",
+        subtitle: "Flat geometric circular styling with vibrant accent ring",
+        category: "Community",
+        iconSymbol: "circle.grid.cross.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .materialPastel,
+            shape: .circle,
+            iconScale: 0.70,
+            shadowIntensity: 0.30,
+            innerShadow: false,
+            monochromeTint: false
+        ),
+        accentHex: 0x2D72D9
+    )
+
+    /// Lawnicons minimal monochrome line glyphs adapted to Material You.
+    public static let lawniconsThemed = IconPack(
+        id: "lawnicons_themed",
+        name: "Lawnicons Line",
+        subtitle: "Minimal monochrome line glyphs adapted to Material You",
+        category: "Android",
+        iconSymbol: "sparkles.square.filled.on.square",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .circle,
+            iconScale: 0.65,
+            shadowIntensity: 0.35,
+            innerShadow: false,
+            monochromeTint: true,
+            appearanceMode: .tinted
+        ),
+        accentHex: 0x38BDF8
+    )
+
+    /// Community replacements inspired by macosicons.com directory.
+    public static let macOSiconsCommunity = IconPack(
+        id: "macosicons_community",
+        name: "macOSicons Hub",
+        subtitle: "Community-curated replacements from macosicons.com directory",
+        category: "Community",
+        iconSymbol: "macwindow.on.rectangle",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .squircle,
+            iconScale: 0.72,
+            shadowIntensity: 0.42,
+            innerShadow: true,
+            monochromeTint: false,
+            customHex: 0xF3F4F6
+        ),
+        accentHex: 0x2563EB
+    )
+
+    /// Handcrafted desktop icons strictly following Apple Human Interface Guidelines.
+    public static let macIconsPro = IconPack(
+        id: "mac_icons_pro",
+        name: "Mac Icons Pro",
+        subtitle: "Strict Apple HIG superellipse icons with balanced contrast",
+        category: "Apple",
+        iconSymbol: "app.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .squircle,
+            iconScale: 0.70,
+            shadowIntensity: 0.40,
+            innerShadow: true,
+            monochromeTint: false,
+            customHex: 0xE5E7EB
+        ),
+        accentHex: 0x111827
+    )
+
+    /// Dedicated folder and system utility icons by adamshack.
+    public static let macosFoldersSystem = IconPack(
+        id: "macos_folders_system",
+        name: "macOS Folders & System",
+        subtitle: "Dock-optimized folder and system utility replacements",
+        category: "System",
+        iconSymbol: "folder.fill",
+        style: RoundIconStyle(
+            backgroundStyle: .customColor,
+            shape: .squircle,
+            iconScale: 0.68,
+            shadowIntensity: 0.35,
+            innerShadow: true,
+            monochromeTint: false,
+            customHex: 0x007AFF
+        ),
+        accentHex: 0x60A5FA
+    )
+
+    /// Precision stroke-based vector icons for developer workspaces and utilities.
+    public static let tablerLucide = IconPack(
+        id: "tabler_lucide",
+        name: "Tabler & Lucide Vector",
+        subtitle: "Precision stroke vector icons for developer workspaces",
+        category: "Tech",
+        iconSymbol: "square.and.pencil",
+        style: RoundIconStyle(
+            backgroundStyle: .darkMaterial,
+            shape: .squircle,
+            iconScale: 0.64,
+            shadowIntensity: 0.40,
+            innerShadow: false,
+            monochromeTint: true
+        ),
+        accentHex: 0xFAFAFA
+    )
 
     /// Translucent frosted glass with dynamic specular refraction (visionOS style).
     public static let visionOSGlass = IconPack(
