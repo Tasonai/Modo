@@ -58,6 +58,7 @@ enum WidgetID {
     W_TRAFFIC_CLOSE,
     W_TRAFFIC_MIN,
     W_TRAFFIC_ZOOM,
+    W_BTN_MODO_MENU,
     // Top bar theme switcher & actions
     W_BTN_THEME_DARK,
     W_BTN_THEME_LIGHT,
@@ -808,13 +809,15 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     // macOS Traffic Lights at top-left
     DrawTrafficLights(g, g_hoveredWidget);
 
-    // Brand Title & Subtitle
+    // Brand Menu & Subtitle
     SolidBrush primBr(theme.textPrimary);
     SolidBrush secBr(theme.textSecondary);
     SolidBrush mutBr(theme.textMuted);
 
-    g.DrawString(L"Modo", -1, &fLogo, PointF(88.0f, 11.0f), NULL, &primBr);
-    g.DrawString(L"Студия адаптивных иконок", -1, &fSmall, PointF(89.0f, 31.0f), NULL, &secBr);
+    RectF menuR(78.0f, 14.0f, 82.0f, 28.0f);
+    DrawStudioPillButton(g, W_BTN_MODO_MENU, menuR, L"Modo \x25BE", fSmallBold, theme, false, false, false);
+
+    g.DrawString(L"Студия иконок", -1, &fSmall, PointF(168.0f, 21.0f), NULL, &secBr);
 
     // Top-right macOS Toolbar Controls
     // Segmented Theme Switch (Темная | Светлая)
@@ -1218,6 +1221,254 @@ static void UpdateSliderFromMouse(WidgetID id, int mouseX, bool isFinalRelease =
     InvalidateRect(g_hMainWnd, NULL, FALSE);
 }
 
+enum MenuCommandID {
+    IDM_APP_ABOUT = 10001,
+    IDM_APP_EXIT,
+
+    // File
+    IDM_FILE_ADD_CUSTOM,
+    IDM_FILE_ADD_FOLDER,
+    IDM_FILE_EXPORT,
+    IDM_FILE_RESCAN,
+
+    // Edit
+    IDM_EDIT_FIND,
+    IDM_EDIT_CLEAR_SEARCH,
+
+    // View
+    IDM_VIEW_DARK_THEME,
+    IDM_VIEW_LIGHT_THEME,
+    IDM_VIEW_FILTER_ALL,
+    IDM_VIEW_FILTER_APPLIED,
+    IDM_VIEW_FILTER_SYSTEM,
+    IDM_VIEW_FILTER_THIRDPARTY,
+
+    // Style
+    IDM_STYLE_APPLY_ONE,
+    IDM_STYLE_APPLY_ALL,
+    IDM_STYLE_RESTORE_ONE,
+    IDM_STYLE_SHAPE_CIRCLE,
+    IDM_STYLE_SHAPE_SQUIRCLE,
+    IDM_STYLE_SHAPE_PEBBLE,
+    IDM_STYLE_SHAPE_HEXAGON,
+    IDM_STYLE_SHAPE_ROUNDEDRECT,
+    IDM_STYLE_EYEDROPPER,
+    IDM_STYLE_RESET_DEFAULT,
+    IDM_STYLE_PACK_BASE = 10100,
+
+    // Tools
+    IDM_TOOLS_ADMIN,
+    IDM_TOOLS_SHORTCUTS,
+    IDM_TOOLS_RESTART_EXPLORER,
+    IDM_TOOLS_SHORTCUTS_INFO
+};
+
+static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt);
+
+static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
+    HMENU hMainMenu = CreatePopupMenu();
+
+    // 1. File Menu
+    HMENU hFileMenu = CreatePopupMenu();
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_CUSTOM, L"Добавить приложение или файл…\tCtrl+N");
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_FOLDER, L"Добавить папку для стилизации…\tCtrl+O");
+    AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT, L"Экспортировать иконку (.ICO, .PNG)…\tCtrl+E");
+    AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_RESCAN, L"Обновить список приложений\tF5");
+    AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hFileMenu, MF_STRING, IDM_APP_EXIT, L"Закрыть Modo\tAlt+F4");
+    AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hFileMenu, L"Файл");
+
+    // 2. Edit Menu
+    HMENU hEditMenu = CreatePopupMenu();
+    AppendMenuW(hEditMenu, MF_STRING, IDM_EDIT_FIND, L"Найти приложение…\tCtrl+F");
+    AppendMenuW(hEditMenu, MF_STRING, IDM_EDIT_CLEAR_SEARCH, L"Сбросить поиск\tEsc");
+    AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hEditMenu, L"Правка");
+
+    // 3. View Menu
+    HMENU hViewMenu = CreatePopupMenu();
+    AppendMenuW(hViewMenu, (g_isDarkMode ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_DARK_THEME, L"Тёмная тема (Монохром)");
+    AppendMenuW(hViewMenu, (!g_isDarkMode ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_LIGHT_THEME, L"Светлая тема (Монохром)");
+    AppendMenuW(hViewMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hViewMenu, (g_sidebarFilter == 0 ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_FILTER_ALL, L"Все приложения");
+    AppendMenuW(hViewMenu, (g_sidebarFilter == 1 ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_FILTER_APPLIED, L"Стилизованные (Круг)");
+    AppendMenuW(hViewMenu, (g_sidebarFilter == 2 ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_FILTER_SYSTEM, L"Системные приложения");
+    AppendMenuW(hViewMenu, (g_sidebarFilter == 3 ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_FILTER_THIRDPARTY, L"Сторонние приложения");
+    AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hViewMenu, L"Вид");
+
+    // 4. Style Menu
+    HMENU hStyleMenu = CreatePopupMenu();
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_APPLY_ONE, L"Применить к выбранному\tEnter");
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_APPLY_ALL, L"Применить ко всем\tShift+Enter");
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_RESTORE_ONE, L"Восстановить оригинал\tDelete");
+    AppendMenuW(hStyleMenu, MF_SEPARATOR, 0, NULL);
+
+    HMENU hShapeSub = CreatePopupMenu();
+    AppendMenuW(hShapeSub, (g_style.shape == SHAPE_CIRCLE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_CIRCLE, L"Круг (Classic Circle)");
+    AppendMenuW(hShapeSub, (g_style.shape == SHAPE_SQUIRCLE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_SQUIRCLE, L"Сквиркл (Squircle)");
+    AppendMenuW(hShapeSub, (g_style.shape == SHAPE_PEBBLE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_PEBBLE, L"Pebble (Галька)");
+    AppendMenuW(hShapeSub, (g_style.shape == SHAPE_HEXAGON ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_HEXAGON, L"Шестиугольник (Hexagon)");
+    AppendMenuW(hShapeSub, (g_style.shape == SHAPE_ROUNDED_RECT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_ROUNDEDRECT, L"Скругленный прямоугольник");
+    AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hShapeSub, L"Форма подложки (Surface)");
+
+    HMENU hPackSub = CreatePopupMenu();
+    for (int i = 0; i < 8; ++i) {
+        UINT flags = (g_activePack == i ? MF_CHECKED : MF_UNCHECKED) | MF_STRING;
+        AppendMenuW(hPackSub, flags, IDM_STYLE_PACK_BASE + i, kIconPacks[i].name);
+    }
+    AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hPackSub, L"Пакеты стилей (Icon Packs)");
+
+    AppendMenuW(hStyleMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_EYEDROPPER, L"Пипетка цвета фона…");
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_RESET_DEFAULT, L"Сбросить стиль по умолчанию");
+    AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hStyleMenu, L"Стиль");
+
+    // 5. Tools Menu
+    HMENU hToolsMenu = CreatePopupMenu();
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_ADMIN, L"Интеграция в контекстное меню Windows…");
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SHORTCUTS, L"Создать ярлыки на Рабочем столе…");
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_RESTART_EXPLORER, L"Перезапустить Проводник Windows");
+    AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hToolsMenu, L"Инструменты");
+
+    // 6. Help Menu
+    HMENU hHelpMenu = CreatePopupMenu();
+    AppendMenuW(hHelpMenu, MF_STRING, IDM_TOOLS_SHORTCUTS_INFO, L"Горячие клавиши…\tF1");
+    AppendMenuW(hHelpMenu, MF_STRING, IDM_APP_ABOUT, L"О программе Modo Studio…");
+    AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hHelpMenu, L"Справка");
+
+    int cmd = TrackPopupMenu(
+        hMainMenu,
+        TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD | TPM_RIGHTBUTTON,
+        screenPt.x, screenPt.y,
+        0, hwnd, NULL
+    );
+    DestroyMenu(hMainMenu);
+
+    if (cmd == 0) return;
+
+    POINT dummyPt = {0, 0};
+    switch (cmd) {
+        case IDM_FILE_ADD_CUSTOM:
+        case IDM_FILE_ADD_FOLDER:
+            AddCustomAppOrImage(hwnd);
+            break;
+        case IDM_FILE_EXPORT:
+            HandleWidgetClick(hwnd, W_BTN_EXPORT, dummyPt);
+            break;
+        case IDM_FILE_RESCAN:
+            HandleWidgetClick(hwnd, W_BTN_RESCAN, dummyPt);
+            break;
+        case IDM_APP_EXIT:
+            PostMessage(hwnd, WM_CLOSE, 0, 0);
+            break;
+        case IDM_EDIT_FIND:
+            g_searchFocused = true;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_EDIT_CLEAR_SEARCH:
+            g_searchText.clear();
+            RebuildFilteredList();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_VIEW_DARK_THEME:
+            HandleWidgetClick(hwnd, W_BTN_THEME_DARK, dummyPt);
+            break;
+        case IDM_VIEW_LIGHT_THEME:
+            HandleWidgetClick(hwnd, W_BTN_THEME_LIGHT, dummyPt);
+            break;
+        case IDM_VIEW_FILTER_ALL:
+            HandleWidgetClick(hwnd, W_TAB_ALL, dummyPt);
+            break;
+        case IDM_VIEW_FILTER_APPLIED:
+            HandleWidgetClick(hwnd, W_TAB_APPLIED, dummyPt);
+            break;
+        case IDM_VIEW_FILTER_SYSTEM:
+            HandleWidgetClick(hwnd, W_TAB_SYSTEM, dummyPt);
+            break;
+        case IDM_VIEW_FILTER_THIRDPARTY:
+            HandleWidgetClick(hwnd, W_TAB_THIRDPARTY, dummyPt);
+            break;
+        case IDM_STYLE_APPLY_ONE:
+            HandleWidgetClick(hwnd, W_BTN_APPLY_ONE, dummyPt);
+            break;
+        case IDM_STYLE_APPLY_ALL:
+            HandleWidgetClick(hwnd, W_BTN_APPLY_ALL, dummyPt);
+            break;
+        case IDM_STYLE_RESTORE_ONE:
+            HandleWidgetClick(hwnd, W_BTN_RESTORE_ONE, dummyPt);
+            break;
+        case IDM_STYLE_SHAPE_CIRCLE:
+            HandleWidgetClick(hwnd, W_SHAPE_0, dummyPt);
+            break;
+        case IDM_STYLE_SHAPE_SQUIRCLE:
+            HandleWidgetClick(hwnd, W_SHAPE_1, dummyPt);
+            break;
+        case IDM_STYLE_SHAPE_PEBBLE:
+            HandleWidgetClick(hwnd, W_SHAPE_2, dummyPt);
+            break;
+        case IDM_STYLE_SHAPE_HEXAGON:
+            HandleWidgetClick(hwnd, W_SHAPE_3, dummyPt);
+            break;
+        case IDM_STYLE_SHAPE_ROUNDEDRECT:
+            HandleWidgetClick(hwnd, W_SHAPE_4, dummyPt);
+            break;
+        case IDM_STYLE_EYEDROPPER:
+            HandleWidgetClick(hwnd, W_BTN_EYEDROPPER, dummyPt);
+            break;
+        case IDM_STYLE_RESET_DEFAULT:
+            HandleWidgetClick(hwnd, W_PACK_0, dummyPt);
+            break;
+        case IDM_TOOLS_ADMIN:
+            HandleWidgetClick(hwnd, W_BTN_ADMIN, dummyPt);
+            break;
+        case IDM_TOOLS_SHORTCUTS:
+            HandleWidgetClick(hwnd, W_BTN_SHORTCUTS, dummyPt);
+            break;
+        case IDM_TOOLS_RESTART_EXPLORER:
+            RefreshWindowsExplorerIconCache(true);
+            g_statusText = L"Кэш и Проводник Windows перезапущены";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_TOOLS_SHORTCUTS_INFO:
+            MessageBoxW(
+                hwnd,
+                L"Горячие клавиши Modo Studio (Windows):\n\n"
+                L"  • Ctrl+N / Ctrl+O: Добавить приложение или папку\n"
+                L"  • Ctrl+E: Экспорт иконки (.ICO + 1024px .PNG)\n"
+                L"  • Ctrl+F: Поиск приложения в списке\n"
+                L"  • Enter: Применить адаптивную иконку к выбранному\n"
+                L"  • Shift+Enter: Применить ко всем отфильтрованным\n"
+                L"  • Delete: Восстановить оригинальную иконку\n"
+                L"  • F5: Обновить список приложений и рескан\n"
+                L"  • Alt / Alt+M: Открыть главное меню Modo\n"
+                L"  • Esc: Сброс поиска / отмена пипетки",
+                L"Горячие клавиши Modo Studio",
+                MB_OK | MB_ICONINFORMATION
+            );
+            break;
+        case IDM_APP_ABOUT:
+            MessageBoxW(
+                hwnd,
+                L"Modo Studio 1.7.0 для Windows\n"
+                L"Нативная студия адаптивных иконок по канонам Apple macOS HIG.\n\n"
+                L"Разработчик: Atoma\n"
+                L"Движок: Нативный Win32 / GDI+ (PE32+ чистая сборка)\n"
+                L"Поддержка тем: Тёмная и Светлая монохромные палитры\n\n"
+                L"Соответствует стандартам оформления macOS и Windows.",
+                L"О программе Modo Studio",
+                MB_OK | MB_ICONINFORMATION
+            );
+            break;
+        default:
+            if (cmd >= IDM_STYLE_PACK_BASE && cmd < IDM_STYLE_PACK_BASE + 8) {
+                int packIdx = cmd - IDM_STYLE_PACK_BASE;
+                HandleWidgetClick(hwnd, (WidgetID)(W_PACK_0 + packIdx), dummyPt);
+            }
+            break;
+    }
+}
+
 static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
     switch (id) {
         case W_TRAFFIC_CLOSE:
@@ -1230,6 +1481,15 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             WINDOWPLACEMENT wp = { sizeof(wp) };
             GetWindowPlacement(hwnd, &wp);
             ShowWindow(hwnd, wp.showCmd == SW_SHOWMAXIMIZED ? SW_RESTORE : SW_MAXIMIZE);
+            break;
+        }
+        case W_BTN_MODO_MENU: {
+            RectF menuR;
+            if (GetWidgetRect(W_BTN_MODO_MENU, menuR)) {
+                POINT p = { (LONG)menuR.X, (LONG)menuR.GetBottom() + 2 };
+                ClientToScreen(hwnd, &p);
+                ShowModoAppMenu(hwnd, p);
+            }
             break;
         }
 
@@ -1778,6 +2038,30 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'N' || wParam == 'n' || wParam == 'O' || wParam == 'o')) {
+                AddCustomAppOrImage(hwnd);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'E' || wParam == 'e')) {
+                POINT dummyPt = {0, 0};
+                HandleWidgetClick(hwnd, W_BTN_EXPORT, dummyPt);
+                return 0;
+            }
+            if (wParam == VK_F5) {
+                POINT dummyPt = {0, 0};
+                HandleWidgetClick(hwnd, W_BTN_RESCAN, dummyPt);
+                return 0;
+            }
+            if (wParam == VK_F1) {
+                RectF menuR;
+                POINT pt = { 80, 44 };
+                if (GetWidgetRect(W_BTN_MODO_MENU, menuR)) {
+                    pt = { (LONG)menuR.X, (LONG)menuR.GetBottom() + 2 };
+                    ClientToScreen(hwnd, &pt);
+                }
+                ShowModoAppMenu(hwnd, pt);
+                return 0;
+            }
 
             if (!g_searchFocused && !g_filteredIndices.empty()) {
                 if (wParam == VK_DOWN || wParam == VK_UP) {
@@ -1790,6 +2074,34 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     InvalidateRect(hwnd, NULL, FALSE);
                     return 0;
                 }
+                if (wParam == VK_RETURN) {
+                    POINT dummyPt = {0, 0};
+                    if (GetKeyState(VK_SHIFT) & 0x8000) {
+                        HandleWidgetClick(hwnd, W_BTN_APPLY_ALL, dummyPt);
+                    } else {
+                        HandleWidgetClick(hwnd, W_BTN_APPLY_ONE, dummyPt);
+                    }
+                    return 0;
+                }
+                if (wParam == VK_DELETE) {
+                    POINT dummyPt = {0, 0};
+                    HandleWidgetClick(hwnd, W_BTN_RESTORE_ONE, dummyPt);
+                    return 0;
+                }
+            }
+            break;
+        }
+
+        case WM_SYSKEYDOWN: {
+            if (wParam == VK_MENU || wParam == 'M' || wParam == 'm') {
+                RectF menuR;
+                POINT pt = { 80, 44 };
+                if (GetWidgetRect(W_BTN_MODO_MENU, menuR)) {
+                    pt = { (LONG)menuR.X, (LONG)menuR.GetBottom() + 2 };
+                    ClientToScreen(hwnd, &pt);
+                }
+                ShowModoAppMenu(hwnd, pt);
+                return 0;
             }
             break;
         }
