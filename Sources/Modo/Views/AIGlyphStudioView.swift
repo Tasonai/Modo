@@ -181,10 +181,12 @@ struct AIGlyphStudioView: View {
                                 style: selectedGeometricStyle,
                                 primaryHex: EyedropperPicker.hex(from: primaryColor),
                                 secondaryHex: EyedropperPicker.hex(from: secondaryColor),
-                                seed: variationSeed
+                                seed: variationSeed,
+                                variantIndex: index
                             )
                             let svg = ProceduralGlyphGenerator.generateSVG(options: opts)
-                            geometricCard(svg: svg, index: index, primaryHex: opts.primaryHex)
+                            let subtitle = ProceduralGlyphGenerator.variantTitle(style: selectedGeometricStyle, index: index)
+                            geometricCard(svg: svg, index: index, subtitle: subtitle, primaryHex: opts.primaryHex)
                         }
                     }
                 }
@@ -193,7 +195,7 @@ struct AIGlyphStudioView: View {
         }
     }
 
-    private func geometricCard(svg: String, index: Int, primaryHex: UInt32) -> some View {
+    private func geometricCard(svg: String, index: Int, subtitle: String, primaryHex: UInt32) -> some View {
         let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
         let data = svg.data(using: .utf8) ?? Data()
 
@@ -208,8 +210,13 @@ struct AIGlyphStudioView: View {
             }
 
             HStack {
-                Text("Variant \(index + 1)")
-                    .font(.caption.weight(.medium))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Variant \(index + 1)")
+                        .font(.caption.weight(.semibold))
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button("Apply Vector") {
                     model.setCustomArtwork(data: data, for: item)
