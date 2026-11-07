@@ -12,6 +12,8 @@ public enum VectorVariantKind: String, Codable, Sendable, CaseIterable {
     case monogram = "Monogram"
     case geometric = "Geometric"
     case remoteCDN = "CDN Brand"
+    case lawnicons = "Lawnicons"
+    case whiteSur = "WhiteSur Vector"
 }
 
 /// A specific vector rendering variant discovered or generated for an icon.
@@ -60,7 +62,7 @@ public struct VectorVariant: Identifiable, Sendable, Hashable {
         switch kind {
         case .original:
             return customImageData == nil
-        case .brandMono, .brandColor, .remoteCDN:
+        case .brandMono, .brandColor, .remoteCDN, .lawnicons, .whiteSur:
             guard let activeData = customImageData, let selfData = applicationData else { return false }
             if activeData == selfData { return true }
             if let activeStr = String(data: activeData, encoding: .utf8),
@@ -359,38 +361,237 @@ public enum VectorVariantEngine {
         return variants
     }
 
-    /// Asynchronously fetches remote brand SVG from Simple Icons CDN if not already in local catalog.
-    public static func fetchRemoteBrandVariants(for title: String) async -> [VectorVariant] {
-        guard let icon = await SimpleIconCatalog.fetch(slugOrTitle: title) else {
-            return []
+    // MARK: - Candidate Slugs Generator
+    /// Derives candidate slugs for finding vector assets across various remote open icon ecosystems.
+    public static func candidateSlugs(for title: String) -> [String] {
+        var list: [String] = []
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var base = trimmed.lowercased()
+        if base.hasSuffix(".app") { base.removeLast(4) }
+
+        // Localized mapping for standard macOS apps
+        switch base {
+        case "заметки": base = "notes"
+        case "сообщения": base = "messages"
+        case "музыка": base = "music"
+        case "калькулятор": base = "calculator"
+        case "терминал": base = "terminal"
+        case "календарь": base = "calendar"
+        case "почта": base = "mail"
+        case "карты": base = "maps"
+        case "фото": base = "photos"
+        case "настройки", "системные настройки": base = "preferences"
+        default: break
         }
 
-        let monoSVG = icon.svgString(fillHex: 0xFFFFFF)
-        let monoVariant = VectorVariant(
-            id: "cdn-mono-\(icon.slug)",
-            title: "\(icon.title) CDN",
-            subtitle: "Вектор Simple Icons",
-            badge: "CDN Mono",
-            kind: .remoteCDN,
-            brandHex: Int(icon.hex),
-            symbolName: nil,
-            svgMarkup: monoSVG,
-            rawData: icon.svgData(fillHex: 0xFFFFFF)
-        )
+        let words = base.split { !$0.isLetter && !$0.isNumber }
+        let alphanumeric = words.joined()
+        let hyphenated = words.joined(separator: "-")
+        let underscored = words.joined(separator: "_")
 
-        let colorSVG = icon.svgString(fillHex: icon.hex)
-        let colorVariant = VectorVariant(
-            id: "cdn-color-\(icon.slug)",
-            title: "\(icon.title) Brand CDN",
-            subtitle: "Фирменный цвет",
-            badge: "CDN Brand",
-            kind: .remoteCDN,
-            brandHex: Int(icon.hex),
-            symbolName: nil,
-            svgMarkup: colorSVG,
-            rawData: icon.svgData(fillHex: icon.hex)
-        )
+        if !hyphenated.isEmpty { list.append(hyphenated) }
+        if !underscored.isEmpty && underscored != hyphenated { list.append(underscored) }
+        if !alphanumeric.isEmpty && alphanumeric != hyphenated && alphanumeric != underscored { list.append(alphanumeric) }
 
-        return [monoVariant, colorVariant]
+        switch alphanumeric {
+        case "code", "vscode", "visualstudiocode":
+            for alias in ["visual-studio-code", "visualstudiocode", "visual_studio_code", "code", "vscode"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "chrome", "googlechrome":
+            for alias in ["google-chrome", "google_chrome", "googlechrome", "chrome"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "telegram", "tg", "telegramdesktop":
+            for alias in ["telegram", "telegram-desktop", "telegram_desktop"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "spotify":
+            for alias in ["spotify", "spotify-client"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "sublime", "sublimetext":
+            for alias in ["sublime-text", "sublime_text", "sublimetext"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "discord":
+            for alias in ["discord"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "slack":
+            for alias in ["slack"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        case "github", "githubdesktop":
+            for alias in ["github-desktop", "github_desktop", "github"] {
+                if !list.contains(alias) { list.append(alias) }
+            }
+        default:
+            break
+        }
+
+        return list
+    }
+
+    private static let cacheBaseDirectory: URL = {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let dir = appSupport.appendingPathComponent("Modo/VectorVariantCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    /// Fetches vector line art from Lawnicons GitHub repository.
+    public static func fetchLawniconsVariant(title: String, slugs: [String]) async -> VectorVariant? {
+        let lawnDir = cacheBaseDirectory.appendingPathComponent("lawnicons", isDirectory: true)
+        try? FileManager.default.createDirectory(at: lawnDir, withIntermediateDirectories: true)
+
+        for slug in slugs {
+            let cached = lawnDir.appendingPathComponent("\(slug).svg")
+            if let cachedData = try? Data(contentsOf: cached),
+               let cachedText = String(data: cachedData, encoding: .utf8),
+               cachedText.contains("<svg") {
+                return VectorVariant(
+                    id: "lawnicons-\(slug)",
+                    title: "\(title) Line",
+                    subtitle: "Lawnicons Themed",
+                    badge: "Lawnicons",
+                    kind: .lawnicons,
+                    brandHex: nil,
+                    symbolName: nil,
+                    svgMarkup: cachedText,
+                    rawData: cachedData
+                )
+            }
+
+            let urlString = "https://raw.githubusercontent.com/LawnchairLauncher/lawnicons/develop/svgs/\(slug).svg"
+            guard let url = URL(string: urlString) else { continue }
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 4.0
+            if let (data, resp) = try? await URLSession.shared.data(for: req),
+               let http = resp as? HTTPURLResponse, http.statusCode == 200,
+               let text = String(data: data, encoding: .utf8),
+               text.contains("<svg") {
+                try? data.write(to: cached, options: .atomic)
+                return VectorVariant(
+                    id: "lawnicons-\(slug)",
+                    title: "\(title) Line",
+                    subtitle: "Lawnicons Themed",
+                    badge: "Lawnicons",
+                    kind: .lawnicons,
+                    brandHex: nil,
+                    symbolName: nil,
+                    svgMarkup: text,
+                    rawData: data
+                )
+            }
+        }
+        return nil
+    }
+
+    /// Fetches macOS-native scalable vector from WhiteSur icon theme repository.
+    public static func fetchWhiteSurVariant(title: String, slugs: [String]) async -> VectorVariant? {
+        let whiteSurDir = cacheBaseDirectory.appendingPathComponent("whitesur", isDirectory: true)
+        try? FileManager.default.createDirectory(at: whiteSurDir, withIntermediateDirectories: true)
+
+        for slug in slugs {
+            let cached = whiteSurDir.appendingPathComponent("\(slug).svg")
+            if let cachedData = try? Data(contentsOf: cached),
+               let cachedText = String(data: cachedData, encoding: .utf8),
+               cachedText.contains("<svg") {
+                return VectorVariant(
+                    id: "whitesur-\(slug)",
+                    title: "\(title) macOS",
+                    subtitle: "WhiteSur Scalable",
+                    badge: "WhiteSur",
+                    kind: .whiteSur,
+                    brandHex: nil,
+                    symbolName: nil,
+                    svgMarkup: cachedText,
+                    rawData: cachedData
+                )
+            }
+
+            let urlString = "https://raw.githubusercontent.com/vinceliuice/WhiteSur-icon-theme/master/src/apps/scalable/\(slug).svg"
+            guard let url = URL(string: urlString) else { continue }
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 4.0
+            if let (data, resp) = try? await URLSession.shared.data(for: req),
+               let http = resp as? HTTPURLResponse, http.statusCode == 200,
+               let text = String(data: data, encoding: .utf8),
+               text.contains("<svg") {
+                try? data.write(to: cached, options: .atomic)
+                return VectorVariant(
+                    id: "whitesur-\(slug)",
+                    title: "\(title) macOS",
+                    subtitle: "WhiteSur Scalable",
+                    badge: "WhiteSur",
+                    kind: .whiteSur,
+                    brandHex: nil,
+                    symbolName: nil,
+                    svgMarkup: text,
+                    rawData: data
+                )
+            }
+        }
+        return nil
+    }
+
+    /// Asynchronously fetches remote brand SVG variants across Simple Icons, Lawnicons, and WhiteSur CDN endpoints.
+    public static func fetchRemoteBrandVariants(for title: String) async -> [VectorVariant] {
+        let slugs = candidateSlugs(for: title)
+        guard !slugs.isEmpty else { return [] }
+
+        async let simpleIconsTask: [VectorVariant] = {
+            guard let icon = await SimpleIconCatalog.fetch(slugOrTitle: title) else {
+                return []
+            }
+
+            let monoSVG = icon.svgString(fillHex: 0xFFFFFF)
+            let monoVariant = VectorVariant(
+                id: "cdn-mono-\(icon.slug)",
+                title: "\(icon.title) CDN",
+                subtitle: "Simple Icons Mono",
+                badge: "Simple Icons",
+                kind: .remoteCDN,
+                brandHex: Int(icon.hex),
+                symbolName: nil,
+                svgMarkup: monoSVG,
+                rawData: icon.svgData(fillHex: 0xFFFFFF)
+            )
+
+            let colorSVG = icon.svgString(fillHex: icon.hex)
+            let colorVariant = VectorVariant(
+                id: "cdn-color-\(icon.slug)",
+                title: "\(icon.title) Brand CDN",
+                subtitle: "Фирменный цвет",
+                badge: "Brand Color",
+                kind: .remoteCDN,
+                brandHex: Int(icon.hex),
+                symbolName: nil,
+                svgMarkup: colorSVG,
+                rawData: icon.svgData(fillHex: icon.hex)
+            )
+
+            return [monoVariant, colorVariant]
+        }()
+
+        async let lawniconsTask: VectorVariant? = fetchLawniconsVariant(title: title, slugs: slugs)
+        async let whiteSurTask: VectorVariant? = fetchWhiteSurVariant(title: title, slugs: slugs)
+
+        var results: [VectorVariant] = []
+        let simpleResults = await simpleIconsTask
+        results.append(contentsOf: simpleResults)
+
+        if let lawn = await lawniconsTask {
+            results.append(lawn)
+        }
+        if let ws = await whiteSurTask {
+            results.append(ws)
+        }
+
+        return results
     }
 }

@@ -512,6 +512,9 @@ enum SelfTest {
                 check("VectorVariantEngine includes official brand color vector", vVariants.contains { $0.kind == .brandColor })
                 check("VectorVariantEngine includes procedural monogram vector", vVariants.contains { $0.kind == .monogram })
                 check("VectorVariantEngine includes procedural geometric vector", vVariants.contains { $0.kind == .geometric })
+
+                let cSlugs = VectorVariantEngine.candidateSlugs(for: "Google Chrome")
+                check("VectorVariantEngine derives candidate slugs for Lawnicons and WhiteSur", cSlugs.contains("google_chrome") && cSlugs.contains("google-chrome"))
             }
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")

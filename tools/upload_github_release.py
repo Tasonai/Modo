@@ -29,22 +29,22 @@ def get_token():
 TOKEN = get_token()
 REPO = "Tasonai/Modo"
 TAG = "v1.7.0"
-TITLE = "Modo 1.7.0 — Developer Studio, SVG Export, 3D Parallax & System Presets"
+TITLE = "Modo 1.7.0 — Canonical HIG Menus, Curated Icon Packs, and Developer Studio"
 BODY = """## Modo 1.7.0 — Official Release by Atoma
 
-### 🚀 What's New in v1.7.0:
-- **🛠 Developer Export Suite**: One-click generation of Xcode Asset Catalogs (`AppIcon.appiconset` with complete `Contents.json` for macOS/iOS) and complete Web Favicon bundles (`favicon.ico`, `apple-touch-icon.png`, `site.webmanifest`, HTML snippet).
-- **📐 Pure Scalable Vector Export (.svg)**: Pure SVG engine with XML filters for realistic material rendering (frosted glass, brushed titanium, neumorphic emboss, prism glow).
-- **✨ Interactive 3D Parallax Tilt**: Apple TV-style perspective physics and moving specular glare in the icon inspector.
-- **🎨 One-Click System Theming & Presets**: Signature packs including VisionOS Glass, iOS 18 Tinted Dark, Obsidian Titanium, Prism Cyber, and Neumorphic Tactile.
-- **🚀 Enhanced MenuBar Extra Companion**: Quick access to surface materials, wallpaper palette sync, and system theming wizard directly from macOS menu bar.
-- **💎 Top-50+ Curated Brand Glyphs Catalog**: Cursor, Claude, Perplexity, Ghostty, Warp, Alacritty, TablePlus, Insomnia, Alfred, CleanMyMac, Canva, Photoshop, Illustrator, Premiere Pro, IntelliJ IDEA, PyCharm, WebStorm, Android Studio, Rust, Go, Neovim, Tailscale, Tor Browser, Bluesky, Twitch, and more.
-- **🪟 Windows Explorer Shell Integration**: Right-click context menu "Стилизовать иконку в Modo..." on `.exe`/`.lnk` and "Изменить цвет папки в Modo..." on folders registered under `HKEY_CURRENT_USER` (no admin rights needed), automatic setup registration, CLI `modo shell --enable / --disable`, and standalone `.reg` scripts.
-- **🍺 Official Homebrew Cask**: Install effortlessly via `brew install --cask tasonai/tap/modo`.
-- **⚡ Extended Terminal CLI `modo`**: Added `modo export`, `modo theme`, and `modo shell` commands.
+### What's New in v1.7.0:
+- Canonical macOS HIG Menu Hierarchy: Standard File, Edit, View, Style, and Tools menus with system keyboard shortcuts (⌘1, ⌘2, ⌘E, ⌘Return, ⇧⌘A, ⇧⌘T, ⇧⌘C, ⇧⌘0).
+- Windows Native Modo Menu & Accelerators: Integrated Modo dropdown menu next to window traffic lights and native Alt/Alt+M accelerator support.
+- Curated Community Icon Packs: Added WhiteSur macOS, Tela Minimal, Lawnicons Themed, macOSicons Hub, Mac Icons Pro, macOS Folders, and Tabler & Lucide Vector.
+- Developer Export Suite: One-click generation of Xcode Asset Catalogs (AppIcon.appiconset with complete Contents.json for macOS/iOS) and complete Web Favicon bundles (favicon.ico, apple-touch-icon.png, site.webmanifest, HTML snippet).
+- Pure Scalable Vector Export (.svg): Pure SVG engine with XML filters for realistic material rendering (frosted glass, brushed titanium, neumorphic emboss, prism glow).
+- Interactive 3D Parallax Tilt: Perspective physics and moving specular glare in the icon inspector.
+- One-Click System Theming & Presets: Signature packs including VisionOS Glass, iOS 18 Tinted Dark, Obsidian Titanium, Prism Cyber, and Neumorphic Tactile.
+- Windows Explorer Shell Integration: Right-click context menu to style icons on .exe/.lnk and folders registered under HKEY_CURRENT_USER.
+- Extended Terminal CLI modo: Added export, theme, and shell integration commands.
 
-### 📦 Artifacts & Checksums:
-Verify integrity against `checksums.txt`.
+### Artifacts & Checksums:
+Verify integrity against checksums.txt.
 """
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
@@ -136,7 +136,7 @@ def main():
         except urllib.error.HTTPError as e:
             print(f"  ✗ Failed to upload {p.name}: {e.read().decode('utf-8')}")
 
-    print("\nRelease v1.6.0 published successfully with all assets!")
+    print("\nRelease v1.7.0 published successfully with all assets!")
 
 if __name__ == "__main__":
     main()

@@ -442,7 +442,7 @@ struct DetailInspectorView: View {
                     .font(.title3)
             }
 
-        case .remoteCDN:
+        case .remoteCDN, .lawnicons, .whiteSur:
             if let data = variant.applicationData, let img = NSImage(data: data) {
                 Image(nsImage: img)
                     .resizable()
@@ -462,7 +462,7 @@ struct DetailInspectorView: View {
         switch variant.kind {
         case .original:
             model.clearCustomArtwork(for: item)
-        case .brandMono, .brandColor, .remoteCDN:
+        case .brandMono, .brandColor, .remoteCDN, .lawnicons, .whiteSur:
             if let data = variant.applicationData {
                 model.setCustomArtwork(data: data, for: item)
             }
@@ -498,8 +498,7 @@ struct DetailInspectorView: View {
         )
         vectorVariants = local
 
-        let hasBrand = local.contains { $0.kind == .brandMono }
-        guard !hasBrand && !item.title.isEmpty else { return }
+        guard !item.title.isEmpty else { return }
 
         isLoadingCDNVariants = true
         let title = item.title
@@ -508,8 +507,10 @@ struct DetailInspectorView: View {
             await MainActor.run {
                 if !remote.isEmpty && self.item.title == title {
                     var updated = self.vectorVariants
+                    let existingIDs = Set(updated.map(\.id))
+                    let newVariants = remote.filter { !existingIDs.contains($0.id) }
                     let insertIndex = min(1, updated.count)
-                    updated.insert(contentsOf: remote, at: insertIndex)
+                    updated.insert(contentsOf: newVariants, at: insertIndex)
                     self.vectorVariants = updated
                 }
                 self.isLoadingCDNVariants = false

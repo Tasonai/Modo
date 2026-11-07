@@ -115,5 +115,44 @@ struct VectorVariantTests {
         )
         #expect(sym.isActive(customImageData: nil, currentSymbolName: "terminal.fill", currentBrandHex: nil))
         #expect(!sym.isActive(customImageData: nil, currentSymbolName: "gear", currentBrandHex: nil))
+
+        let lawn = VectorVariant(
+            id: "lawnicons-telegram",
+            title: "Telegram Line",
+            subtitle: "Lawnicons Themed",
+            badge: "Lawnicons",
+            kind: .lawnicons,
+            rawData: fakeSVG
+        )
+        #expect(lawn.isActive(customImageData: fakeSVG, currentSymbolName: nil, currentBrandHex: nil))
+        #expect(!lawn.isActive(customImageData: nil, currentSymbolName: nil, currentBrandHex: nil))
+
+        let ws = VectorVariant(
+            id: "whitesur-telegram",
+            title: "Telegram macOS",
+            subtitle: "WhiteSur Scalable",
+            badge: "WhiteSur",
+            kind: .whiteSur,
+            rawData: fakeSVG
+        )
+        #expect(ws.isActive(customImageData: fakeSVG, currentSymbolName: nil, currentBrandHex: nil))
+        #expect(!ws.isActive(customImageData: nil, currentSymbolName: nil, currentBrandHex: nil))
+    }
+
+    @Test("Candidate slugs generator produces cross-platform open icon slugs")
+    func candidateSlugsGenerator() {
+        let chromeSlugs = VectorVariantEngine.candidateSlugs(for: "Google Chrome")
+        #expect(chromeSlugs.contains("google-chrome"))
+        #expect(chromeSlugs.contains("google_chrome"))
+        #expect(chromeSlugs.contains("googlechrome"))
+
+        let codeSlugs = VectorVariantEngine.candidateSlugs(for: "Visual Studio Code.app")
+        #expect(codeSlugs.contains("visual-studio-code"))
+        #expect(codeSlugs.contains("visual_studio_code"))
+        #expect(codeSlugs.contains("visualstudiocode"))
+        #expect(codeSlugs.contains("vscode"))
+
+        let localizedSlugs = VectorVariantEngine.candidateSlugs(for: "Заметки")
+        #expect(localizedSlugs.contains("notes"))
     }
 }
