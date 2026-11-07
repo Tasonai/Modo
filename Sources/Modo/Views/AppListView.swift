@@ -36,16 +36,6 @@ struct AppListView: View {
                 }
 
                 Spacer(minLength: Space.xs)
-
-                // View Mode Switch: List vs Grid
-                Picker("View Mode", selection: $model.viewMode) {
-                    Image(systemName: "list.bullet").tag(AppViewMode.list)
-                    Image(systemName: "square.grid.2x2").tag(AppViewMode.grid)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 68)
-                .controlSize(.small)
-                .help("Switch between Compact List and Icon Gallery Grid")
             }
             .padding(.horizontal, Space.md)
             .padding(.vertical, Space.xs)

@@ -120,7 +120,8 @@ struct DetailInspectorView: View {
                     Text(item.title)
                         .font(.title2.weight(.semibold))
                     if item.isApplied {
-                        Label("Modo Icon Active", systemImage: "checkmark.seal.fill")
+                        let isSystem = item.bundlePath.hasPrefix("/System/")
+                        Label(isSystem ? "Alias Active (SIP)" : "Modo Icon Active", systemImage: isSystem ? "link.circle.fill" : "checkmark.seal.fill")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Palette.accentText)
                             .padding(.horizontal, Space.sm)
@@ -946,6 +947,18 @@ struct DetailInspectorView: View {
                 Label("Restore Original", systemImage: "arrow.uturn.backward")
             }
             .disabled(!item.isApplied)
+
+            if item.bundlePath.hasPrefix("/System/") {
+                let aliasPath = (NSHomeDirectory() as NSString).appendingPathComponent("Applications/Round Icons/\((item.bundlePath as NSString).lastPathComponent)")
+                if FileManager.default.fileExists(atPath: aliasPath) {
+                    Button {
+                        NSWorkspace.shared.selectFile(aliasPath, inFileViewerRootedAtPath: "")
+                    } label: {
+                        Label("Show Styled Alias", systemImage: "arrow.up.forward.app")
+                    }
+                    .help("Reveal styled alias in ~/Applications/Round Icons")
+                }
+            }
 
             Menu {
                 Button("Standard Icon Pack (.icns, .ico, 1024px .png)") {

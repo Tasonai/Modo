@@ -732,12 +732,27 @@ final class AppModel {
                 canvasSize: 1024
             )
         }
-        _ = IconRenderer.applyIcon(hiRes, toAppAt: item.bundlePath)
-        item.isApplied = true
-        recordApplied(item)
+        let status = IconRenderer.applyIconWithDetails(hiRes, toAppAt: item.bundlePath, allowAdminPrompt: true)
+        item.isApplied = status.isSuccess
+        if status.isSuccess {
+            recordApplied(item)
+        }
         try? container.mainContext.save()
         let name = item.isFolder ? "Folder Style" : activePackName
-        statusMessage = "Applied \(name) to \(item.title)"
+        switch status {
+        case .directSuccess:
+            statusMessage = "Applied \(name) to \(item.title) (system icon updated)"
+        case .sipProtectedSystemApp(let aliasPath):
+            let fileName = (aliasPath as NSString).lastPathComponent
+            statusMessage = "SIP Protected: Created alias in ~/Applications/Round Icons/\(fileName)"
+        case .aliasCreated(let aliasPath):
+            let fileName = (aliasPath as NSString).lastPathComponent
+            statusMessage = "Created alias in ~/Applications/Round Icons/\(fileName)"
+        case .permissionDenied(let reason):
+            statusMessage = "Permission Denied: \(reason)"
+        case .failure(let reason):
+            statusMessage = "Failed: \(reason)"
+        }
     }
 
     /// Applies adaptive Modo icons to all provided `items`.
@@ -755,10 +770,13 @@ final class AppModel {
                 fallbackHex: UInt32(clamping: item.brandHex),
                 canvasSize: 512
             )
-            _ = IconRenderer.applyIcon(round, toAppAt: item.bundlePath)
-            item.isApplied = true
-            recordApplied(item)
+            let status = IconRenderer.applyIconWithDetails(round, toAppAt: item.bundlePath, allowAdminPrompt: false)
+            item.isApplied = status.isSuccess
+            if status.isSuccess {
+                recordApplied(item)
+            }
         }
+        IconRenderer.flushSystemDockAndFinder()
         try? container.mainContext.save()
         let packName = activePackName
         statusMessage = "Applied \(packName) pack to \(items.count) apps"

@@ -273,18 +273,130 @@ enum IconRenderer {
         shape.path(in: rect)
     }
 
+    /// Result of attempting to apply an icon to a target application or bundle.
+    enum IconApplyStatus: Sendable, Hashable {
+        case directSuccess
+        case sipProtectedSystemApp(aliasPath: String)
+        case aliasCreated(aliasPath: String)
+        case permissionDenied(reason: String)
+        case failure(reason: String)
+
+        var isSuccess: Bool {
+            switch self {
+            case .directSuccess, .sipProtectedSystemApp, .aliasCreated:
+                return true
+            case .permissionDenied, .failure:
+                return false
+            }
+        }
+    }
+
+    /// Invalidates macOS LaunchServices cache and refreshes Dock & Finder icon representation.
+    static func flushSystemDockAndFinder() {
+        guard !Store.isOverridden else { return }
+        let killDock = Process()
+        killDock.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+        killDock.arguments = ["Dock"]
+        try? killDock.run()
+    }
+
+    /// Updates bundle timestamps and asks LaunchServices and Finder to re-index the application icon.
+    static func notifyLaunchServices(for bundlePath: String) {
+        guard !Store.isOverridden, !bundlePath.isEmpty else { return }
+        let fm = FileManager.default
+        let now = Date()
+        try? fm.setAttributes([.modificationDate: now], ofItemAtPath: bundlePath)
+
+        let infoPlist = (bundlePath as NSString).appendingPathComponent("Contents/Info.plist")
+        if fm.fileExists(atPath: infoPlist) {
+            try? fm.setAttributes([.modificationDate: now], ofItemAtPath: infoPlist)
+        }
+
+        let lsregisterPaths = [
+            "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister",
+            "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+        ]
+        for path in lsregisterPaths {
+            if fm.fileExists(atPath: path) {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: path)
+                task.arguments = ["-f", "-R", bundlePath]
+                try? task.run()
+                break
+            }
+        }
+
+        // Inform Finder to refresh its cached view for this file
+        let escaped = bundlePath.replacingOccurrences(of: "\"", with: "\\\"")
+        let finderScript = "tell application \"Finder\" to update item (POSIX file \"\(escaped)\" as alias)"
+        if let script = NSAppleScript(source: finderScript) {
+            var error: NSDictionary?
+            script.executeAndReturnError(&error)
+        }
+
+        NSWorkspace.shared.noteFileSystemChanged(bundlePath)
+    }
+
+    /// Requests admin privileges via AppleScript to make a root-owned /Applications bundle writable.
+    static func requestAdminWriteAccess(for bundlePath: String) -> Bool {
+        guard !Store.isOverridden, !bundlePath.isEmpty else { return false }
+        let escaped = bundlePath.replacingOccurrences(of: "'", with: "'\\''")
+        let script = "do shell script \"chmod -R a+w '\(escaped)'\" with administrator privileges"
+        var error: NSDictionary?
+        if let appleScript = NSAppleScript(source: script) {
+            appleScript.executeAndReturnError(&error)
+            return error == nil && FileManager.default.isWritableFile(atPath: bundlePath)
+        }
+        return false
+    }
+
     /// Applies the rendered circular icon to the target `.app` bundle or creates a desktop/folder alias if read-only.
     @discardableResult
     static func applyIcon(_ icon: NSImage, toAppAt bundlePath: String) -> Bool {
+        applyIconWithDetails(icon, toAppAt: bundlePath, allowAdminPrompt: false).isSuccess
+    }
+
+    /// Detailed icon application with SIP detection, administrator privilege escalation, and cache flush.
+    static func applyIconWithDetails(
+        _ icon: NSImage,
+        toAppAt bundlePath: String,
+        allowAdminPrompt: Bool = true
+    ) -> IconApplyStatus {
         guard !bundlePath.isEmpty, FileManager.default.fileExists(atPath: bundlePath) else {
-            return true // Seeded/virtual sample app in test store
+            return .directSuccess // Seeded/virtual sample app in test store
         }
-        let applied = NSWorkspace.shared.setIcon(icon, forFile: bundlePath, options: [])
-        if applied {
-            NSWorkspace.shared.noteFileSystemChanged(bundlePath)
-            return true
+
+        let isSystemApp = bundlePath.hasPrefix("/System/")
+
+        // 1. System apps in /System are locked by macOS APFS Sealed System Volume & SIP
+        if isSystemApp {
+            let aliasPath = createRoundIconsAlias(for: bundlePath, icon: icon)
+            return .sipProtectedSystemApp(aliasPath: aliasPath)
         }
-        // Fallback for SIP/root-owned system apps: apply to an alias in ~/Applications/Round Icons/
+
+        // 2. Check if writable; if owned by root in /Applications, attempt elevation if allowed
+        if !FileManager.default.isWritableFile(atPath: bundlePath) {
+            if allowAdminPrompt {
+                _ = requestAdminWriteAccess(for: bundlePath)
+            }
+        }
+
+        // 3. Attempt direct application on bundle
+        if FileManager.default.isWritableFile(atPath: bundlePath) {
+            let applied = NSWorkspace.shared.setIcon(icon, forFile: bundlePath, options: [])
+            if applied {
+                notifyLaunchServices(for: bundlePath)
+                flushSystemDockAndFinder()
+                return .directSuccess
+            }
+        }
+
+        // 4. Fallback for read-only non-system bundles (user declined admin prompt)
+        let aliasPath = createRoundIconsAlias(for: bundlePath, icon: icon)
+        return .aliasCreated(aliasPath: aliasPath)
+    }
+
+    private static func createRoundIconsAlias(for bundlePath: String, icon: NSImage) -> String {
         let fallbackDir = (NSHomeDirectory() as NSString).appendingPathComponent("Applications/Round Icons")
         try? FileManager.default.createDirectory(atPath: fallbackDir, withIntermediateDirectories: true)
         let appName = (bundlePath as NSString).lastPathComponent
@@ -292,9 +404,9 @@ enum IconRenderer {
         if !FileManager.default.fileExists(atPath: aliasPath) {
             try? FileManager.default.createSymbolicLink(atPath: aliasPath, withDestinationPath: bundlePath)
         }
-        let ok = NSWorkspace.shared.setIcon(icon, forFile: aliasPath, options: [])
-        NSWorkspace.shared.noteFileSystemChanged(aliasPath)
-        return ok
+        _ = NSWorkspace.shared.setIcon(icon, forFile: aliasPath, options: [])
+        notifyLaunchServices(for: aliasPath)
+        return aliasPath
     }
 
     /// Restores the original macOS icon on the target `.app` bundle.
@@ -304,7 +416,8 @@ enum IconRenderer {
             return true
         }
         let ok = NSWorkspace.shared.setIcon(nil, forFile: bundlePath, options: [])
-        NSWorkspace.shared.noteFileSystemChanged(bundlePath)
+        notifyLaunchServices(for: bundlePath)
+        flushSystemDockAndFinder()
         return ok
     }
 
