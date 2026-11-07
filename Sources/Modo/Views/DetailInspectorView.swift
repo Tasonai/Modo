@@ -81,10 +81,6 @@ struct DetailInspectorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("custom_artwork", area: "detail")
 
-                iconPacksCard
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .gridProbe("packs", area: "detail")
-
                 styleControlsCard
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gridProbe("controls", area: "detail")
@@ -541,30 +537,6 @@ struct DetailInspectorView: View {
                 }
             }
 
-            if let suggested = SimpleIconCatalog.find(for: item.title), !hasCustom {
-                HStack(spacing: Space.sm) {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(Palette.accentText)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Simple Icon match: **\(suggested.title)**")
-                            .font(.caption.weight(.medium))
-                        Text("Official monochrome vector SVG")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Apply SVG") {
-                        model.setCustomArtwork(data: suggested.svgData(), for: item)
-                        item.brandHex = Int(suggested.hex)
-                        try? context.save()
-                    }
-                    .controlSize(.small)
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding(Space.sm)
-                .background(Palette.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: Radius.sm))
-            }
-
             Text("Drop an SVG vector or image directly onto this card, or choose a file:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -704,65 +676,6 @@ struct DetailInspectorView: View {
         .padding(Space.md)
         .background(.background.secondary, in: cardShape)
         .overlay(cardShape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
-    }
-
-    private var iconPacksCard: some View {
-        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-        return VStack(alignment: .leading, spacing: Space.sm) {
-            HStack {
-                Text("Curated Icon Packs")
-                    .font(.headline)
-                Spacer()
-                Text("One-click style presets")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Space.sm) {
-                    ForEach(IconPack.allPacks) { pack in
-                        packButton(pack)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .padding(Space.md)
-        .background(.background.secondary, in: cardShape)
-        .overlay(cardShape.strokeBorder(.separator, lineWidth: 1))
-    }
-
-    private func packButton(_ pack: IconPack) -> some View {
-        let isSelected = model.activePackId == pack.id
-        let btnShape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-        return Button {
-            model.applyPack(pack, items: allVisibleItems)
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Image(systemName: pack.iconSymbol)
-                        .font(.subheadline)
-                    Text(pack.name)
-                        .font(.subheadline.weight(.semibold))
-                }
-                Text(pack.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, Space.sm)
-            .padding(.vertical, Space.xs)
-            .frame(width: 156, alignment: .leading)
-            .background(isSelected ? Palette.accent.opacity(0.12) : Color.clear, in: btnShape)
-            .overlay(
-                btnShape.strokeBorder(
-                    isSelected ? Palette.accent : Color.primary.opacity(0.15),
-                    lineWidth: isSelected ? 1.5 : 1
-                )
-            )
-        }
-        .buttonStyle(.plain)
-        .help("\(pack.name) (\(pack.category)): \(pack.subtitle)")
     }
 
     private var styleControlsCard: some View {

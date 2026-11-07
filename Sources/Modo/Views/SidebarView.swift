@@ -21,7 +21,7 @@ struct SidebarView: View {
                 }
             }
 
-            Section("Icon Packs") {
+            Section("Icon Packs & Presets") {
                 ForEach(IconPack.allPacks) { pack in
                     Button {
                         model.applyPack(pack, items: items)
@@ -42,6 +42,56 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                     .help("\(pack.name) — \(pack.subtitle)")
                 }
+
+                if !model.customPacks.isEmpty {
+                    Divider()
+                    ForEach(model.customPacks) { pack in
+                        Button {
+                            model.applyCustomPack(pack, items: items)
+                        } label: {
+                            HStack(spacing: Space.sm) {
+                                Image(systemName: "star.square")
+                                    .foregroundStyle(model.activePackId == pack.id ? Palette.accentText : .secondary)
+                                Text(pack.name)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if model.activePackId == pack.id {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(Palette.accentText)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Export Pack…") { promptExport(pack) }
+                            Button("Delete Pack", role: .destructive) { model.deleteCustomPack(pack) }
+                        }
+                    }
+                }
+
+                HStack(spacing: Space.sm) {
+                    Button {
+                        promptSavePack()
+                    } label: {
+                        Label("Save Style…", systemImage: "plus.square.dashed")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Button {
+                        promptImport()
+                    } label: {
+                        Label("Import…", systemImage: "square.and.arrow.down")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
 
                 Menu {
                     Toggle("Auto-match Brand Vectors on Pack Selection", isOn: $model.autoVectorizePacks)
@@ -64,14 +114,28 @@ struct SidebarView: View {
                 .menuStyle(.borderlessButton)
             }
 
-            Section("Icon Sets") {
+            Section("Assets & Catalogs") {
+                Button {
+                    showGlyphLibrary = true
+                } label: {
+                    HStack(spacing: Space.sm) {
+                        Image(systemName: "sparkles.square.filled.on.square")
+                            .foregroundStyle(Palette.accentText)
+                        Text("Simple Icons & Glyphs…")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Browse official Simple Icons brand logos & Apple SF Symbols")
+
                 Button {
                     model.activeIconSetID = nil
                 } label: {
                     HStack(spacing: Space.sm) {
                         Image(systemName: "app.dashed")
                             .foregroundStyle(model.activeIconSetID == nil ? Palette.accentText : .secondary)
-                        Text("Original icons")
+                        Text("Original Icons")
                             .foregroundStyle(.primary)
                         Spacer()
                         if model.activeIconSetID == nil {
@@ -82,6 +146,7 @@ struct SidebarView: View {
                     }
                 }
                 .buttonStyle(.plain)
+
                 ForEach(model.installedIconSets) { set in
                     Button {
                         model.activeIconSetID = set.id
@@ -105,91 +170,15 @@ struct SidebarView: View {
                         Button("Remove Icon Set", role: .destructive) { model.removeIconSet(set) }
                     }
                 }
+
                 Button {
                     showIconSets = true
                 } label: {
                     Label("Get Icon Sets…", systemImage: "arrow.down.circle")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-            }
-
-            Section("Vector & Brand Glyphs") {
-                Button {
-                    showGlyphLibrary = true
-                } label: {
-                    HStack(spacing: Space.sm) {
-                        Image(systemName: "sparkles.square.filled.on.square")
-                            .foregroundStyle(Palette.accentText)
-                        Text("Simple Icons & Glyphs…")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-                .help("Browse official Simple Icons brand logos & Apple SF Symbols")
-            }
-
-            Section("My Packs") {
-                ForEach(model.customPacks) { pack in
-                    Button {
-                        model.applyCustomPack(pack, items: items)
-                    } label: {
-                        HStack(spacing: Space.sm) {
-                            Image(systemName: "star.square")
-                                .foregroundStyle(model.activePackId == pack.id ? Palette.accentText : .secondary)
-                            Text(pack.name)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if model.activePackId == pack.id {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Palette.accentText)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button("Export Pack…") { promptExport(pack) }
-                        Button("Delete Pack", role: .destructive) { model.deleteCustomPack(pack) }
-                    }
-                }
-                Button {
-                    promptSavePack()
-                } label: {
-                    Label("Save Current Style…", systemImage: "plus.square.dashed")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                Button {
-                    promptImport()
-                } label: {
-                    Label("Import Pack…", systemImage: "square.and.arrow.down")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Section("Surface Presets") {
-                ForEach(RoundBackgroundStyle.allCases) { preset in
-                    Button {
-                        model.style.backgroundStyle = preset
-                    } label: {
-                        HStack(spacing: Space.sm) {
-                            Image(systemName: preset.symbol)
-                                .foregroundStyle(model.style.backgroundStyle == preset ? Palette.accentText : .secondary)
-                            Text(preset.title)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if model.style.backgroundStyle == preset {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Palette.accentText)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
             }
         }
         .sheet(isPresented: $showIconSets) {
@@ -207,6 +196,7 @@ struct SidebarView: View {
         case .all: items.count
         case .applied: items.filter(\.isApplied).count
         case .starred: items.filter(\.isStarred).count
+        case .folders: items.filter(\.isFolder).count
         }
     }
 

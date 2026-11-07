@@ -54,34 +54,165 @@ struct ModoApp: App {
                 }
                 Divider()
             }
-            SidebarCommands()
-            ToolbarCommands()
+
             CommandGroup(replacing: .newItem) {
                 Button("Add Custom App…") { model.addItem() }
                     .keyboardShortcut("n")
                 Button("Add Folder to Style…") { model.promptFolderPicker() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
+                Divider()
+                Button("Export Standard Icon Pack…") {
+                    if let item = model.selectedItem() {
+                        model.promptExportStandard(for: [item])
+                    }
+                }
+                .keyboardShortcut("e")
+                .disabled(model.selection == nil)
+
+                Button("Export Light, Dark & Tinted Kit…") {
+                    if let item = model.selectedItem() {
+                        model.promptExportAppearance(for: [item])
+                    }
+                }
+                .disabled(model.selection == nil)
+
+                Button("Export All Resolutions (16–1024px)…") {
+                    if let item = model.selectedItem() {
+                        model.promptExportCustomSizes(for: [item], sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
+                    }
+                }
+                .disabled(model.selection == nil)
+
+                Divider()
                 Button("Batch Convert Folder to Icon Pack…") { model.showBatchCreator = true }
                     .keyboardShortcut("b", modifiers: [.command, .shift])
                 Divider()
                 Button("Scan Installed Applications") { model.scanInstalledApplications() }
                     .keyboardShortcut("r")
             }
-            CommandMenu("Icons") {
-                ForEach(RoundBackgroundStyle.allCases) { preset in
-                    Button(preset.title) {
-                        model.style.backgroundStyle = preset
-                    }
-                }
+
+            CommandGroup(after: .pasteboard) {
                 Divider()
                 Button("Choose Custom Icon / SVG…") {
                     model.promptCustomArtworkForSelection()
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
+
                 Button("Paste Custom Icon") {
                     model.pasteCustomArtworkForSelection()
                 }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
+
+                Button("Clear Custom Icon") {
+                    if let item = model.selectedItem() {
+                        model.clearCustomArtwork(for: item)
+                    }
+                }
+                .disabled(model.selection == nil)
+            }
+
+            CommandGroup(before: .sidebar) {
+                Button("As List") { model.viewMode = .list }
+                    .keyboardShortcut("1", modifiers: [.command])
+                Button("As Grid") { model.viewMode = .grid }
+                    .keyboardShortcut("2", modifiers: [.command])
+                Divider()
+                Button("Zoom In Grid Icons") {
+                    model.gridIconSize = min(160, model.gridIconSize + 16)
+                }
+                .keyboardShortcut("+", modifiers: [.command])
+
+                Button("Zoom Out Grid Icons") {
+                    model.gridIconSize = max(36, model.gridIconSize - 16)
+                }
+                .keyboardShortcut("-", modifiers: [.command])
+
+                Button("Actual Size Grid Icons") {
+                    model.gridIconSize = 64
+                }
+                .keyboardShortcut("0", modifiers: [.command])
+                Divider()
+            }
+
+            SidebarCommands()
+            ToolbarCommands()
+
+            CommandGroup(after: .toolbar) {
+                Divider()
+                Menu("Filter Library") {
+                    Button("All Apps") { model.sidebar = .all }
+                    Button("Styled Only") { model.sidebar = .applied }
+                    Button("Favorites") { model.sidebar = .starred }
+                    Button("Folders") { model.sidebar = .folders }
+                }
+            }
+
+            CommandMenu("Style") {
+                Button("Apply Style to Selected") {
+                    if let item = model.selectedItem() {
+                        model.applyRoundIcon(to: item)
+                    }
+                }
+                .keyboardShortcut(.return, modifiers: [.command])
+                .disabled(model.selection == nil)
+
+                Button("Restore Original Icon") {
+                    if let item = model.selectedItem() {
+                        model.restoreOriginalIcon(for: item)
+                    }
+                }
+                .keyboardShortcut(.delete, modifiers: [.command])
+                .disabled(model.selection == nil)
+
+                Divider()
+
+                Menu("Surface Presets") {
+                    ForEach(RoundBackgroundStyle.allCases) { preset in
+                        Button {
+                            model.style.backgroundStyle = preset
+                        } label: {
+                            if model.style.backgroundStyle == preset {
+                                Text("✓ \(preset.title)")
+                            } else {
+                                Text(preset.title)
+                            }
+                        }
+                    }
+                }
+
+                Button("Eyedropper Color Picker…") {
+                    EyedropperPicker.sampleScreenColor { hex in
+                        model.style.customHex = hex
+                        model.style.backgroundStyle = .customColor
+                    }
+                }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+
+                Button("Reset Style to Default") {
+                    model.style = RoundIconStyle()
+                }
+                .keyboardShortcut("0", modifiers: [.command, .shift])
+            }
+
+            CommandMenu("Tools") {
+                Button("1-Click System Theming Wizard…") {
+                    model.showSystemTheming = true
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+
+                Button("Batch Pack Generator…") {
+                    model.showBatchCreator = true
+                }
+
+                Button("App Showcase & README Hero Studio…") {
+                    model.showShowcaseStudio = true
+                }
+
+                Divider()
+
+                Button("Restart macOS Dock") {
+                    model.restartDock()
+                }
             }
         }
 

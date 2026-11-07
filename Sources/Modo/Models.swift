@@ -63,6 +63,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case all
     case applied
     case starred
+    case folders
 
     var id: String { rawValue }
 
@@ -71,6 +72,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .all: "All Apps"
         case .applied: "Styled"
         case .starred: "Favorites"
+        case .folders: "Folders"
         }
     }
 
@@ -79,6 +81,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .all: "square.grid.2x2"
         case .applied: "checkmark.circle"
         case .starred: "star"
+        case .folders: "folder"
         }
     }
 }
@@ -500,16 +503,22 @@ final class AppModel {
         }
     }
 
+    /// Returns the currently selected Item, if any.
+    func selectedItem() -> Item? {
+        guard let id = selection else { return nil }
+        return (try? container.mainContext.fetch(FetchDescriptor<Item>()))?.first(where: { $0.id == id })
+    }
+
     /// Prompts user with open panel to select custom artwork for the currently selected item.
     func promptCustomArtworkForSelection() {
-        guard let id = selection, let item = (try? container.mainContext.fetch(FetchDescriptor<Item>()))?.first(where: { $0.id == id }) else { return }
+        guard let item = selectedItem() else { return }
         promptCustomArtwork(for: item)
         try? container.mainContext.save()
     }
 
     /// Assigns custom artwork from clipboard to the currently selected item.
     func pasteCustomArtworkForSelection() {
-        guard let id = selection, let item = (try? container.mainContext.fetch(FetchDescriptor<Item>()))?.first(where: { $0.id == id }) else { return }
+        guard let item = selectedItem() else { return }
         if pasteCustomArtwork(for: item) {
             try? container.mainContext.save()
         }
@@ -834,5 +843,66 @@ final class AppModel {
         }
         statusMessage = "Exported Light, Dark & Tinted variants for \(count) apps to \(directory.lastPathComponent)"
         return count
+    }
+
+    /// Prompts user to pick a folder and exports standard icon packs (.icns, .ico, .png) and a .zip.
+    func promptExportStandard(for targets: [Item]) {
+        let panel = NSOpenPanel()
+        panel.title = "Export Icon Pack (.icns, .ico, .png) — also saved as a .zip"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export Here"
+        if panel.runModal() == .OK, let url = panel.url {
+            let safeName = activePackName.replacingOccurrences(of: "/", with: "-")
+            let folder = url.appendingPathComponent("Modo-\(safeName)", isDirectory: true)
+            let count = exportIconPack(for: targets, to: folder)
+            if count > 0 {
+                let zip = url.appendingPathComponent("Modo-\(safeName).zip")
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-c", "-k", "--keepParent", folder.path, zip.path]
+                try? ditto.run()
+                ditto.waitUntilExit()
+                statusMessage = "Exported \(count) icon sets to \(zip.lastPathComponent)"
+            }
+        }
+    }
+
+    /// Prompts user to pick a folder and exports custom resolutions.
+    func promptExportCustomSizes(for targets: [Item], sizes: [Int], title: String) {
+        let panel = NSOpenPanel()
+        panel.title = "Export \(title)"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export Here"
+        if panel.runModal() == .OK, let url = panel.url {
+            let safeName = title.replacingOccurrences(of: " ", with: "-")
+            let folder = url.appendingPathComponent("Modo-\(safeName)", isDirectory: true)
+            let count = exportCustomSizes(for: targets, sizes: sizes, to: folder)
+            if count > 0 {
+                let zip = url.appendingPathComponent("Modo-\(safeName).zip")
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-c", "-k", "--keepParent", folder.path, zip.path]
+                try? ditto.run()
+                ditto.waitUntilExit()
+                statusMessage = "Exported \(sizes.count) resolutions for \(count) apps to \(zip.lastPathComponent)"
+            }
+        }
+    }
+
+    /// Prompts user to pick a folder and exports Light, Dark, and Tinted PNG variants.
+    func promptExportAppearance(for targets: [Item]) {
+        let panel = NSOpenPanel()
+        panel.title = "Export Light, Dark & Tinted PNGs"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        if panel.runModal() == .OK, let dir = panel.url {
+            _ = exportAppearanceVariants(for: targets, to: dir)
+        }
     }
 }

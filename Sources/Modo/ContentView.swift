@@ -16,6 +16,7 @@ struct ContentView: View {
             case .all: true
             case .applied: item.isApplied
             case .starred: item.isStarred
+            case .folders: item.isFolder
             }
             let matchesFilter: Bool = switch model.categoryFilter {
             case .all: true
@@ -81,7 +82,52 @@ struct ContentView: View {
             handleDrop(providers: providers)
         }
         .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Picker("View Mode", selection: $model.viewMode) {
+                    Image(systemName: "list.bullet")
+                        .tag(AppViewMode.list)
+                        .help("View as List (⌘1)")
+                    Image(systemName: "square.grid.2x2")
+                        .tag(AppViewMode.grid)
+                        .help("View as Grid (⌘2)")
+                }
+                .pickerStyle(.segmented)
+            }
+
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    model.showSystemTheming = true
+                } label: {
+                    Label("Theme System…", systemImage: "wand.and.stars")
+                }
+                .help("1-Click System Theming Wizard: batch style all installed apps with instant backup (⇧⌘T)")
+
+                Button {
+                    model.showBatchCreator = true
+                } label: {
+                    Label("Batch Pack…", systemImage: "square.stack.3d.up.fill")
+                }
+                .help("Batch convert a folder of logos/images into an icon pack (⇧⌘B)")
+
+                Menu {
+                    Button("Standard Pack (.icns, .ico, 1024px .png)") {
+                        model.promptExportStandard(for: visibleItems)
+                    }
+                    Button("Light, Dark & Tinted Kit (macOS 15 / iOS 18)") {
+                        model.promptExportAppearance(for: visibleItems)
+                    }
+                    Button("All Resolutions (16, 32, 48, 64, 128, 256, 512, 1024 px)") {
+                        model.promptExportCustomSizes(for: visibleItems, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
+                    }
+                    Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
+                        model.promptExportCustomSizes(for: visibleItems, sizes: [16, 32, 180, 192, 512], title: "Web Favicon Kit")
+                    }
+                } label: {
+                    Label("Export…", systemImage: "square.and.arrow.up")
+                }
+                .help("Export icon packs or custom multi-resolution PNGs (⌘E)")
+                .disabled(visibleItems.isEmpty)
+
                 Button {
                     EyedropperPicker.sampleScreenColor { hex in
                         model.style.customHex = hex
@@ -105,11 +151,11 @@ struct ContentView: View {
                 .help("Choose surface preset")
 
                 Button {
-                    model.showSystemTheming = true
+                    model.scanInstalledApplications()
                 } label: {
-                    Label("Theme System…", systemImage: "wand.and.stars")
+                    Label("Scan Apps", systemImage: "arrow.clockwise")
                 }
-                .help("1-Click System Theming Wizard: batch style all installed apps with instant backup (⇧⌘T)")
+                .help("Rescan /Applications and ~/Applications (⌘R)")
 
                 Button {
                     confirmApplyAll = true
@@ -118,39 +164,6 @@ struct ContentView: View {
                 }
                 .help("Apply the current Modo style to all listed apps (⇧⌘A)")
                 .disabled(visibleItems.isEmpty)
-
-                Menu {
-                    Button("Standard Pack (.icns, .ico, 1024px .png)") {
-                        exportFolderPicker(for: visibleItems)
-                    }
-                    Button("Light, Dark & Tinted Kit (macOS 15 / iOS 18)") {
-                        exportAppearanceVariantsPicker(for: visibleItems)
-                    }
-                    Button("All Resolutions (16, 32, 48, 64, 128, 256, 512, 1024 px)") {
-                        exportCustomSizesPicker(for: visibleItems, sizes: [16, 32, 48, 64, 128, 256, 512, 1024], title: "All Resolutions")
-                    }
-                    Button("Web & Favicon Kit (16, 32, 180, 192, 512 px)") {
-                        exportCustomSizesPicker(for: visibleItems, sizes: [16, 32, 180, 192, 512], title: "Web Favicon Kit")
-                    }
-                } label: {
-                    Label("Export…", systemImage: "square.and.arrow.up")
-                }
-                .help("Export icon packs or custom multi-resolution PNGs (⌘E)")
-                .disabled(visibleItems.isEmpty)
-
-                Button {
-                    model.showBatchCreator = true
-                } label: {
-                    Label("Batch Pack…", systemImage: "square.stack.3d.up.fill")
-                }
-                .help("Batch convert a folder of logos/images into an icon pack (⌘⇧B)")
-
-                Button {
-                    model.scanInstalledApplications()
-                } label: {
-                    Label("Scan Apps", systemImage: "arrow.clockwise")
-                }
-                .help("Rescan /Applications and ~/Applications (⌘R)")
             }
         }
         .noInitialFocus()
@@ -195,6 +208,7 @@ struct ContentView: View {
         case .all: "No Applications Found"
         case .applied: "No Circular Icons Applied Yet"
         case .starred: "No Favorite Apps"
+        case .folders: "No Folders Added"
         }
     }
 
@@ -204,64 +218,7 @@ struct ContentView: View {
         case .all: "Scan /Applications or add an app to preview Modo icons."
         case .applied: "Select an app and apply a Modo icon to restyle its macOS icon."
         case .starred: "Star your favorite apps to keep them handy."
-        }
-    }
-
-    private func exportFolderPicker(for targets: [Item]) {
-        let panel = NSOpenPanel()
-        panel.title = "Export Icon Pack (.icns, .ico, .png) — also saved as a .zip"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.prompt = "Export Here"
-        if panel.runModal() == .OK, let url = panel.url {
-            let safeName = model.activePackName.replacingOccurrences(of: "/", with: "-")
-            let folder = url.appendingPathComponent("Modo-\(safeName)", isDirectory: true)
-            let count = model.exportIconPack(for: targets, to: folder)
-            if count > 0 {
-                let zip = url.appendingPathComponent("Modo-\(safeName).zip")
-                let ditto = Process()
-                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-                ditto.arguments = ["-c", "-k", "--keepParent", folder.path, zip.path]
-                try? ditto.run()
-                ditto.waitUntilExit()
-                model.statusMessage = "Exported \(count) icon sets to \(zip.lastPathComponent)"
-            }
-        }
-    }
-
-    private func exportCustomSizesPicker(for targets: [Item], sizes: [Int], title: String) {
-        let panel = NSOpenPanel()
-        panel.title = "Export \(title)"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.prompt = "Export Here"
-        if panel.runModal() == .OK, let url = panel.url {
-            let safeName = title.replacingOccurrences(of: " ", with: "-")
-            let folder = url.appendingPathComponent("Modo-\(safeName)", isDirectory: true)
-            let count = model.exportCustomSizes(for: targets, sizes: sizes, to: folder)
-            if count > 0 {
-                let zip = url.appendingPathComponent("Modo-\(safeName).zip")
-                let ditto = Process()
-                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-                ditto.arguments = ["-c", "-k", "--keepParent", folder.path, zip.path]
-                try? ditto.run()
-                ditto.waitUntilExit()
-                model.statusMessage = "Exported \(sizes.count) resolutions for \(count) apps to \(zip.lastPathComponent)"
-            }
-        }
-    }
-
-    private func exportAppearanceVariantsPicker(for items: [Item]) {
-        let panel = NSOpenPanel()
-        panel.title = "Export Light, Dark & Tinted PNGs"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.prompt = "Export"
-        if panel.runModal() == .OK, let dir = panel.url {
-            _ = model.exportAppearanceVariants(for: items, to: dir)
+        case .folders: "Drop any folder into Modo or use File > Add Folder to Style."
         }
     }
 
