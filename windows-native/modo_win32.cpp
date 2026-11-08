@@ -96,6 +96,7 @@ enum WidgetID {
     W_SWATCH_5,
     W_SWATCH_6,
     W_SWATCH_7,
+    W_SWATCH_WIN_ACCENT,
     // Sliders & step buttons
     W_SLIDER_SCALE,
     W_BTN_SC_68,
@@ -816,6 +817,105 @@ static void ShowExportMenu(HWND hwnd, POINT screenPt) {
     }
 }
 
+static COLORREF GetWindowsAccentColor() {
+    HMODULE hDwm = LoadLibraryW(L"dwmapi.dll");
+    if (hDwm) {
+        typedef HRESULT(WINAPI* PFN_DwmGetColorizationColor)(DWORD*, BOOL*);
+        PFN_DwmGetColorizationColor fn = (PFN_DwmGetColorizationColor)GetProcAddress(hDwm, "DwmGetColorizationColor");
+        if (fn) {
+            DWORD colorization = 0;
+            BOOL opaque = FALSE;
+            if (SUCCEEDED(fn(&colorization, &opaque))) {
+                FreeLibrary(hDwm);
+                BYTE r = (BYTE)((colorization >> 16) & 0xFF);
+                BYTE g = (BYTE)((colorization >> 8) & 0xFF);
+                BYTE b = (BYTE)(colorization & 0xFF);
+                return RGB(r, g, b);
+            }
+        }
+        FreeLibrary(hDwm);
+    }
+    return GetSysColor(COLOR_HIGHLIGHT);
+}
+
+static void BatchConvertImagesDialog(HWND hwnd) {
+    BROWSEINFOW biSrc = {0};
+    biSrc.hwndOwner = hwnd;
+    biSrc.lpszTitle = L"Выберите исходную папку с изображениями (.png, .jpg, .bmp, .ico):";
+    biSrc.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    LPITEMIDLIST pidlSrc = SHBrowseForFolderW(&biSrc);
+    if (!pidlSrc) return;
+
+    wchar_t srcDir[MAX_PATH] = {0};
+    if (!SHGetPathFromIDListW(pidlSrc, srcDir) || !srcDir[0]) {
+        CoTaskMemFree(pidlSrc);
+        return;
+    }
+    CoTaskMemFree(pidlSrc);
+
+    std::wstring outDir = std::wstring(srcDir) + L"\\Modo-Icons";
+    CreateDirectoryW(outDir.c_str(), NULL);
+
+    WIN32_FIND_DATAW fd;
+    HANDLE hFind = FindFirstFileW((std::wstring(srcDir) + L"\\*.*").c_str(), &fd);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        MessageBoxW(hwnd, L"В выбранной папке не найдено файлов.", L"Пакетная конвертация", MB_OK | MB_ICONWARNING);
+        return;
+    }
+
+    std::vector<std::wstring> imgFiles;
+    do {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        std::wstring fname = fd.cFileName;
+        std::wstring ext = PathFindExtensionW(fname.c_str());
+        for (auto& c : ext) c = (wchar_t)towlower(c);
+        if (ext == L".png" || ext == L".ico" || ext == L".jpg" || ext == L".jpeg" || ext == L".bmp") {
+            imgFiles.push_back(fname);
+        }
+    } while (FindNextFileW(hFind, &fd));
+    FindClose(hFind);
+
+    if (imgFiles.empty()) {
+        MessageBoxW(hwnd, L"В папке не найдено подходящих графических файлов (.png, .jpg, .bmp, .ico).", L"Пакетная конвертация", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+
+    int processed = 0;
+    for (size_t i = 0; i < imgFiles.size(); ++i) {
+        const std::wstring& fname = imgFiles[i];
+        std::wstring srcPath = std::wstring(srcDir) + L"\\" + fname;
+        Bitmap* bmp = Bitmap::FromFile(srcPath.c_str());
+        if (bmp && bmp->GetLastStatus() == Ok) {
+            size_t dot = fname.find_last_of(L'.');
+            std::wstring baseName = (dot != std::wstring::npos) ? fname.substr(0, dot) : fname;
+            std::wstring icoPath = outDir + L"\\" + baseName + L".ico";
+            std::wstring pngPath = outDir + L"\\" + baseName + L".png";
+
+            SaveMultiSizeIco(bmp, g_style, icoPath, &g_pngClsid);
+            Bitmap* master1024 = RenderGoogleRoundIcon(bmp, g_style, 1024);
+            if (master1024) {
+                master1024->Save(pngPath.c_str(), &g_pngClsid, NULL);
+                delete master1024;
+            }
+            delete bmp;
+            processed++;
+        }
+        g_progressRatio = (double)(i + 1) / (double)imgFiles.size();
+        g_statusText = L"Пакетная конвертация: " + fname;
+        InvalidateRect(hwnd, NULL, FALSE);
+        UpdateWindow(hwnd);
+    }
+
+    g_progressRatio = 0.0;
+    g_statusText = L"Пакетная конвертация завершена: " + std::to_wstring(processed) + L" иконок";
+    InvalidateRect(hwnd, NULL, FALSE);
+
+    wchar_t doneMsg[512];
+    wsprintfW(doneMsg, L"Успешно обработано и сохранено: %d значков (.ico + 1024px .png)\n\nПапка назначения:\n%ls",
+              processed, outDir.c_str());
+    MessageBoxW(hwnd, doneMsg, L"Пакетная конвертация завершена", MB_ICONINFORMATION);
+}
+
 // ============================================================================
 // macOS HIG GDI+ CANVAS RENDERER (ZERO EMOJIS, PURE DESIGN CANONS)
 // ============================================================================
@@ -1218,6 +1318,7 @@ static const wchar_t* GetWidgetTooltip(WidgetID id) {
         case W_INSP_TAB_OPTIONS: return L"Вкладка: Тени, автообрезка полей и монохром";
         case W_BTN_EYEDROPPER: return L"Экранная пипетка: захват цвета из любой точки экрана (Esc для отмены)";
         case W_BTN_PALETTE: return L"Выбор произвольного цвета фона в палитре Windows";
+        case W_SWATCH_WIN_ACCENT: return L"Цвет акцента текущей темы Windows (Ctrl+Shift+A)";
         case W_SLIDER_SCALE: return L"Масштаб исходного значка внутри подложки";
         case W_SLIDER_OFFX: return L"Горизонтальное смещение значка влево/вправо";
         case W_SLIDER_OFFY: return L"Вертикальное смещение значка вверх/вниз";
@@ -1915,7 +2016,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         g.DrawString(hexStr, -1, &fSmallBold, RectF(hexBox.X + 26.0f, hexBox.Y, hexBox.Width - 28.0f, hexBox.Height), &sfSCenter, &primBr);
 
         REAL swRowY = colorY + 34.0f;
-        REAL swW = (inspW - 32.0f - 7.0f * 6.0f) / 8.0f;
+        REAL swW = (inspW - 32.0f - 8.0f * 6.0f) / 9.0f;
         for (int s = 0; s < 8; ++s) {
             RectF sr((REAL)(inspX + 16) + s * (swW + 6.0f), swRowY, swW, swW);
             RegisterHit((WidgetID)(W_SWATCH_0 + s), sr);
@@ -1926,6 +2027,19 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             Pen sp(match ? (theme.isDark ? Color(255, 255, 255, 255) : Color(255, 0, 0, 0)) : Color(120, 180, 180, 185), match ? 2.5f : 1.0f);
             g.DrawEllipse(&sp, sr);
         }
+
+        // 9th Swatch: Live Windows System Accent Color
+        COLORREF winAccent = GetWindowsAccentColor();
+        RectF winSr((REAL)(inspX + 16) + 8 * (swW + 6.0f), swRowY, swW, swW);
+        RegisterHit(W_SWATCH_WIN_ACCENT, winSr);
+        Color wsc(255, GetRValue(winAccent), GetGValue(winAccent), GetBValue(winAccent));
+        SolidBrush wsbr(wsc);
+        g.FillEllipse(&wsbr, winSr);
+        bool winMatch = (g_style.customColor == winAccent && g_style.preset == PRESET_CUSTOM_COLOR);
+        Pen wsp(winMatch ? (theme.isDark ? Color(255, 255, 255, 255) : Color(255, 0, 0, 0)) : Color(140, 180, 180, 185), winMatch ? 2.5f : 1.0f);
+        g.DrawEllipse(&wsp, winSr);
+        SolidBrush wDotBr(theme.isDark ? Color(220, 255, 255, 255) : Color(220, 0, 0, 0));
+        g.FillEllipse(&wDotBr, winSr.X + winSr.Width * 0.5f - 1.5f, winSr.Y + winSr.Height * 0.5f - 1.5f, 3.0f, 3.0f);
 
         // Surface Material Shaders (Frosted Glass, Titanium, Neumorphic, Prism)
         REAL matY = swRowY + swW + 14.0f;
@@ -2132,10 +2246,12 @@ enum MenuCommandID {
     IDM_STYLE_MATERIAL_NEUMORPHIC,
     IDM_STYLE_MATERIAL_PRISM_GLOW,
     IDM_STYLE_EYEDROPPER,
+    IDM_STYLE_WINDOWS_ACCENT,
     IDM_STYLE_RESET_DEFAULT,
     IDM_STYLE_PACK_BASE = 10100,
 
     // Tools
+    IDM_TOOLS_BATCH_CONVERT,
     IDM_TOOLS_ADMIN,
     IDM_TOOLS_SHORTCUTS,
     IDM_TOOLS_RESTART_EXPLORER,
@@ -2220,11 +2336,13 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
 
     AppendMenuW(hStyleMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_EYEDROPPER, L"Пипетка цвета фона…");
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_WINDOWS_ACCENT, L"Применить цвет темы Windows (Accent Color)\tCtrl+Shift+A");
     AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_RESET_DEFAULT, L"Сбросить стиль по умолчанию");
     AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hStyleMenu, L"Стиль");
 
     // 5. Tools Menu
     HMENU hToolsMenu = CreatePopupMenu();
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_BATCH_CONVERT, L"Пакетная конвертация изображений в иконки…\tCtrl+Shift+B");
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SYSTEM_THEMING, L"Мастер глобальной стилизации (1-Click Theming)…\tCtrl+Shift+T");
     AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_ADMIN, L"Интеграция в контекстное меню Windows…");
@@ -2367,8 +2485,24 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
         case IDM_STYLE_EYEDROPPER:
             HandleWidgetClick(hwnd, W_BTN_EYEDROPPER, dummyPt);
             break;
+        case IDM_STYLE_WINDOWS_ACCENT: {
+            COLORREF accent = GetWindowsAccentColor();
+            g_style.customColor = accent;
+            g_style.preset = PRESET_CUSTOM_COLOR;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            wchar_t buf[128];
+            wsprintfW(buf, L"Применён акцентный цвет темы Windows (#%02X%02X%02X)",
+                      GetRValue(accent), GetGValue(accent), GetBValue(accent));
+            g_statusText = buf;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
         case IDM_STYLE_RESET_DEFAULT:
             HandleWidgetClick(hwnd, W_PACK_0, dummyPt);
+            break;
+        case IDM_TOOLS_BATCH_CONVERT:
+            BatchConvertImagesDialog(hwnd);
             break;
         case IDM_TOOLS_ADMIN:
             HandleWidgetClick(hwnd, W_BTN_ADMIN, dummyPt);
@@ -2406,6 +2540,8 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 L"  • Delete: Восстановить оригинальную иконку\n"
                 L"  • Shift+Delete: Восстановить оригиналы для всех\n"
                 L"  • Ctrl+Shift+T: Мастер глобальной стилизации (1-Click Theming)\n"
+                L"  • Ctrl+Shift+A: Применить цвет темы Windows (Accent Color)\n"
+                L"  • Ctrl+Shift+B: Пакетная конвертация изображений в иконки\n"
                 L"  • Ctrl+N / Ctrl+O: Добавить приложение или папку\n"
                 L"  • Ctrl+E: Экспорт иконки (.ICO + 1024px .PNG)\n"
                 L"  • Ctrl+F: Поиск приложения в списке\n"
@@ -2716,6 +2852,20 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             InvalidateAllThumbs();
             InvalidateRect(hwnd, NULL, FALSE);
             break;
+
+        case W_SWATCH_WIN_ACCENT: {
+            COLORREF accent = GetWindowsAccentColor();
+            g_style.customColor = accent;
+            g_style.preset = PRESET_CUSTOM_COLOR;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            wchar_t buf[128];
+            wsprintfW(buf, L"Выбран акцентный цвет темы Windows (#%02X%02X%02X)",
+                      GetRValue(accent), GetGValue(accent), GetBValue(accent));
+            g_statusText = buf;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
 
         case W_BTN_SC_68:  g_style.scale = 0.68; SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
         case W_BTN_SC_100: g_style.scale = 1.00; SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
@@ -3311,6 +3461,14 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_SHIFT) & 0x8000) && (wParam == 'T' || wParam == 't')) {
                 SendMessage(hwnd, WM_COMMAND, IDM_TOOLS_SYSTEM_THEMING, 0);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_SHIFT) & 0x8000) && (wParam == 'B' || wParam == 'b')) {
+                BatchConvertImagesDialog(hwnd);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_SHIFT) & 0x8000) && (wParam == 'A' || wParam == 'a')) {
+                SendMessage(hwnd, WM_COMMAND, IDM_STYLE_WINDOWS_ACCENT, 0);
                 return 0;
             }
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'F' || wParam == 'f')) {
