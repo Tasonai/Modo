@@ -633,6 +633,152 @@ static void DrawSegmentedFilterBar(
     }
 }
 
+enum IconGlyphType {
+    GLYPH_NONE = 0,
+    GLYPH_ADMIN,
+    GLYPH_SHORTCUTS,
+    GLYPH_REFRESH,
+    GLYPH_ADD_FILE,
+    GLYPH_EYEDROPPER,
+    GLYPH_PALETTE,
+    GLYPH_CHECKMARK,
+    GLYPH_BATCH,
+    GLYPH_REVERT,
+    GLYPH_TRASH,
+    GLYPH_EXPORT,
+    GLYPH_SHAPE_CIRCLE,
+    GLYPH_SHAPE_SQUIRCLE,
+    GLYPH_SHAPE_ROUNDRECT,
+    GLYPH_SHAPE_PEBBLE,
+    GLYPH_SHAPE_HEXAGON
+};
+
+static void DrawGlyphIcon(Graphics& g, IconGlyphType glyph, RectF r, Color clr) {
+    Pen p(clr, 1.35f);
+    p.SetStartCap(LineCapRound);
+    p.SetEndCap(LineCapRound);
+    SolidBrush b(clr);
+
+    switch (glyph) {
+    case GLYPH_ADMIN: {
+        PointF pts[5] = {
+            PointF(r.X + r.Width * 0.5f, r.Y + 1.0f),
+            PointF(r.GetRight() - 1.0f, r.Y + 3.5f),
+            PointF(r.GetRight() - 1.0f, r.Y + r.Height * 0.6f),
+            PointF(r.X + r.Width * 0.5f, r.GetBottom()),
+            PointF(r.X + 1.0f, r.Y + r.Height * 0.6f)
+        };
+        g.DrawPolygon(&p, pts, 5);
+        break;
+    }
+    case GLYPH_SHORTCUTS: {
+        g.DrawRectangle(&p, r.X + 1.0f, r.Y + 2.0f, r.Width - 2.0f, r.Height - 6.0f);
+        g.DrawLine(&p, r.X + r.Width * 0.5f, r.GetBottom() - 4.0f, r.X + r.Width * 0.5f, r.GetBottom() - 1.0f);
+        g.DrawLine(&p, r.X + 3.0f, r.GetBottom() - 1.0f, r.GetRight() - 3.0f, r.GetBottom() - 1.0f);
+        break;
+    }
+    case GLYPH_REFRESH: {
+        g.DrawArc(&p, r.X + 1.5f, r.Y + 1.5f, r.Width - 3.0f, r.Height - 3.0f, 40.0f, 280.0f);
+        PointF pts[3] = {
+            PointF(r.GetRight() - 1.0f, r.Y + r.Height * 0.4f),
+            PointF(r.GetRight() - 5.0f, r.Y + 1.0f),
+            PointF(r.GetRight() - 1.0f, r.Y + 1.0f)
+        };
+        g.FillPolygon(&b, pts, 3);
+        break;
+    }
+    case GLYPH_ADD_FILE: {
+        g.DrawLine(&p, r.X + r.Width * 0.5f, r.Y + 2.0f, r.X + r.Width * 0.5f, r.GetBottom() - 2.0f);
+        g.DrawLine(&p, r.X + 2.0f, r.Y + r.Height * 0.5f, r.GetRight() - 2.0f, r.Y + r.Height * 0.5f);
+        break;
+    }
+    case GLYPH_EYEDROPPER: {
+        Pen ep(clr, 1.5f);
+        ep.SetStartCap(LineCapRound);
+        ep.SetEndCap(LineCapRound);
+        g.DrawLine(&ep, r.X + 2.0f, r.GetBottom() - 2.0f, r.GetRight() - 3.0f, r.Y + 3.0f);
+        g.DrawLine(&ep, r.GetRight() - 6.0f, r.Y + 2.0f, r.GetRight() - 2.0f, r.Y + 6.0f);
+        break;
+    }
+    case GLYPH_PALETTE: {
+        g.DrawEllipse(&p, r.X + 1.0f, r.Y + 1.0f, r.Width - 2.0f, r.Height - 2.0f);
+        g.FillEllipse(&b, r.X + 4.0f, r.Y + 4.0f, 2.5f, 2.5f);
+        g.FillEllipse(&b, r.GetRight() - 6.5f, r.Y + 4.0f, 2.5f, 2.5f);
+        g.FillEllipse(&b, r.X + r.Width * 0.5f - 1.25f, r.GetBottom() - 6.0f, 2.5f, 2.5f);
+        break;
+    }
+    case GLYPH_CHECKMARK: {
+        Pen cp(clr, 1.8f);
+        cp.SetStartCap(LineCapRound);
+        cp.SetEndCap(LineCapRound);
+        g.DrawLine(&cp, r.X + 2.0f, r.Y + r.Height * 0.55f, r.X + r.Width * 0.42f, r.GetBottom() - 3.0f);
+        g.DrawLine(&cp, r.X + r.Width * 0.42f, r.GetBottom() - 3.0f, r.GetRight() - 2.0f, r.Y + 3.0f);
+        break;
+    }
+    case GLYPH_BATCH: {
+        Pen bp(clr, 1.3f);
+        g.DrawRectangle(&bp, r.X + 4.0f, r.Y + 1.0f, r.Width - 5.0f, r.Height - 5.0f);
+        g.DrawRectangle(&bp, r.X + 1.0f, r.Y + 4.0f, r.Width - 5.0f, r.Height - 5.0f);
+        break;
+    }
+    case GLYPH_REVERT: {
+        g.DrawArc(&p, r.X + 1.5f, r.Y + 1.5f, r.Width - 3.0f, r.Height - 3.0f, 130.0f, 280.0f);
+        PointF pts[3] = {
+            PointF(r.X + 1.0f, r.Y + r.Height * 0.4f),
+            PointF(r.X + 5.0f, r.Y + 1.0f),
+            PointF(r.X + 1.0f, r.Y + 1.0f)
+        };
+        g.FillPolygon(&b, pts, 3);
+        break;
+    }
+    case GLYPH_TRASH: {
+        g.DrawLine(&p, r.X + 3.0f, r.Y + 3.0f, r.GetRight() - 3.0f, r.GetBottom() - 3.0f);
+        g.DrawLine(&p, r.GetRight() - 3.0f, r.Y + 3.0f, r.X + 3.0f, r.GetBottom() - 3.0f);
+        break;
+    }
+    case GLYPH_EXPORT: {
+        g.DrawLine(&p, r.X + 2.0f, r.GetBottom() - 2.0f, r.GetRight() - 2.0f, r.GetBottom() - 2.0f);
+        g.DrawLine(&p, r.X + 2.0f, r.Y + r.Height * 0.5f, r.X + 2.0f, r.GetBottom() - 2.0f);
+        g.DrawLine(&p, r.GetRight() - 2.0f, r.Y + r.Height * 0.5f, r.GetRight() - 2.0f, r.GetBottom() - 2.0f);
+        REAL midX = r.X + r.Width * 0.5f;
+        g.DrawLine(&p, midX, r.Y + 1.0f, midX, r.GetBottom() - 5.0f);
+        g.DrawLine(&p, midX - 3.0f, r.Y + 4.0f, midX, r.Y + 1.0f);
+        g.DrawLine(&p, midX + 3.0f, r.Y + 4.0f, midX, r.Y + 1.0f);
+        break;
+    }
+    case GLYPH_SHAPE_CIRCLE: {
+        g.DrawEllipse(&p, r.X + 2.0f, r.Y + 2.0f, r.Width - 4.0f, r.Height - 4.0f);
+        break;
+    }
+    case GLYPH_SHAPE_SQUIRCLE: {
+        DrawRoundRect(g, RectF(r.X + 2.0f, r.Y + 2.0f, r.Width - 4.0f, r.Height - 4.0f), 5.5f, clr, 1.35f);
+        break;
+    }
+    case GLYPH_SHAPE_ROUNDRECT: {
+        DrawRoundRect(g, RectF(r.X + 2.0f, r.Y + 2.0f, r.Width - 4.0f, r.Height - 4.0f), 3.0f, clr, 1.35f);
+        break;
+    }
+    case GLYPH_SHAPE_PEBBLE: {
+        g.DrawEllipse(&p, r.X + 1.5f, r.Y + 3.0f, r.Width - 3.0f, r.Height - 6.0f);
+        break;
+    }
+    case GLYPH_SHAPE_HEXAGON: {
+        PointF hpts[6];
+        REAL cx = r.X + r.Width * 0.5f;
+        REAL cy = r.Y + r.Height * 0.5f;
+        REAL rad = r.Width * 0.42f;
+        for (int i = 0; i < 6; ++i) {
+            double ang = i * 3.14159265 / 3.0;
+            hpts[i] = PointF(cx + (REAL)(rad * cos(ang)), cy + (REAL)(rad * sin(ang)));
+        }
+        g.DrawPolygon(&p, hpts, 6);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void DrawStudioPillButton(
     Graphics& g,
     WidgetID id,
@@ -642,7 +788,9 @@ static void DrawStudioPillButton(
     const AppThemeColors& theme,
     bool isPrimary = false,
     bool isSelected = false,
-    bool isDanger = false
+    bool isDanger = false,
+    IconGlyphType glyph = GLYPH_NONE,
+    Color dotColor = Color(0, 0, 0, 0)
 ) {
     RegisterHit(id, r);
     bool hovered = (g_hoveredWidget == id);
@@ -653,14 +801,14 @@ static void DrawStudioPillButton(
     Color textClr = theme.textPrimary;
 
     if (isPrimary) {
-        fill = pressed ? (theme.isDark ? Color(255, 210, 210, 212) : Color(255, 45, 45, 48))
+        fill = pressed ? (theme.isDark ? Color(255, 210, 210, 215) : Color(255, 45, 45, 48))
              : (hovered ? (theme.isDark ? Color(255, 255, 255, 255) : Color(255, 18, 18, 20))
                         : theme.primaryBtnBg);
         border = theme.primaryBtnBorder;
         textClr = theme.primaryBtnText;
     } else if (isSelected) {
-        fill = theme.isDark ? Color(255, 68, 68, 72) : Color(255, 216, 216, 222);
-        border = theme.isDark ? Color(255, 120, 120, 125) : Color(255, 160, 160, 170);
+        fill = theme.isDark ? Color(255, 68, 68, 74) : Color(255, 216, 216, 224);
+        border = theme.isDark ? Color(255, 130, 130, 138) : Color(255, 160, 160, 172);
         textClr = theme.textPrimary;
     } else if (isDanger) {
         fill = hovered ? (theme.isDark ? Color(255, 65, 42, 45) : Color(255, 255, 230, 232))
@@ -673,7 +821,7 @@ static void DrawStudioPillButton(
         textClr = theme.textPrimary;
     } else if (hovered) {
         fill = theme.controlHover;
-        border = theme.isDark ? Color(255, 95, 95, 100) : Color(255, 180, 180, 185);
+        border = theme.isDark ? Color(255, 95, 95, 102) : Color(255, 180, 180, 188);
         textClr = theme.textPrimary;
     }
 
@@ -681,11 +829,23 @@ static void DrawStudioPillButton(
     FillRoundRect(g, r, rad, fill);
     DrawRoundRect(g, r, rad, border, 1.0f);
 
+    REAL leftShift = 0.0f;
+    if (glyph != GLYPH_NONE) {
+        RectF gr(r.X + 8.0f, r.Y + (r.Height - 14.0f) * 0.5f, 14.0f, 14.0f);
+        DrawGlyphIcon(g, glyph, gr, textClr);
+        leftShift = 12.0f;
+    } else if (dotColor.GetAlpha() > 0) {
+        SolidBrush db(dotColor);
+        g.FillEllipse(&db, r.X + 8.0f, r.Y + (r.Height - 8.0f) * 0.5f, 8.0f, 8.0f);
+        leftShift = 10.0f;
+    }
+
+    RectF textR(r.X + leftShift, r.Y, r.Width - leftShift, r.Height);
     StringFormat sf;
     sf.SetAlignment(StringAlignmentCenter);
     sf.SetLineAlignment(StringAlignmentCenter);
     SolidBrush tb(textClr);
-    g.DrawString(label, -1, &font, r, &sf, &tb);
+    g.DrawString(label, -1, &font, textR, &sf, &tb);
 }
 
 static void DrawStudioSlider(
@@ -766,12 +926,13 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     AppThemeColors theme = GetThemeColors(g_isDarkMode);
 
     FontFamily ff(L"Segoe UI");
-    Font fLogo(&ff, 15.0f, FontStyleBold, UnitPixel);
-    Font fSection(&ff, 13.0f, FontStyleBold, UnitPixel);
-    Font fBodyBold(&ff, 13.0f, FontStyleBold, UnitPixel);
-    Font fBody(&ff, 12.0f, FontStyleRegular, UnitPixel);
-    Font fSmall(&ff, 11.0f, FontStyleRegular, UnitPixel);
-    Font fSmallBold(&ff, 11.0f, FontStyleBold, UnitPixel);
+    Font fHero(&ff, 16.0f, FontStyleBold, UnitPixel);
+    Font fLogo(&ff, 14.0f, FontStyleBold, UnitPixel);
+    Font fCardHeader(&ff, 12.5f, FontStyleBold, UnitPixel);
+    Font fBodyBold(&ff, 12.0f, FontStyleBold, UnitPixel);
+    Font fBody(&ff, 11.5f, FontStyleRegular, UnitPixel);
+    Font fSmallBold(&ff, 10.5f, FontStyleBold, UnitPixel);
+    Font fSmall(&ff, 10.5f, FontStyleRegular, UnitPixel);
 
     // 1. Full Canvas
     g.Clear(theme.canvas);
@@ -798,24 +959,24 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     // Top-right Toolbar Controls
     // Theme Switch (Темная | Светлая)
-    RectF themeR((REAL)(clientW - 612), 14.0f, 136.0f, 28.0f);
+    RectF themeR((REAL)(clientW - 576), 14.0f, 132.0f, 28.0f);
     DrawSegmentedThemeSwitch(g, themeR, g_isDarkMode, theme, fSmallBold);
 
     // Administrator
-    RectF adminR((REAL)(clientW - 468), 14.0f, 116.0f, 28.0f);
-    DrawStudioPillButton(g, W_BTN_ADMIN, adminR, L"Администратор", fSmallBold, theme);
+    RectF adminR((REAL)(clientW - 436), 14.0f, 124.0f, 28.0f);
+    DrawStudioPillButton(g, W_BTN_ADMIN, adminR, L"Администратор", fSmallBold, theme, false, false, false, GLYPH_ADMIN);
 
     // Desktop Shortcuts
-    RectF scR((REAL)(clientW - 344), 14.0f, 118.0f, 28.0f);
-    DrawStudioPillButton(g, W_BTN_SHORTCUTS, scR, L"Ярлыки на стол", fSmallBold, theme);
+    RectF scR((REAL)(clientW - 304), 14.0f, 96.0f, 28.0f);
+    DrawStudioPillButton(g, W_BTN_SHORTCUTS, scR, L"Ярлыки", fSmallBold, theme, false, false, false, GLYPH_SHORTCUTS);
 
     // Rescan / Refresh
-    RectF rescanR((REAL)(clientW - 218), 14.0f, 86.0f, 28.0f);
-    DrawStudioPillButton(g, W_BTN_RESCAN, rescanR, L"Обновить", fSmallBold, theme);
+    RectF rescanR((REAL)(clientW - 200), 14.0f, 94.0f, 28.0f);
+    DrawStudioPillButton(g, W_BTN_RESCAN, rescanR, L"Обновить", fSmallBold, theme, false, false, false, GLYPH_REFRESH);
 
     // Add File
-    RectF addR((REAL)(clientW - 124), 14.0f, 112.0f, 28.0f);
-    DrawStudioPillButton(g, W_BTN_ADD_FILE, addR, L"+ Файл...", fSmallBold, theme);
+    RectF addR((REAL)(clientW - 98), 14.0f, 84.0f, 28.0f);
+    DrawStudioPillButton(g, W_BTN_ADD_FILE, addR, L"+ Файл", fSmallBold, theme, false, false, false, GLYPH_ADD_FILE);
 
     // 3. Left Sidebar — Application Browser (x: 0..340)
     int sideW = 340;
@@ -836,20 +997,28 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     FillRoundRect(g, searchRect, 7.0f, theme.wellBg);
     DrawRoundRect(g, searchRect, 7.0f, g_searchFocused ? theme.textPrimary : theme.controlBorder, 1.0f);
 
+    // Draw Vector Search Loupe
+    RectF searchLoupeR(searchRect.X + 8.0f, searchRect.Y + 9.0f, 14.0f, 14.0f);
+    Pen loupePen(theme.textMuted, 1.35f);
+    loupePen.SetStartCap(LineCapRound); loupePen.SetEndCap(LineCapRound);
+    g.DrawEllipse(&loupePen, searchLoupeR.X, searchLoupeR.Y, 9.0f, 9.0f);
+    g.DrawLine(&loupePen, searchLoupeR.X + 7.0f, searchLoupeR.Y + 7.0f, searchLoupeR.GetRight(), searchLoupeR.GetBottom());
+
     StringFormat sfVCenter;
     sfVCenter.SetLineAlignment(StringAlignmentCenter);
     sfVCenter.SetFormatFlags(StringFormatFlagsNoWrap);
 
     if (g_searchText.empty()) {
-        std::wstring ph = g_searchFocused ? L"Введите название программы| " : L"Поиск приложений...";
-        g.DrawString(ph.c_str(), -1, &fBody, RectF(24.0f, 102.0f, 274.0f, 32.0f), &sfVCenter, &mutBr);
+        std::wstring ph = g_searchFocused ? L"Введите название...| " : L"Поиск приложений...";
+        g.DrawString(ph.c_str(), -1, &fBody, RectF(searchRect.X + 28.0f, searchRect.Y, searchRect.Width - 36.0f, searchRect.Height), &sfVCenter, &mutBr);
     } else {
         std::wstring disp = g_searchText + (g_searchFocused ? L"|" : L"");
-        g.DrawString(disp.c_str(), -1, &fBody, RectF(24.0f, 102.0f, 266.0f, 32.0f), &sfVCenter, &primBr);
-        RectF clearRect(296.0f, 106.0f, 24.0f, 24.0f);
+        g.DrawString(disp.c_str(), -1, &fBody, RectF(searchRect.X + 28.0f, searchRect.Y, searchRect.Width - 58.0f, searchRect.Height), &sfVCenter, &primBr);
+        RectF clearRect(searchRect.GetRight() - 26.0f, searchRect.Y + 4.0f, 24.0f, 24.0f);
         RegisterHit(W_SEARCH_CLEAR, clearRect);
-        StringFormat sfC; sfC.SetAlignment(StringAlignmentCenter); sfC.SetLineAlignment(StringAlignmentCenter);
-        g.DrawString(L"x", -1, &fSmallBold, clearRect, &sfC, &mutBr);
+        Pen xPen(theme.textMuted, 1.4f);
+        g.DrawLine(&xPen, clearRect.X + 7.0f, clearRect.Y + 7.0f, clearRect.GetRight() - 7.0f, clearRect.GetBottom() - 7.0f);
+        g.DrawLine(&xPen, clearRect.GetRight() - 7.0f, clearRect.Y + 7.0f, clearRect.X + 7.0f, clearRect.GetBottom() - 7.0f);
     }
 
     // Scrollable Application List
@@ -859,7 +1028,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     GraphicsState listState = g.Save();
     g.SetClip(listArea);
 
-    const int rowH = 50;
+    const int rowH = 52;
     int totalRowsH = (int)g_filteredIndices.size() * rowH;
     int maxScroll = std::max(0, totalRowsH - (int)listArea.Height);
     g_listScrollY = std::clamp(g_listScrollY, 0, maxScroll);
@@ -874,20 +1043,24 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         bool isHov = ((int)i == g_hoveredListRow);
 
         if (isSel) {
-            FillRoundRect(g, rowRect, 7.0f, theme.selRowBg);
-            DrawRoundRect(g, rowRect, 7.0f, theme.selRowBorder, 1.0f);
+            FillRoundRect(g, rowRect, 8.0f, theme.selRowBg);
+            DrawRoundRect(g, rowRect, 8.0f, theme.selRowBorder, 1.0f);
+            // Left vertical accent bar
+            RectF barR(rowRect.X + 2.0f, rowRect.Y + 10.0f, 3.0f, rowRect.Height - 20.0f);
+            FillRoundRect(g, barR, 1.5f, theme.isDark ? Color(255, 255, 255, 255) : Color(255, 0, 122, 255));
         } else if (isHov) {
-            FillRoundRect(g, rowRect, 7.0f, theme.hovRowBg);
+            FillRoundRect(g, rowRect, 8.0f, theme.hovRowBg);
         }
 
         AppEntry& app = g_allApps[appIdx];
         if (Bitmap* thumb = GetAppThumb(app)) {
-            g.DrawImage(thumb, RectF(rowRect.X + 8.0f, rowRect.Y + 5.0f, 36.0f, 36.0f));
+            RectF thumbR(rowRect.X + 10.0f, rowRect.Y + 6.0f, 36.0f, 36.0f);
+            g.DrawImage(thumb, thumbR);
         }
 
-        REAL textMaxW = app.isApplied ? (rowRect.Width - 122.0f) : (rowRect.Width - 58.0f);
-        RectF titleR(rowRect.X + 52.0f, rowRect.Y + 6.0f, textMaxW, 18.0f);
-        RectF subR(rowRect.X + 52.0f, rowRect.Y + 24.0f, textMaxW, 16.0f);
+        REAL textMaxW = app.isApplied ? (rowRect.Width - 124.0f) : (rowRect.Width - 56.0f);
+        RectF titleR(rowRect.X + 54.0f, rowRect.Y + 7.0f, textMaxW, 18.0f);
+        RectF subR(rowRect.X + 54.0f, rowRect.Y + 25.0f, textMaxW, 16.0f);
         StringFormat sfTrim;
         sfTrim.SetTrimming(StringTrimmingEllipsisCharacter);
         sfTrim.SetFormatFlags(StringFormatFlagsNoWrap);
@@ -899,12 +1072,15 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         g.DrawString(subBuf, -1, &fSmall, subR, &sfTrim, &mutBr);
 
         if (app.isApplied) {
-            RectF badgeR(rowRect.GetRight() - 64.0f, rowRect.Y + 13.0f, 56.0f, 20.0f);
+            RectF badgeR(rowRect.GetRight() - 62.0f, rowRect.Y + 15.0f, 54.0f, 20.0f);
             FillRoundRect(g, badgeR, 10.0f, theme.badgeBg);
             DrawRoundRect(g, badgeR, 10.0f, theme.badgeBorder, 1.0f);
+            SolidBrush dotBr(theme.isDark ? Color(255, 52, 199, 89) : Color(255, 40, 160, 60));
+            g.FillEllipse(&dotBr, badgeR.X + 6.0f, badgeR.Y + 6.0f, 7.0f, 7.0f);
             StringFormat sfB; sfB.SetAlignment(StringAlignmentCenter); sfB.SetLineAlignment(StringAlignmentCenter);
             SolidBrush bText(theme.badgeText);
-            g.DrawString(L"ROUND", -1, &fSmallBold, badgeR, &sfB, &bText);
+            RectF badgeTextR(badgeR.X + 6.0f, badgeR.Y, badgeR.Width - 6.0f, badgeR.Height);
+            g.DrawString(L"Modo", -1, &fSmallBold, badgeTextR, &sfB, &bText);
         }
     }
 
@@ -931,8 +1107,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     REAL inspH = dockY - inspTop - 6.0f;
     RectF inspClip(rx, inspTop, rw, inspH);
 
-    // Total content height of all 5 inspector cards
-    const REAL kTotalInspectorContentH = 710.0f;
+    const REAL kTotalInspectorContentH = 680.0f;
     g_maxInspectorScroll = std::max(0, (int)(kTotalInspectorContentH - inspH));
     g_inspectorScrollY = std::clamp(g_inspectorScrollY, 0, g_maxInspectorScroll);
 
@@ -942,36 +1117,34 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     REAL baseY = inspTop - (REAL)g_inspectorScrollY;
 
-    // --- CARD 1: Luxury Interactive Preview Stage (h: 204) ---
-    RectF stageCard(rx, baseY, rw, 204.0f);
+    // --- CARD 1: Luxury Interactive Preview Stage (h: 216) ---
+    RectF stageCard(rx, baseY, rw, 216.0f);
     FillRoundRect(g, stageCard, 10.0f, theme.cardBg);
     DrawRoundRect(g, stageCard, 10.0f, theme.cardBorder, 1.0f);
 
     std::wstring selTitle = (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size())
         ? g_allApps[g_selectedAppIndex].name
         : L"Приложение не выбрано";
-    g.DrawString(selTitle.c_str(), -1, &fLogo, PointF(rx + 18.0f, baseY + 12.0f), NULL, &primBr);
+    g.DrawString(selTitle.c_str(), -1, &fHero, PointF(rx + 18.0f, baseY + 12.0f), NULL, &primBr);
 
     wchar_t teleBuf[128];
-    wsprintfW(teleBuf, L"Масштаб: %d%%   ·   X: %+d%%   ·   Y: %+d%%",
+    wsprintfW(teleBuf, L"Масштаб: %d%%  ·  X: %+d%%  ·  Y: %+d%%",
               (int)std::round(g_style.scale * 100.0),
               (int)std::round(g_style.offsetX * 100.0),
               (int)std::round(g_style.offsetY * 100.0));
     StringFormat sfRight; sfRight.SetAlignment(StringAlignmentFar);
     g.DrawString(teleBuf, -1, &fSmallBold, RectF(rx + 200.0f, baseY + 14.0f, rw - 218.0f, 18.0f), &sfRight, &secBr);
 
-    // Ambient Luxury Stage: clean rounded podiums with subtle soft shadows instead of 12px checkerboard
-    REAL wellSize = 118.0f;
+    // Ambient Luxury Stage Podiums
+    REAL wellSize = 114.0f;
     REAL leftWellX = rx + 80.0f;
     REAL rightWellX = rx + rw - 80.0f - wellSize;
-    REAL wellY = baseY + 42.0f;
+    REAL wellY = baseY + 44.0f;
 
     auto drawLuxuryPodium = [&](REAL px, REAL py, REAL pw, REAL ph) {
         RectF pr(px, py, pw, ph);
-        // Soft ambient shadow
         RectF shR(px - 2.0f, py + 3.0f, pw + 4.0f, ph + 4.0f);
         FillRoundRect(g, shR, 14.0f, theme.isDark ? Color(50, 0, 0, 0) : Color(25, 0, 0, 0));
-        // Surface
         FillRoundRect(g, pr, 12.0f, theme.wellBg);
         DrawRoundRect(g, pr, 12.0f, theme.wellBorder, 1.0f);
     };
@@ -988,7 +1161,6 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             g.DrawImage(app.origBitmap, RectF(leftWellX + 14.0f, wellY + 14.0f, wellSize - 28.0f, wellSize - 28.0f));
             Bitmap* hiRound = RenderGoogleRoundIcon(app.origBitmap, g_style, 256);
             if (hiRound) {
-                // Drop shadow for result icon
                 FillRoundRect(g, RectF(rightWellX + 8.0f, wellY + 10.0f, wellSize - 16.0f, wellSize - 16.0f), 18.0f, Color(60, 0, 0, 0));
                 g.DrawImage(hiRound, RectF(rightWellX + 7.0f, wellY + 7.0f, wellSize - 14.0f, wellSize - 14.0f));
                 delete hiRound;
@@ -1003,18 +1175,20 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     // Center node connector arrow
     REAL midStageX = rx + rw * 0.5f;
-    FillRoundRect(g, RectF(midStageX - 36.0f, wellY + 42.0f, 72.0f, 32.0f), 16.0f, theme.controlBg);
-    DrawRoundRect(g, RectF(midStageX - 36.0f, wellY + 42.0f, 72.0f, 32.0f), 16.0f, theme.controlBorder, 1.0f);
+    FillRoundRect(g, RectF(midStageX - 38.0f, wellY + 40.0f, 76.0f, 32.0f), 16.0f, theme.controlBg);
+    DrawRoundRect(g, RectF(midStageX - 38.0f, wellY + 40.0f, 76.0f, 32.0f), 16.0f, theme.controlBorder, 1.0f);
     StringFormat sfMid; sfMid.SetAlignment(StringAlignmentCenter); sfMid.SetLineAlignment(StringAlignmentCenter);
-    g.DrawString(L"!92 MODO", -1, &fSmallBold, RectF(midStageX - 36.0f, wellY + 42.0f, 72.0f, 32.0f), &sfMid, &primBr);
+    g.DrawString(L"!92 MODO", -1, &fSmallBold, RectF(midStageX - 38.0f, wellY + 40.0f, 76.0f, 32.0f), &sfMid, &primBr);
 
-    // --- CARD 2: Surface Presets & Eyedropper Color Bar (h: 108) ---
-    REAL card2Y = baseY + 214.0f;
-    RectF colorCard(rx, card2Y, rw, 108.0f);
+    // --- CARD 2: Surface Presets & Eyedropper Color Bar (h: 104) ---
+    REAL card2Y = baseY + 226.0f;
+    RectF colorCard(rx, card2Y, rw, 104.0f);
     FillRoundRect(g, colorCard, 10.0f, theme.cardBg);
     DrawRoundRect(g, colorCard, 10.0f, theme.cardBorder, 1.0f);
 
-    g.DrawString(L"ПОДЛОЖКА И ЦВЕТ", -1, &fSmallBold, PointF(rx + 16.0f, card2Y + 10.0f), NULL, &mutBr);
+    RectF palGlyphR(rx + 16.0f, card2Y + 11.0f, 13.0f, 13.0f);
+    DrawGlyphIcon(g, GLYPH_PALETTE, palGlyphR, theme.textPrimary);
+    g.DrawString(L"Подложка и цвет", -1, &fCardHeader, PointF(rx + 34.0f, card2Y + 9.0f), NULL, &primBr);
 
     const wchar_t* presetNames[5] = {
         L"Google White",
@@ -1025,25 +1199,27 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     };
     REAL presetPillW = (rw - 32.0f - 4.0f * 6.0f) / 5.0f;
     for (int p = 0; p < 5; ++p) {
-        RectF pr(rx + 16.0f + p * (presetPillW + 6.0f), card2Y + 30.0f, presetPillW, 28.0f);
+        RectF pr(rx + 16.0f + p * (presetPillW + 6.0f), card2Y + 28.0f, presetPillW, 28.0f);
         DrawStudioPillButton(g, (WidgetID)(W_PRESET_0 + p), pr, presetNames[p], fBody, theme, false, (int)g_style.preset == p);
     }
 
     // Eyedropper + Palette + Live Hex + 8 Swatches
     DrawStudioPillButton(
         g, W_BTN_EYEDROPPER,
-        RectF(rx + 16.0f, card2Y + 68.0f, 134.0f, 28.0f),
-        g_isEyedropperActive ? L"Выберите точку..." : L"Пипетка",
+        RectF(rx + 16.0f, card2Y + 64.0f, 128.0f, 28.0f),
+        g_isEyedropperActive ? L"Выберите точку" : L"Пипетка",
         fBodyBold,
         theme,
         g_isEyedropperActive,
-        g_isEyedropperActive
+        g_isEyedropperActive,
+        false,
+        GLYPH_EYEDROPPER
     );
-    DrawStudioPillButton(g, W_BTN_PALETTE, RectF(rx + 158.0f, card2Y + 68.0f, 106.0f, 28.0f), L"Палитра...", fBody, theme);
+    DrawStudioPillButton(g, W_BTN_PALETTE, RectF(rx + 152.0f, card2Y + 64.0f, 104.0f, 28.0f), L"Палитра...", fBody, theme, false, false, false, GLYPH_PALETTE);
 
     // Current Color Pill + HEX
     Color curC(255, GetRValue(g_style.customColor), GetGValue(g_style.customColor), GetBValue(g_style.customColor));
-    RectF hexBox(rx + 272.0f, card2Y + 68.0f, 106.0f, 28.0f);
+    RectF hexBox(rx + 264.0f, card2Y + 64.0f, 106.0f, 28.0f);
     FillRoundRect(g, hexBox, 6.0f, theme.controlBg);
     DrawRoundRect(g, hexBox, 6.0f, theme.controlBorder, 1.0f);
     SolidBrush curSwBr(curC);
@@ -1053,11 +1229,11 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     wchar_t hexStr[32];
     wsprintfW(hexStr, L"#%02X%02X%02X", GetRValue(g_style.customColor), GetGValue(g_style.customColor), GetBValue(g_style.customColor));
-    g.DrawString(hexStr, -1, &fBodyBold, RectF(hexBox.X + 32.0f, card2Y + 68.0f, 70.0f, 28.0f), &sfVCenter, &primBr);
+    g.DrawString(hexStr, -1, &fBodyBold, RectF(hexBox.X + 32.0f, card2Y + 64.0f, 70.0f, 28.0f), &sfVCenter, &primBr);
 
-    REAL swStartX = rx + 392.0f;
+    REAL swStartX = rx + 384.0f;
     for (int s = 0; s < 8; ++s) {
-        RectF sr(swStartX + s * 28.0f, card2Y + 71.0f, 22.0f, 22.0f);
+        RectF sr(swStartX + s * 28.0f, card2Y + 67.0f, 22.0f, 22.0f);
         RegisterHit((WidgetID)(W_SWATCH_0 + s), sr);
         Color sc(255, GetRValue(kSwatchPalette[s]), GetGValue(kSwatchPalette[s]), GetBValue(kSwatchPalette[s]));
         SolidBrush sbr(sc);
@@ -1067,64 +1243,78 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         g.DrawEllipse(&sp, sr);
     }
 
-    // --- CARD 3: Shape geometry & curated icon packs (h: 92) ---
-    REAL card3Y = card2Y + 118.0f;
-    RectF shapeCard(rx, card3Y, rw, 92.0f);
+    // --- CARD 3: Shape geometry & curated icon packs (h: 96) ---
+    REAL card3Y = card2Y + 114.0f;
+    RectF shapeCard(rx, card3Y, rw, 96.0f);
     FillRoundRect(g, shapeCard, 10.0f, theme.cardBg);
     DrawRoundRect(g, shapeCard, 10.0f, theme.cardBorder, 1.0f);
-    g.DrawString(L"ФОРМА И ГОТОВЫЕ ПАКИ ИКОНОК", -1, &fSmallBold, PointF(rx + 16.0f, card3Y + 8.0f), NULL, &mutBr);
+
+    RectF shGlyphR(rx + 16.0f, card3Y + 9.0f, 13.0f, 13.0f);
+    DrawGlyphIcon(g, GLYPH_SHAPE_SQUIRCLE, shGlyphR, theme.textPrimary);
+    g.DrawString(L"Форма и коллекции иконок", -1, &fCardHeader, PointF(rx + 34.0f, card3Y + 7.0f), NULL, &primBr);
+
     {
         const wchar_t* shapeNames[5] = { L"Круг", L"Сквиркл", L"Скругл. квадрат", L"Галька", L"Шестиугольник" };
+        IconGlyphType shapeGlyphs[5] = { GLYPH_SHAPE_CIRCLE, GLYPH_SHAPE_SQUIRCLE, GLYPH_SHAPE_ROUNDRECT, GLYPH_SHAPE_PEBBLE, GLYPH_SHAPE_HEXAGON };
         REAL shapeW = (rw - 32.0f - 4.0f * 6.0f) / 5.0f;
         for (int p = 0; p < 5; ++p) {
-            RectF sr(rx + 16.0f + p * (shapeW + 6.0f), card3Y + 26.0f, shapeW, 26.0f);
-            DrawStudioPillButton(g, (WidgetID)(W_SHAPE_0 + p), sr, shapeNames[p], fBody, theme, false, (int)g_style.shape == p);
+            RectF sr(rx + 16.0f + p * (shapeW + 6.0f), card3Y + 28.0f, shapeW, 26.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_SHAPE_0 + p), sr, shapeNames[p], fBody, theme, false, (int)g_style.shape == p, false, shapeGlyphs[p]);
         }
+
+        Color packDots[8] = {
+            Color(255, 10, 132, 255),  // WhiteSur Apple Blue
+            Color(255, 66, 133, 244),  // Pixel Blue
+            Color(255, 136, 192, 208), // Nordic Frost
+            Color(255, 245, 194, 231), // Catppuccin
+            Color(255, 0, 255, 157),   // Neon Cyber
+            Color(255, 142, 142, 147), // Obsidian
+            Color(255, 191, 90, 242),  // Tela
+            Color(255, 255, 159, 10)   // Lawnicons
+        };
+
         REAL packW = (rw - 32.0f - 7.0f * 6.0f) / 8.0f;
         for (int p = 0; p < 8; ++p) {
-            RectF pr(rx + 16.0f + p * (packW + 6.0f), card3Y + 58.0f, packW, 26.0f);
-            DrawStudioPillButton(g, (WidgetID)(W_PACK_0 + p), pr, kIconPacks[p].name, fSmallBold, theme, false, g_activePack == p);
+            RectF pr(rx + 16.0f + p * (packW + 6.0f), card3Y + 60.0f, packW, 26.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_PACK_0 + p), pr, kIconPacks[p].name, fSmallBold, theme, false, g_activePack == p, false, GLYPH_NONE, packDots[p]);
         }
     }
 
-    // --- CARD 4: Geometry, Zoom & Sliders (h: 184) ---
-    REAL card4Y = card3Y + 102.0f;
-    RectF geoCard(rx, card4Y, rw, 184.0f);
+    // --- CARD 4: Geometry & Sliders (h: 154) ---
+    REAL card4Y = card3Y + 106.0f;
+    RectF geoCard(rx, card4Y, rw, 154.0f);
     FillRoundRect(g, geoCard, 10.0f, theme.cardBg);
     DrawRoundRect(g, geoCard, 10.0f, theme.cardBorder, 1.0f);
 
+    RectF slGlyphR(rx + 16.0f, card4Y + 10.0f, 13.0f, 13.0f);
+    DrawGlyphIcon(g, GLYPH_BATCH, slGlyphR, theme.textPrimary);
+    g.DrawString(L"Геометрия и масштаб", -1, &fCardHeader, PointF(rx + 34.0f, card4Y + 8.0f), NULL, &primBr);
+
     // Row 1: Scale (30% .. 250%)
     wchar_t lblBuf[128];
-    wsprintfW(lblBuf, L"Масштаб внутри формы: %d%%", (int)std::round(g_style.scale * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 14.0f), NULL, &primBr);
-    DrawStudioSlider(g, W_SLIDER_SCALE, RectF(rx + 240.0f, card4Y + 12.0f, rw - 466.0f, 22.0f), (g_style.scale - 0.30) / (2.50 - 0.30), theme);
-    DrawStudioPillButton(g, W_BTN_SC_68,  RectF(rx + rw - 214.0f, card4Y + 11.0f, 46.0f, 24.0f), L"68%",  fSmallBold, theme, false, std::abs(g_style.scale - 0.68) < 0.01);
-    DrawStudioPillButton(g, W_BTN_SC_100, RectF(rx + rw - 164.0f, card4Y + 11.0f, 48.0f, 24.0f), L"100%", fSmallBold, theme, false, std::abs(g_style.scale - 1.00) < 0.01);
-    DrawStudioPillButton(g, W_BTN_SC_135, RectF(rx + rw - 112.0f, card4Y + 11.0f, 48.0f, 24.0f), L"135%", fSmallBold, theme, false, std::abs(g_style.scale - 1.35) < 0.01);
-    DrawStudioPillButton(g, W_BTN_SC_175, RectF(rx + rw - 60.0f,  card4Y + 11.0f, 46.0f, 24.0f), L"175%", fSmallBold, theme, false, std::abs(g_style.scale - 1.75) < 0.01);
+    wsprintfW(lblBuf, L"Масштаб значка: %d%%", (int)std::round(g_style.scale * 100.0));
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 34.0f), NULL, &primBr);
+    DrawStudioSlider(g, W_SLIDER_SCALE, RectF(rx + 220.0f, card4Y + 32.0f, rw - 310.0f, 22.0f), (g_style.scale - 0.30) / (2.50 - 0.30), theme);
+    DrawStudioPillButton(g, W_BTN_SC_100, RectF(rx + rw - 76.0f, card4Y + 31.0f, 60.0f, 24.0f), L"100%", fSmallBold, theme, false, std::abs(g_style.scale - 1.00) < 0.01);
 
     // Row 2: Horizontal X (-100% .. +100%)
-    wsprintfW(lblBuf, L"Смещение Влево / Вправо X: %+d%%", (int)std::round(g_style.offsetX * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 54.0f), NULL, &primBr);
-    DrawStudioSlider(g, W_SLIDER_OFFX, RectF(rx + 240.0f, card4Y + 52.0f, rw - 466.0f, 22.0f), (g_style.offsetX + 1.0) * 0.5, theme);
-    DrawStudioPillButton(g, W_BTN_LEFT,  RectF(rx + rw - 214.0f, card4Y + 51.0f, 96.0f, 24.0f), L"< Влево",  fSmallBold, theme);
-    DrawStudioPillButton(g, W_BTN_RIGHT, RectF(rx + rw - 112.0f, card4Y + 51.0f, 98.0f, 24.0f), L"Вправо >", fSmallBold, theme);
+    wsprintfW(lblBuf, L"Смещение по X: %+d%%", (int)std::round(g_style.offsetX * 100.0));
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 64.0f), NULL, &primBr);
+    DrawStudioSlider(g, W_SLIDER_OFFX, RectF(rx + 220.0f, card4Y + 62.0f, rw - 310.0f, 22.0f), (g_style.offsetX + 1.0) * 0.5, theme);
+    DrawStudioPillButton(g, W_BTN_CENTER, RectF(rx + rw - 76.0f, card4Y + 61.0f, 60.0f, 24.0f), L"Центр", fSmallBold, theme);
 
     // Row 3: Vertical Y (-100% .. +100%)
-    wsprintfW(lblBuf, L"Смещение Вверх / Вниз Y: %+d%%", (int)std::round(g_style.offsetY * 100.0));
+    wsprintfW(lblBuf, L"Смещение по Y: %+d%%", (int)std::round(g_style.offsetY * 100.0));
     g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 94.0f), NULL, &primBr);
-    DrawStudioSlider(g, W_SLIDER_OFFY, RectF(rx + 240.0f, card4Y + 92.0f, rw - 466.0f, 22.0f), (g_style.offsetY + 1.0) * 0.5, theme);
-    DrawStudioPillButton(g, W_BTN_DOWN,   RectF(rx + rw - 214.0f, card4Y + 91.0f, 62.0f, 24.0f), L"v Вниз",  fSmallBold, theme);
-    DrawStudioPillButton(g, W_BTN_UP,     RectF(rx + rw - 148.0f, card4Y + 91.0f, 62.0f, 24.0f), L"^ Вверх", fSmallBold, theme);
-    DrawStudioPillButton(g, W_BTN_CENTER, RectF(rx + rw - 82.0f,  card4Y + 91.0f, 68.0f, 24.0f), L"Центр",   fSmallBold, theme);
+    DrawStudioSlider(g, W_SLIDER_OFFY, RectF(rx + 220.0f, card4Y + 92.0f, rw - 310.0f, 22.0f), (g_style.offsetY + 1.0) * 0.5, theme);
 
     // Row 4: Outer Drop Shadow (0% .. 100%)
     wsprintfW(lblBuf, L"Внешняя тень: %d%%", (int)std::round(g_style.shadow * 100.0));
-    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 134.0f), NULL, &primBr);
-    DrawStudioSlider(g, W_SLIDER_SHADOW, RectF(rx + 240.0f, card4Y + 132.0f, rw - 260.0f, 22.0f), g_style.shadow, theme);
+    g.DrawString(lblBuf, -1, &fBodyBold, PointF(rx + 16.0f, card4Y + 124.0f), NULL, &primBr);
+    DrawStudioSlider(g, W_SLIDER_SHADOW, RectF(rx + 220.0f, card4Y + 122.0f, rw - 236.0f, 22.0f), g_style.shadow, theme);
 
     // --- CARD 5: Options Toggles (h: 68) ---
-    REAL card5Y = card4Y + 194.0f;
+    REAL card5Y = card4Y + 164.0f;
     RectF optCard(rx, card5Y, rw, 68.0f);
     FillRoundRect(g, optCard, 10.0f, theme.cardBg);
     DrawRoundRect(g, optCard, 10.0f, theme.cardBorder, 1.0f);
@@ -1147,30 +1337,29 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     g_currentClipRect = nullptr;
 
     // --- 5. PERMANENT STICKY ACTION DOCK (NEVER CLIPPED) ---
-    // Background plate
     FillRoundRect(g, dockArea, 10.0f, theme.cardBg);
     DrawRoundRect(g, dockArea, 10.0f, theme.cardBorder, 1.0f);
 
     REAL btnY = dockY + 5.0f;
     REAL btnH = 38.0f;
     REAL gap = 8.0f;
-    REAL btn1W = 190.0f;
-    REAL btn2W = 160.0f;
-    REAL btn3W = 105.0f;
-    REAL btn4W = 115.0f;
+    REAL btn1W = 196.0f;
+    REAL btn2W = 164.0f;
+    REAL btn3W = 110.0f;
+    REAL btn4W = 120.0f;
     REAL btn5W = rw - (btn1W + btn2W + btn3W + btn4W + gap * 6.0f);
     if (btn5W < 95.0f) btn5W = 95.0f;
 
     REAL curX = rx + 8.0f;
-    DrawStudioPillButton(g, W_BTN_APPLY_ONE,   RectF(curX, btnY, btn1W, btnH), L"Применить к выбранному", fSection, theme, true);
+    DrawStudioPillButton(g, W_BTN_APPLY_ONE,   RectF(curX, btnY, btn1W, btnH), L"Применить к выбранному", fBodyBold, theme, true, false, false, GLYPH_CHECKMARK);
     curX += btn1W + gap;
-    DrawStudioPillButton(g, W_BTN_APPLY_ALL,   RectF(curX, btnY, btn2W, btnH), L"Применить ко всем",      fSection, theme, false, true);
+    DrawStudioPillButton(g, W_BTN_APPLY_ALL,   RectF(curX, btnY, btn2W, btnH), L"Применить ко всем",      fBodyBold, theme, false, true, false, GLYPH_BATCH);
     curX += btn2W + gap;
-    DrawStudioPillButton(g, W_BTN_RESTORE_ONE, RectF(curX, btnY, btn3W, btnH), L"Оригинал",               fBodyBold, theme);
+    DrawStudioPillButton(g, W_BTN_RESTORE_ONE, RectF(curX, btnY, btn3W, btnH), L"Оригинал",               fBodyBold, theme, false, false, false, GLYPH_REVERT);
     curX += btn3W + gap;
-    DrawStudioPillButton(g, W_BTN_RESTORE_ALL, RectF(curX, btnY, btn4W, btnH), L"Сбросить всё",           fBodyBold, theme, false, false, true);
+    DrawStudioPillButton(g, W_BTN_RESTORE_ALL, RectF(curX, btnY, btn4W, btnH), L"Сбросить всё",           fBodyBold, theme, false, false, true,  GLYPH_TRASH);
     curX += btn4W + gap;
-    DrawStudioPillButton(g, W_BTN_EXPORT,      RectF(curX, btnY, btn5W, btnH), L"Экспорт...",             fBodyBold, theme);
+    DrawStudioPillButton(g, W_BTN_EXPORT,      RectF(curX, btnY, btn5W, btnH), L"Экспорт...",             fBodyBold, theme, false, false, false, GLYPH_EXPORT);
 
     // 6. Bottom Status Bar (y: clientH - 32 .. clientH)
     SolidBrush footBr(theme.statusBar);
