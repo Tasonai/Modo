@@ -22,6 +22,8 @@
 #include "types.h"
 #include "icon_engine.h"
 #include "shell_integration.h"
+#include "installer.h"
+#include "updater.h"
 
 #include <windows.h>
 #include <windowsx.h>
@@ -1224,6 +1226,7 @@ static void UpdateSliderFromMouse(WidgetID id, int mouseX, bool isFinalRelease =
 enum MenuCommandID {
     IDM_APP_ABOUT = 10001,
     IDM_APP_EXIT,
+    IDM_APP_CHECK_UPDATES,
 
     // File
     IDM_FILE_ADD_CUSTOM,
@@ -1334,6 +1337,8 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
 
     // 6. Help Menu
     HMENU hHelpMenu = CreatePopupMenu();
+    AppendMenuW(hHelpMenu, MF_STRING, IDM_APP_CHECK_UPDATES, L"Проверить обновления…");
+    AppendMenuW(hHelpMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hHelpMenu, MF_STRING, IDM_TOOLS_SHORTCUTS_INFO, L"Горячие клавиши…\tF1");
     AppendMenuW(hHelpMenu, MF_STRING, IDM_APP_ABOUT, L"О программе Modo Studio…");
     AppendMenuW(hMainMenu, MF_POPUP, (UINT_PTR)hHelpMenu, L"Справка");
@@ -1447,6 +1452,9 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 L"Горячие клавиши Modo Studio",
                 MB_OK | MB_ICONINFORMATION
             );
+            break;
+        case IDM_APP_CHECK_UPDATES:
+            ModoUpdater::CheckForUpdates(hwnd, false);
             break;
         case IDM_APP_ABOUT:
             MessageBoxW(
@@ -2143,6 +2151,43 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     GetPngEncoderClsid(&g_pngClsid);
     LoadStyleConfig();
 
+    bool isSetupMode = false;
+    bool isUpdateMode = false;
+    bool isUninstallMode = false;
+    bool isSilent = false;
+    bool isPortableOverride = false;
+
+    if (lpCmdLine) {
+        if (wcsstr(lpCmdLine, L"--uninstall") != nullptr) isUninstallMode = true;
+        if (wcsstr(lpCmdLine, L"--update") != nullptr) isUpdateMode = true;
+        if (wcsstr(lpCmdLine, L"--setup") != nullptr || wcsstr(lpCmdLine, L"--install") != nullptr) isSetupMode = true;
+        if (wcsstr(lpCmdLine, L"--portable") != nullptr) isPortableOverride = true;
+        if (wcsstr(lpCmdLine, L"--silent") != nullptr || wcsstr(lpCmdLine, L"/S") != nullptr) isSilent = true;
+    }
+
+    wchar_t exeSelfPath[MAX_PATH * 2] = {0};
+    GetModuleFileNameW(NULL, exeSelfPath, MAX_PATH * 2 - 1);
+    std::wstring exeFileName = PathFindFileNameW(exeSelfPath);
+    for (auto& c : exeFileName) c = towlower(c);
+
+    if (!isPortableOverride && exeFileName.find(L"setup") != std::wstring::npos) {
+        isSetupMode = true;
+    }
+
+    if (isUninstallMode) {
+        ModoInstaller::PerformUninstall(NULL, isSilent);
+        GdiplusShutdown(g_gdiplusToken);
+        CoUninitialize();
+        return 0;
+    }
+
+    if (isSetupMode || isUpdateMode) {
+        int res = ModoInstaller::RunSetupWizard(hInst, nCmdShow, isUpdateMode);
+        GdiplusShutdown(g_gdiplusToken);
+        CoUninitialize();
+        return res;
+    }
+
     if (lpCmdLine && (wcsstr(lpCmdLine, L"shell --enable") != nullptr || wcsstr(lpCmdLine, L"--enable-shell") != nullptr)) {
         wchar_t exePath[MAX_PATH * 2] = {0};
         GetModuleFileNameW(NULL, exePath, MAX_PATH * 2 - 1);
@@ -2204,6 +2249,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     ScanInstalledWindowsApps();
     InvalidateRect(g_hMainWnd, NULL, FALSE);
 
+    // Asynchronously check for updates in background (silent check)
+    ModoUpdater::CheckForUpdates(g_hMainWnd, true);
+
     if (lpCmdLine && wcsstr(lpCmdLine, L"--apply-all-elevated") != nullptr) {
         int count = 0;
         for (size_t i = 0; i < g_allApps.size(); ++i) {
@@ -2220,15 +2268,6 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
         g_statusText = doneMsg;
         InvalidateRect(g_hMainWnd, NULL, FALSE);
         MessageBoxW(g_hMainWnd, doneMsg, L"Modo Studio (Администратор)", MB_ICONINFORMATION);
-    } else {
-        wchar_t exeName[MAX_PATH] = {0};
-        if (GetModuleFileNameW(NULL, exeName, MAX_PATH - 1)) {
-            std::wstring lowerExe = PathFindFileNameW(exeName);
-            for (auto& c : lowerExe) c = towlower(c);
-            if (lowerExe.find(L"setup") != std::wstring::npos) {
-                InstallSelfAndShortcuts(g_hMainWnd, false);
-            }
-        }
     }
 
     MSG msg;

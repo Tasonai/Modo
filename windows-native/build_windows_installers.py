@@ -140,6 +140,8 @@ def main() -> None:
             str(WIN_DIR / "modo_win32.cpp"),
             str(WIN_DIR / "icon_engine.cpp"),
             str(WIN_DIR / "shell_integration.cpp"),
+            str(WIN_DIR / "installer.cpp"),
+            str(WIN_DIR / "updater.cpp"),
             str(res_file),
             "-o",
             str(raw_exe),
@@ -154,6 +156,7 @@ def main() -> None:
             "-luuid",
             "-luser32",
             "-lgdi32",
+            "-lwininet",
         ],
         check=True,
     )
