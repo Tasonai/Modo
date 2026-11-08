@@ -676,11 +676,57 @@ static void ExportXcodeCatalogDialog(HWND hwnd) {
     CoTaskMemFree(pidl);
 }
 
+static void ExportShowcaseBannerDialog(HWND hwnd, ShowcaseTheme theme = SHOWCASE_THEME_AMBIENT_MESH, ShowcaseLayout layout = SHOWCASE_LAYOUT_HERO) {
+    if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
+        MessageBoxW(hwnd, L"Выберите приложение в галерее или списке для создания баннера.", L"Modo Studio", MB_OK | MB_ICONWARNING);
+        return;
+    }
+    AppEntry& app = g_allApps[g_selectedAppIndex];
+    std::wstring defName = SanitizeFileName(app.name) + L"-showcase.png";
+
+    wchar_t szFile[MAX_PATH] = {0};
+    wcsncpy(szFile, defName.c_str(), MAX_PATH - 1);
+
+    OPENFILENAMEW ofn = { sizeof(ofn) };
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFilter = L"PNG Showcase Banner (*.png)\0*.png\0Все файлы (*.*)\0*.*\0";
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = L"Сохранить презентационный баннер Showcase (1920×1080):";
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+    ofn.lpstrDefExt = L"png";
+
+    if (GetSaveFileNameW(&ofn)) {
+        if (ExportShowcaseBanner(app.origBitmap, g_style, app.name,
+                                 theme, layout,
+                                 szFile, &g_pngClsid)) {
+            g_statusText = L"Showcase баннер успешно сохранён: " + std::wstring(szFile);
+            InvalidateRect(hwnd, NULL, FALSE);
+            MessageBoxW(hwnd, (L"Showcase презентация (1920×1080 PNG)\nуспешно сформирована и сохранена в:\n" + std::wstring(szFile)).c_str(),
+                        L"Экспорт Showcase баннера", MB_ICONINFORMATION);
+        } else {
+            MessageBoxW(hwnd, L"Не удалось создать Showcase баннер.", L"Ошибка экспорта", MB_OK | MB_ICONERROR);
+        }
+    }
+}
+
 static void ShowExportMenu(HWND hwnd, POINT screenPt) {
     HMENU hMenu = CreatePopupMenu();
     AppendMenuW(hMenu, MF_STRING, 1, L"Стандартный экспорт (.ico + 1024px .png)\tCtrl+E");
     AppendMenuW(hMenu, MF_STRING, 2, L"Веб-набор (Web Favicon Kit & Manifest)...");
     AppendMenuW(hMenu, MF_STRING, 3, L"Xcode Asset Catalog (.appiconset)...");
+    AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+
+    HMENU hShowcaseSub = CreatePopupMenu();
+    AppendMenuW(hShowcaseSub, MF_STRING, 10, L"Ambient Mesh (Глубокий индиго)...");
+    AppendMenuW(hShowcaseSub, MF_STRING, 11, L"Studio Obsidian (Тёмная студия)...");
+    AppendMenuW(hShowcaseSub, MF_STRING, 12, L"Clean Minimal (Светлый минимализм)...");
+    AppendMenuW(hShowcaseSub, MF_STRING, 13, L"Sunset Gradient (Тёплый закат)...");
+    AppendMenuW(hShowcaseSub, MF_STRING, 14, L"Cyber Glow (Кибер-бирюза)...");
+    AppendMenuW(hShowcaseSub, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hShowcaseSub, MF_STRING, 15, L"Трио вариантов (Light, Dark, Adaptive)...");
+    AppendMenuW(hShowcaseSub, MF_STRING, 16, L"Карточка окна (Acrylic Window Card)...");
+    AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hShowcaseSub, L"Showcase & README Баннер (1920×1080)");
 
     SetForegroundWindow(hwnd);
     int cmd = TrackPopupMenu(hMenu, TPM_LEFTALIGN | TPM_BOTTOMALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
@@ -693,6 +739,20 @@ static void ShowExportMenu(HWND hwnd, POINT screenPt) {
         ExportWebFaviconKitDialog(hwnd);
     } else if (cmd == 3) {
         ExportXcodeCatalogDialog(hwnd);
+    } else if (cmd == 10) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_AMBIENT_MESH, SHOWCASE_LAYOUT_HERO);
+    } else if (cmd == 11) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_STUDIO_DARK, SHOWCASE_LAYOUT_HERO);
+    } else if (cmd == 12) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_CLEAN_WHITE, SHOWCASE_LAYOUT_HERO);
+    } else if (cmd == 13) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_SUNSET_GLOW, SHOWCASE_LAYOUT_HERO);
+    } else if (cmd == 14) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_CYBER_NEON, SHOWCASE_LAYOUT_HERO);
+    } else if (cmd == 15) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_AMBIENT_MESH, SHOWCASE_LAYOUT_TRIPLE);
+    } else if (cmd == 16) {
+        ExportShowcaseBannerDialog(hwnd, SHOWCASE_THEME_AMBIENT_MESH, SHOWCASE_LAYOUT_WINDOW_CARD);
     }
 }
 
@@ -1973,6 +2033,7 @@ enum MenuCommandID {
     IDM_FILE_EXPORT,
     IDM_FILE_EXPORT_WEB_FAVICON_KIT,
     IDM_FILE_EXPORT_XCODE_CATALOG,
+    IDM_FILE_EXPORT_SHOWCASE,
     IDM_FILE_RESCAN,
 
     // Edit
@@ -2029,6 +2090,7 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT, L"Экспорт иконки (.ICO, .PNG)…\tCtrl+E");
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT_WEB_FAVICON_KIT, L"Экспорт Web Favicon Kit & Manifest…");
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT_XCODE_CATALOG, L"Экспорт Xcode Asset Catalog (.appiconset)…");
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT_SHOWCASE, L"Showcase & README Баннер (1920×1080)…");
     AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_RESCAN, L"Обновить список приложений\tF5");
     AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
@@ -2133,6 +2195,9 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             break;
         case IDM_FILE_EXPORT_XCODE_CATALOG:
             ExportXcodeCatalogDialog(hwnd);
+            break;
+        case IDM_FILE_EXPORT_SHOWCASE:
+            ExportShowcaseBannerDialog(hwnd);
             break;
         case IDM_FILE_RESCAN:
             HandleWidgetClick(hwnd, W_BTN_RESCAN, dummyPt);

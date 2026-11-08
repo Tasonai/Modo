@@ -26,5 +26,9 @@ bool SaveFaviconIco(Bitmap* src, const RoundStyle& style, const std::wstring& ou
 // Developer Export Suite
 bool ExportWebFaviconKit(Bitmap* src, const RoundStyle& style, const std::wstring& appName, const std::wstring& outDir, const CLSID* pngClsid);
 bool ExportXcodeAssetCatalog(Bitmap* src, const RoundStyle& style, const std::wstring& appName, const std::wstring& outDir, const CLSID* pngClsid);
+bool ExportShowcaseBanner(Bitmap* src, const RoundStyle& style, const std::wstring& appName,
+                         ShowcaseTheme theme, ShowcaseLayout layout,
+                         const std::wstring& outPath, const CLSID* pngClsid,
+                         int width = 1920, int height = 1080);
 
 } // namespace IconEngine

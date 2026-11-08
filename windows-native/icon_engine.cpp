@@ -1056,4 +1056,291 @@ Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fal
     return synth;
 }
 
+bool ExportShowcaseBanner(Bitmap* src, const RoundStyle& style, const std::wstring& appName,
+                         ShowcaseTheme theme, ShowcaseLayout layout,
+                         const std::wstring& outPath, const CLSID* pngClsid,
+                         int width, int height) {
+    if (!src || outPath.empty() || !pngClsid) return false;
+
+    Bitmap canvas(width, height, PixelFormat32bppARGB);
+    Graphics g(&canvas);
+    g.SetSmoothingMode(SmoothingModeHighQuality);
+    g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+    g.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+
+    // 1. Draw Themed Background
+    RectF fullRect(0.0f, 0.0f, (REAL)width, (REAL)height);
+    bool isLight = (theme == SHOWCASE_THEME_CLEAN_WHITE);
+
+    switch (theme) {
+        case SHOWCASE_THEME_AMBIENT_MESH: {
+            LinearGradientBrush bgBr(PointF(0.0f, 0.0f), PointF((REAL)width, (REAL)height),
+                                    Color(255, 20, 26, 41), Color(255, 13, 16, 26));
+            Color cols[3] = { Color(255, 20, 26, 41), Color(255, 38, 46, 71), Color(255, 13, 16, 26) };
+            REAL pos[3] = { 0.0f, 0.52f, 1.0f };
+            bgBr.SetInterpolationColors(cols, pos, 3);
+            g.FillRectangle(&bgBr, fullRect);
+
+            // Ambient central glow
+            GraphicsPath glowPath;
+            glowPath.AddEllipse((REAL)(width * 0.5f - 600), (REAL)(height * 0.40f - 400), 1200.0f, 800.0f);
+            PathGradientBrush pgb(&glowPath);
+            Color cCol(70, 75, 115, 245);
+            Color sCol(0, 0, 0, 0);
+            int cnt = 1;
+            pgb.SetCenterColor(cCol);
+            pgb.SetSurroundColors(&sCol, &cnt);
+            g.FillPath(&pgb, &glowPath);
+            break;
+        }
+        case SHOWCASE_THEME_STUDIO_DARK: {
+            LinearGradientBrush bgBr(PointF(0.0f, 0.0f), PointF((REAL)width, (REAL)height),
+                                    Color(255, 28, 30, 36), Color(255, 10, 10, 13));
+            g.FillRectangle(&bgBr, fullRect);
+
+            // Studio top spotlight
+            GraphicsPath spotPath;
+            spotPath.AddEllipse((REAL)(width * 0.5f - 550), (REAL)(height * 0.35f - 350), 1100.0f, 700.0f);
+            PathGradientBrush pgb(&spotPath);
+            Color cCol(50, 255, 255, 255);
+            Color sCol(0, 0, 0, 0);
+            int cnt = 1;
+            pgb.SetCenterColor(cCol);
+            pgb.SetSurroundColors(&sCol, &cnt);
+            g.FillPath(&pgb, &spotPath);
+            break;
+        }
+        case SHOWCASE_THEME_CLEAN_WHITE: {
+            LinearGradientBrush bgBr(PointF(0.0f, 0.0f), PointF((REAL)width, (REAL)height),
+                                    Color(255, 250, 250, 252), Color(255, 230, 232, 240));
+            g.FillRectangle(&bgBr, fullRect);
+            break;
+        }
+        case SHOWCASE_THEME_SUNSET_GLOW: {
+            LinearGradientBrush bgBr(PointF(0.0f, 0.0f), PointF((REAL)width, (REAL)height),
+                                    Color(255, 38, 15, 46), Color(255, 20, 10, 26));
+            Color cols[3] = { Color(255, 38, 15, 46), Color(255, 82, 31, 56), Color(255, 20, 10, 26) };
+            REAL pos[3] = { 0.0f, 0.55f, 1.0f };
+            bgBr.SetInterpolationColors(cols, pos, 3);
+            g.FillRectangle(&bgBr, fullRect);
+
+            // Sunset radial glow
+            GraphicsPath glowPath;
+            glowPath.AddEllipse((REAL)(width * 0.5f - 600), (REAL)(height * 0.42f - 400), 1200.0f, 800.0f);
+            PathGradientBrush pgb(&glowPath);
+            Color cCol(80, 255, 110, 80);
+            Color sCol(0, 0, 0, 0);
+            int cnt = 1;
+            pgb.SetCenterColor(cCol);
+            pgb.SetSurroundColors(&sCol, &cnt);
+            g.FillPath(&pgb, &glowPath);
+            break;
+        }
+        case SHOWCASE_THEME_CYBER_NEON: {
+            LinearGradientBrush bgBr(PointF(0.0f, 0.0f), PointF((REAL)width, (REAL)height),
+                                    Color(255, 5, 20, 31), Color(255, 3, 8, 13));
+            Color cols[3] = { Color(255, 5, 20, 31), Color(255, 10, 41, 56), Color(255, 3, 8, 13) };
+            REAL pos[3] = { 0.0f, 0.50f, 1.0f };
+            bgBr.SetInterpolationColors(cols, pos, 3);
+            g.FillRectangle(&bgBr, fullRect);
+
+            // Cyber neon glow
+            GraphicsPath glowPath;
+            glowPath.AddEllipse((REAL)(width * 0.5f - 550), (REAL)(height * 0.40f - 350), 1100.0f, 700.0f);
+            PathGradientBrush pgb(&glowPath);
+            Color cCol(75, 0, 225, 255);
+            Color sCol(0, 0, 0, 0);
+            int cnt = 1;
+            pgb.SetCenterColor(cCol);
+            pgb.SetSurroundColors(&sCol, &cnt);
+            g.FillPath(&pgb, &glowPath);
+            break;
+        }
+    }
+
+    // Typography Setup
+    FontFamily fam(L"Segoe UI");
+    Font fHeroTitle(&fam, 52.0f, FontStyleBold, UnitPixel);
+    Font fHeroSub(&fam, 24.0f, FontStyleRegular, UnitPixel);
+    Font fBadge(&fam, 15.0f, FontStyleBold, UnitPixel);
+    Font fLabel(&fam, 18.0f, FontStyleBold, UnitPixel);
+
+    SolidBrush textPrimBr(isLight ? Color(255, 20, 20, 24) : Color(255, 255, 255, 255));
+    SolidBrush textSecBr(isLight ? Color(255, 95, 95, 105) : Color(255, 160, 165, 180));
+    StringFormat sfC; sfC.SetAlignment(StringAlignmentCenter); sfC.SetLineAlignment(StringAlignmentCenter);
+
+    // Helpers for high-end diffuse shadows
+    auto drawShowcaseIconWithShadow = [&](Bitmap* icon, RectF r, IconShape shape) {
+        if (!icon) return;
+        GraphicsPath shp1, shp2, shp3;
+        AddShapePath(shp1, shape, RectF(r.X - 16.0f, r.Y + 24.0f, r.Width + 32.0f, r.Height + 32.0f));
+        AddShapePath(shp2, shape, RectF(r.X - 8.0f, r.Y + 14.0f, r.Width + 16.0f, r.Height + 16.0f));
+        AddShapePath(shp3, shape, RectF(r.X, r.Y + 6.0f, r.Width, r.Height));
+
+        SolidBrush sb1(isLight ? Color(25, 0, 0, 0) : Color(45, 0, 0, 0));
+        SolidBrush sb2(isLight ? Color(40, 0, 0, 0) : Color(65, 0, 0, 0));
+        SolidBrush sb3(isLight ? Color(55, 0, 0, 0) : Color(90, 0, 0, 0));
+        g.FillPath(&sb1, &shp1);
+        g.FillPath(&sb2, &shp2);
+        g.FillPath(&sb3, &shp3);
+
+        g.DrawImage(icon, r);
+
+        // Edge rim highlight
+        GraphicsPath rimP;
+        AddShapePath(rimP, shape, r);
+        Pen rimPen(isLight ? Color(60, 0, 0, 0) : Color(80, 255, 255, 255), 1.5f);
+        g.DrawPath(&rimPen, &rimP);
+    };
+
+    // 2. Render Layouts
+    if (layout == SHOWCASE_LAYOUT_HERO) {
+        REAL iconDim = 460.0f;
+        REAL iconX = (width - iconDim) * 0.5f;
+        REAL iconY = (REAL)(height * 0.20f);
+
+        Bitmap* hiRound = RenderGoogleRoundIcon(src, style, 512);
+        if (hiRound) {
+            drawShowcaseIconWithShadow(hiRound, RectF(iconX, iconY, iconDim, iconDim), style.shape);
+            delete hiRound;
+        }
+
+        // Title and Subtitle
+        REAL textY = iconY + iconDim + 46.0f;
+        RectF titleR(60.0f, textY, (REAL)(width - 120), 64.0f);
+        g.DrawString(appName.c_str(), -1, &fHeroTitle, titleR, &sfC, &textPrimBr);
+
+        RectF subR(60.0f, textY + 62.0f, (REAL)(width - 120), 34.0f);
+        g.DrawString(L"Adaptive Icon · Designed with Modo Studio", -1, &fHeroSub, subR, &sfC, &textSecBr);
+
+        // Badge pill
+        REAL badgeW = 200.0f, badgeH = 32.0f;
+        RectF badgeR((width - badgeW) * 0.5f, textY + 104.0f, badgeW, badgeH);
+        FillRoundRect(g, badgeR, 16.0f, isLight ? Color(25, 0, 0, 0) : Color(50, 255, 255, 255));
+        DrawRoundRect(g, badgeR, 16.0f, isLight ? Color(50, 0, 0, 0) : Color(80, 255, 255, 255), 1.0f);
+        g.DrawString(L"MODO ADAPTIVE", -1, &fBadge, badgeR, &sfC, &textPrimBr);
+
+    } else if (layout == SHOWCASE_LAYOUT_TRIPLE) {
+        REAL iconDim = 320.0f;
+        REAL spacing = 70.0f;
+        REAL totalW = (iconDim * 3.0f) + (spacing * 2.0f);
+        REAL startX = (width - totalW) * 0.5f;
+        REAL iconY = 360.0f;
+
+        // Title at top
+        RectF titleR(60.0f, 90.0f, (REAL)(width - 120), 64.0f);
+        g.DrawString(appName.c_str(), -1, &fHeroTitle, titleR, &sfC, &textPrimBr);
+
+        RectF subR(60.0f, 154.0f, (REAL)(width - 120), 34.0f);
+        g.DrawString(L"Light, Dark & Material You Variants · Designed with Modo Studio", -1, &fHeroSub, subR, &sfC, &textSecBr);
+
+        // 1. Light variant
+        RoundStyle lightSt = style;
+        lightSt.preset = PRESET_GOOGLE_WHITE;
+        Bitmap* lightBmp = RenderGoogleRoundIcon(src, lightSt, 512);
+        if (lightBmp) {
+            drawShowcaseIconWithShadow(lightBmp, RectF(startX, iconY, iconDim, iconDim), lightSt.shape);
+            delete lightBmp;
+        }
+        RectF lbl1R(startX, iconY + iconDim + 24.0f, iconDim, 30.0f);
+        g.DrawString(L"Light", -1, &fLabel, lbl1R, &sfC, &textSecBr);
+
+        // 2. Active hero variant
+        Bitmap* heroBmp = RenderGoogleRoundIcon(src, style, 512);
+        if (heroBmp) {
+            drawShowcaseIconWithShadow(heroBmp, RectF(startX + iconDim + spacing, iconY, iconDim, iconDim), style.shape);
+            delete heroBmp;
+        }
+        RectF lbl2R(startX + iconDim + spacing, iconY + iconDim + 24.0f, iconDim, 30.0f);
+        g.DrawString(L"Modo Adaptive", -1, &fLabel, lbl2R, &sfC, &textPrimBr);
+
+        // 3. Dark variant
+        RoundStyle darkSt = style;
+        darkSt.preset = PRESET_DARK_MATERIAL;
+        Bitmap* darkBmp = RenderGoogleRoundIcon(src, darkSt, 512);
+        if (darkBmp) {
+            drawShowcaseIconWithShadow(darkBmp, RectF(startX + (iconDim + spacing) * 2.0f, iconY, iconDim, iconDim), darkSt.shape);
+            delete darkBmp;
+        }
+        RectF lbl3R(startX + (iconDim + spacing) * 2.0f, iconY + iconDim + 24.0f, iconDim, 30.0f);
+        g.DrawString(L"Dark Material", -1, &fLabel, lbl3R, &sfC, &textSecBr);
+
+    } else if (layout == SHOWCASE_LAYOUT_WINDOW_CARD) {
+        REAL cardW = 1200.0f;
+        REAL cardH = 700.0f;
+        REAL cardX = (width - cardW) * 0.5f;
+        REAL cardY = (height - cardH) * 0.5f;
+        RectF cardR(cardX, cardY, cardW, cardH);
+
+        // Window card diffuse shadow
+        RectF shCard(cardX - 16.0f, cardY + 24.0f, cardW + 32.0f, cardH + 32.0f);
+        FillRoundRect(g, shCard, 24.0f, Color(70, 0, 0, 0));
+
+        // Window body
+        FillRoundRect(g, cardR, 20.0f, isLight ? Color(255, 255, 255, 255) : Color(255, 28, 30, 36));
+        DrawRoundRect(g, cardR, 20.0f, isLight ? Color(255, 218, 220, 228) : Color(255, 60, 62, 70), 1.5f);
+
+        // Window Titlebar
+        RectF tbR(cardX, cardY, cardW, 52.0f);
+        FillRoundRect(g, tbR, 20.0f, isLight ? Color(255, 244, 244, 247) : Color(255, 38, 40, 48));
+        SolidBrush tbFill(isLight ? Color(255, 244, 244, 247) : Color(255, 38, 40, 48));
+        g.FillRectangle(&tbFill, cardX, cardY + 26.0f, cardW, 26.0f);
+        Pen divPen(isLight ? Color(255, 220, 220, 225) : Color(255, 55, 55, 62), 1.0f);
+        g.DrawLine(&divPen, cardX, cardY + 52.0f, cardX + cardW, cardY + 52.0f);
+
+        // Window traffic lights
+        FillRoundRect(g, RectF(cardX + 22.0f, cardY + 20.0f, 13.0f, 13.0f), 6.5f, Color(255, 255, 95, 87));
+        FillRoundRect(g, RectF(cardX + 42.0f, cardY + 20.0f, 13.0f, 13.0f), 6.5f, Color(255, 254, 188, 46));
+        FillRoundRect(g, RectF(cardX + 62.0f, cardY + 20.0f, 13.0f, 13.0f), 6.5f, Color(255, 40, 200, 64));
+
+        std::wstring tbTitle = appName + L" — Modo Studio Presentation";
+        Font fTb(&fam, 15.0f, FontStyleBold, UnitPixel);
+        g.DrawString(tbTitle.c_str(), -1, &fTb, tbR, &sfC, &textSecBr);
+
+        // Inside card: Hero icon on the left
+        REAL inIconDim = 380.0f;
+        REAL inIconX = cardX + 100.0f;
+        REAL inIconY = cardY + 52.0f + (cardH - 52.0f - inIconDim) * 0.5f;
+
+        Bitmap* hiRound = RenderGoogleRoundIcon(src, style, 512);
+        if (hiRound) {
+            drawShowcaseIconWithShadow(hiRound, RectF(inIconX, inIconY, inIconDim, inIconDim), style.shape);
+            delete hiRound;
+        }
+
+        // Inside card: Typography on the right
+        REAL textX = inIconX + inIconDim + 80.0f;
+        REAL textW = cardX + cardW - textX - 80.0f;
+        REAL textTopY = inIconY + 40.0f;
+
+        StringFormat sfL; sfL.SetAlignment(StringAlignmentNear); sfL.SetLineAlignment(StringAlignmentNear);
+        g.DrawString(appName.c_str(), -1, &fHeroTitle, RectF(textX, textTopY, textW, 64.0f), &sfL, &textPrimBr);
+        g.DrawString(L"Pure Native Vector & Material Adaptive Icon", -1, &fHeroSub, RectF(textX, textTopY + 60.0f, textW, 36.0f), &sfL, &textSecBr);
+
+        // Technical Spec Details Box
+        REAL specY = textTopY + 115.0f;
+        RectF specR(textX, specY, textW, 140.0f);
+        FillRoundRect(g, specR, 10.0f, isLight ? Color(255, 244, 244, 248) : Color(255, 20, 21, 25));
+        DrawRoundRect(g, specR, 10.0f, isLight ? Color(255, 222, 222, 228) : Color(255, 48, 50, 58), 1.0f);
+
+        wchar_t szSpecs[256];
+        wsprintfW(szSpecs, L"Shape: %s  ·  Scale: %d%%  ·  Pan: (%+d%%, %+d%%)\nSurface: %s  ·  Shadow Depth: %d%%\nResolution: 1024×1024 Master Multi-Size Suite",
+                  (style.shape == SHAPE_CIRCLE ? L"Circle" : style.shape == SHAPE_SQUIRCLE ? L"Squircle" :
+                   style.shape == SHAPE_ROUNDED_RECT ? L"Rounded Rect" : style.shape == SHAPE_PEBBLE ? L"Pebble" : L"Hexagon"),
+                  (int)std::round(style.scale * 100.0),
+                  (int)std::round(style.offsetX * 100.0),
+                  (int)std::round(style.offsetY * 100.0),
+                  (style.material == MATERIAL_FROSTED_GLASS ? L"Frosted Glass" :
+                   style.material == MATERIAL_BRUSHED_TITANIUM ? L"Brushed Titanium" :
+                   style.material == MATERIAL_NEUMORPHIC ? L"Neumorphic" :
+                   style.material == MATERIAL_PRISM_GLOW ? L"Prism Glow" : L"Smooth Material"),
+                  (int)std::round(style.shadow * 100.0));
+
+        Font fSpec(&fam, 16.0f, FontStyleRegular, UnitPixel);
+        g.DrawString(szSpecs, -1, &fSpec, RectF(specR.X + 18.0f, specR.Y + 18.0f, specR.Width - 36.0f, specR.Height - 36.0f), &sfL, &textSecBr);
+    }
+
+    return (canvas.Save(outPath.c_str(), pngClsid, NULL) == Ok);
+}
+
 } // namespace IconEngine

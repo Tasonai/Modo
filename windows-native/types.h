@@ -52,6 +52,20 @@ enum SurfaceMaterial {
     MATERIAL_PRISM_GLOW = 4
 };
 
+enum ShowcaseTheme {
+    SHOWCASE_THEME_AMBIENT_MESH = 0,
+    SHOWCASE_THEME_STUDIO_DARK  = 1,
+    SHOWCASE_THEME_CLEAN_WHITE  = 2,
+    SHOWCASE_THEME_SUNSET_GLOW  = 3,
+    SHOWCASE_THEME_CYBER_NEON   = 4
+};
+
+enum ShowcaseLayout {
+    SHOWCASE_LAYOUT_HERO        = 0,
+    SHOWCASE_LAYOUT_TRIPLE      = 1,
+    SHOWCASE_LAYOUT_WINDOW_CARD = 2
+};
+
 struct RoundStyle {
     BgPreset preset = PRESET_GOOGLE_WHITE;
     IconShape shape = SHAPE_CIRCLE;
