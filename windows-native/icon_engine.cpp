@@ -335,7 +335,7 @@ static Color DeepenColor(Color c, double factor = 0.42) {
     return Color(255, r, g, b);
 }
 
-static void AddShapePath(GraphicsPath& path, IconShape shape, RectF r) {
+void AddShapePath(GraphicsPath& path, IconShape shape, RectF r) {
     switch (shape) {
         case SHAPE_CIRCLE:
             path.AddEllipse(r);

@@ -281,6 +281,14 @@ static POINT g_dragStartPt = {0, 0};
 static double g_dragStartOffX = 0.0;
 static double g_dragStartOffY = 0.0;
 
+// 3D Parallax Tilt & Specular Lighting
+#define TIMER_ID_TILT_SPRING 101
+static bool g_heroTiltHovered = false;
+static float g_heroTiltX = 0.0f; // -1.0 .. +1.0
+static float g_heroTiltY = 0.0f; // -1.0 .. +1.0
+static bool g_tiltTimerActive = false;
+static bool g_mouseTracking = false;
+
 static bool g_isEyedropperActive = false;
 static POINT g_cursorClientPt = {0, 0};
 static COLORREF g_eyedropperLiveColor = RGB(26, 115, 232);
@@ -1613,8 +1621,91 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             g.DrawImage(app.origBitmap, RectF(leftPodiumX + 10.0f, stagePodiumY + 10.0f, podiumSize - 20.0f, podiumSize - 20.0f));
             Bitmap* hiRound = RenderGoogleRoundIcon(app.origBitmap, g_style, 256);
             if (hiRound) {
-                FillRoundRect(g, RectF(rightPodiumX + 6.0f, stagePodiumY + 8.0f, podiumSize - 12.0f, podiumSize - 12.0f), 14.0f, Color(60, 0, 0, 0));
-                g.DrawImage(hiRound, RectF(rightPodiumX + 5.0f, stagePodiumY + 5.0f, podiumSize - 10.0f, podiumSize - 10.0f));
+                float tx = g_heroTiltX;
+                float ty = g_heroTiltY;
+                bool isTilted = (g_heroTiltHovered || g_isDraggingStage || std::abs(tx) > 0.005f || std::abs(ty) > 0.005f);
+                float tiltMag = std::min(1.0f, std::sqrt(tx * tx + ty * ty));
+
+                // Center of the stage icon
+                REAL cx = rightPodiumX + podiumSize * 0.5f;
+                REAL cy = stagePodiumY + podiumSize * 0.5f;
+
+                // On hover/tilt, icon lifts towards viewer (scale up by ~3.5%)
+                REAL scale = isTilted ? (1.0f + 0.035f * tiltMag) : 1.0f;
+                REAL baseSize = podiumSize - 10.0f; // 88px
+                REAL curSize = baseSize * scale;
+                REAL halfW = curSize * 0.5f;
+                REAL halfH = curSize * 0.5f;
+
+                // Parallax translation offset: shifts slightly in direction of tilt
+                REAL shiftX = tx * 4.5f;
+                REAL shiftY = ty * 4.5f;
+                REAL finalCX = cx + shiftX;
+                REAL finalCY = cy + shiftY;
+
+                // 1. Dynamic Parallax Drop Shadow: projects opposite to tilt and spreads when lifted
+                REAL shOffX = -tx * 7.5f;
+                REAL shOffY = 4.0f - ty * 7.5f;
+                REAL shSpread = isTilted ? 4.0f * tiltMag : 0.0f;
+                RectF shadowRect(finalCX - halfW + shOffX - shSpread * 0.5f,
+                                 finalCY - halfH + shOffY - shSpread * 0.5f,
+                                 curSize + shSpread,
+                                 curSize + shSpread);
+                BYTE shAlpha = (BYTE)(theme.isDark ? (isTilted ? 75 : 60) : (isTilted ? 45 : 30));
+                GraphicsPath shPath;
+                IconEngine::AddShapePath(shPath, g_style.shape, shadowRect);
+                SolidBrush shBr(Color(shAlpha, 0, 0, 0));
+                g.FillPath(&shBr, &shPath);
+
+                // 2. 3D Perspective Projection Quad (3 parallelogram points for affine transformation)
+                REAL shearX = ty * 3.5f;
+                REAL shearY = tx * 3.5f;
+                REAL compX = 1.0f - std::abs(tx) * 0.045f;
+                REAL compY = 1.0f - std::abs(ty) * 0.045f;
+
+                PointF pts[3] = {
+                    PointF(finalCX - halfW * compX - shearX, finalCY - halfH * compY - shearY), // Top-Left
+                    PointF(finalCX + halfW * compX - shearX, finalCY - halfH * compY + shearY), // Top-Right
+                    PointF(finalCX - halfW * compX + shearX, finalCY + halfH * compY - shearY)  // Bottom-Left
+                };
+
+                g.DrawImage(hiRound, pts, 3);
+
+                // 3. Dynamic Specular Lighting Glare & Glint
+                if (isTilted && tiltMag > 0.02f) {
+                    // Plate shape clipping path matching the tilted icon
+                    RectF plateBounds(finalCX - halfW, finalCY - halfH, curSize, curSize);
+                    GraphicsPath plateClip;
+                    IconEngine::AddShapePath(plateClip, g_style.shape, plateBounds);
+
+                    g.SetClip(&plateClip, CombineModeReplace);
+
+                    // Dynamic specular glare shifted opposite to the tilt vector (light source simulation)
+                    REAL glareCX = finalCX - tx * halfW * 0.55f;
+                    REAL glareCY = finalCY - ty * halfH * 0.55f;
+                    REAL glareRad = curSize * 0.75f;
+
+                    GraphicsPath glareEll;
+                    glareEll.AddEllipse(glareCX - glareRad, glareCY - glareRad, glareRad * 2.0f, glareRad * 2.0f);
+                    PathGradientBrush glareBr(&glareEll);
+                    BYTE glareAlpha = (BYTE)(theme.isDark ? (65 + 40 * tiltMag) : (45 + 30 * tiltMag));
+                    Color centerCol(glareAlpha, 255, 255, 255);
+                    Color surroundCol(0, 255, 255, 255);
+                    int surroundCnt = 1;
+                    glareBr.SetCenterColor(centerCol);
+                    glareBr.SetSurroundColors(&surroundCol, &surroundCnt);
+                    g.FillPath(&glareBr, &glareEll);
+
+                    // Subtle crest edge highlight (rim reflection)
+                    PointF crestStart(finalCX - tx * halfW, finalCY - ty * halfH);
+                    PointF crestEnd(finalCX + tx * halfW, finalCY + ty * halfH);
+                    LinearGradientBrush rimBr(crestStart, crestEnd, Color((BYTE)(95 * tiltMag), 255, 255, 255), Color(0, 255, 255, 255));
+                    Pen rimPen(&rimBr, 1.25f);
+                    g.DrawPath(&rimPen, &plateClip);
+
+                    g.ResetClip();
+                }
+
                 delete hiRound;
             }
         }
@@ -2757,6 +2848,12 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             g_cursorClientPt = pt;
 
+            if (!g_mouseTracking) {
+                TRACKMOUSEEVENT tme = { sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0 };
+                TrackMouseEvent(&tme);
+                g_mouseTracking = true;
+            }
+
             if (g_isEyedropperActive) {
                 POINT screenPt = pt;
                 ClientToScreen(hwnd, &screenPt);
@@ -2779,6 +2876,9 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 double dy = -(double)(pt.y - g_dragStartPt.y) / 56.0;
                 g_style.offsetX = std::clamp(g_dragStartOffX + dx, -1.0, 1.0);
                 g_style.offsetY = std::clamp(g_dragStartOffY + dy, -1.0, 1.0);
+                g_heroTiltX = std::clamp((float)((pt.x - g_dragStartPt.x) / 45.0), -1.0f, 1.0f);
+                g_heroTiltY = std::clamp((float)((pt.y - g_dragStartPt.y) / 45.0), -1.0f, 1.0f);
+                g_heroTiltHovered = true;
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
@@ -2792,8 +2892,35 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
             WidgetID prevHov = g_hoveredWidget;
             int prevRow = g_hoveredListRow;
+            bool prevTiltHover = g_heroTiltHovered;
+            float prevTiltX = g_heroTiltX;
+            float prevTiltY = g_heroTiltY;
+
             g_hoveredWidget = HitTestWidget(pt);
             g_hoveredListRow = -1;
+
+            // Interactive Hero Stage Parallax Tilt
+            RectF stageRect;
+            if (GetWidgetRect(W_STAGE_ROUND_DRAG, stageRect)) {
+                if (pt.x >= stageRect.X && pt.x <= stageRect.GetRight() &&
+                    pt.y >= stageRect.Y && pt.y <= stageRect.GetBottom()) {
+                    float relX = ((float)pt.x - (stageRect.X + stageRect.Width * 0.5f)) / (stageRect.Width * 0.5f);
+                    float relY = ((float)pt.y - (stageRect.Y + stageRect.Height * 0.5f)) / (stageRect.Height * 0.5f);
+                    g_heroTiltX = std::clamp(relX, -1.0f, 1.0f);
+                    g_heroTiltY = std::clamp(relY, -1.0f, 1.0f);
+                    g_heroTiltHovered = true;
+                    if (g_tiltTimerActive) {
+                        KillTimer(hwnd, TIMER_ID_TILT_SPRING);
+                        g_tiltTimerActive = false;
+                    }
+                } else if (g_heroTiltHovered && !g_isDraggingStage) {
+                    g_heroTiltHovered = false;
+                    if (!g_tiltTimerActive && (std::abs(g_heroTiltX) > 0.005f || std::abs(g_heroTiltY) > 0.005f)) {
+                        g_tiltTimerActive = true;
+                        SetTimer(hwnd, TIMER_ID_TILT_SPRING, 16, NULL);
+                    }
+                }
+            }
 
             if (g_hoveredWidget == W_APP_LIST_AREA) {
                 RectF listArea;
@@ -2829,10 +2956,53 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 }
             }
 
-            if (prevHov != g_hoveredWidget || prevRow != g_hoveredListRow) {
+            bool tiltChanged = (prevTiltHover != g_heroTiltHovered) ||
+                               (std::abs(prevTiltX - g_heroTiltX) > 0.01f) ||
+                               (std::abs(prevTiltY - g_heroTiltY) > 0.01f);
+
+            if (prevHov != g_hoveredWidget || prevRow != g_hoveredListRow || tiltChanged) {
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;
+        }
+
+        case WM_MOUSELEAVE: {
+            g_mouseTracking = false;
+            if (g_heroTiltHovered && !g_isDraggingStage) {
+                g_heroTiltHovered = false;
+                if (!g_tiltTimerActive && (std::abs(g_heroTiltX) > 0.005f || std::abs(g_heroTiltY) > 0.005f)) {
+                    g_tiltTimerActive = true;
+                    SetTimer(hwnd, TIMER_ID_TILT_SPRING, 16, NULL);
+                }
+            }
+            g_hoveredWidget = W_NONE;
+            g_hoveredListRow = -1;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return 0;
+        }
+
+        case WM_TIMER: {
+            if (wParam == TIMER_ID_TILT_SPRING) {
+                bool stillMoving = false;
+                if (!g_heroTiltHovered && !g_isDraggingStage) {
+                    const float damping = 0.70f;
+                    g_heroTiltX *= damping;
+                    g_heroTiltY *= damping;
+                    if (std::abs(g_heroTiltX) > 0.005f || std::abs(g_heroTiltY) > 0.005f) {
+                        stillMoving = true;
+                    } else {
+                        g_heroTiltX = 0.0f;
+                        g_heroTiltY = 0.0f;
+                    }
+                }
+                InvalidateRect(hwnd, NULL, FALSE);
+                if (!stillMoving) {
+                    KillTimer(hwnd, TIMER_ID_TILT_SPRING);
+                    g_tiltTimerActive = false;
+                }
+                return 0;
+            }
+            break;
         }
 
         case WM_LBUTTONUP: {
@@ -2841,6 +3011,23 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 ReleaseCapture();
                 SaveStyleConfig();
                 InvalidateAllThumbs();
+                POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+                RectF stageRect;
+                if (GetWidgetRect(W_STAGE_ROUND_DRAG, stageRect) &&
+                    pt.x >= stageRect.X && pt.x <= stageRect.GetRight() &&
+                    pt.y >= stageRect.Y && pt.y <= stageRect.GetBottom()) {
+                    float relX = ((float)pt.x - (stageRect.X + stageRect.Width * 0.5f)) / (stageRect.Width * 0.5f);
+                    float relY = ((float)pt.y - (stageRect.Y + stageRect.Height * 0.5f)) / (stageRect.Height * 0.5f);
+                    g_heroTiltX = std::clamp(relX, -1.0f, 1.0f);
+                    g_heroTiltY = std::clamp(relY, -1.0f, 1.0f);
+                    g_heroTiltHovered = true;
+                } else {
+                    g_heroTiltHovered = false;
+                    if (!g_tiltTimerActive && (std::abs(g_heroTiltX) > 0.005f || std::abs(g_heroTiltY) > 0.005f)) {
+                        g_tiltTimerActive = true;
+                        SetTimer(hwnd, TIMER_ID_TILT_SPRING, 16, NULL);
+                    }
+                }
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
@@ -3082,6 +3269,10 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
 
         case WM_DESTROY:
+            if (g_tiltTimerActive) {
+                KillTimer(hwnd, TIMER_ID_TILT_SPRING);
+                g_tiltTimerActive = false;
+            }
             PostQuitMessage(0);
             return 0;
     }

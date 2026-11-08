@@ -6,6 +6,7 @@ namespace IconEngine {
 
 // Helper drawing utilities
 void AddRoundedRect(GraphicsPath& path, RectF r, REAL radius);
+void AddShapePath(GraphicsPath& path, IconShape shape, RectF r);
 void FillRoundRect(Graphics& g, RectF r, REAL radius, Color fill);
 void DrawRoundRect(Graphics& g, RectF r, REAL radius, Color stroke, REAL width = 1.0f);
 
