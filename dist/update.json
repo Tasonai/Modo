@@ -57,8 +57,8 @@
       "platform": "macos",
       "format": "pkg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS-Installer.pkg",
-      "sha256": "2f8638f25fc80eec66095d20879cafa24941d1c84e438e3bbd2319f1ef395528",
-      "sizeBytes": 3584501,
+      "sha256": "e040a88755d4b58d5eb537d4bcfce9f1b4915bb73ab23f33647d044f7ad24346",
+      "sizeBytes": 3584546,
       "isPrimary": false
     },
     {
@@ -66,8 +66,8 @@
       "platform": "macos",
       "format": "dmg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.dmg",
-      "sha256": "84697bfa81515441b865fea45d57591a619acc11384fbce90214943aa0641d19",
-      "sizeBytes": 4092830,
+      "sha256": "588eff16e4d618e6f3fff9f997f8f331d28d6d4412de7dc1c740d345c1545786",
+      "sizeBytes": 4092827,
       "isPrimary": false
     },
     {
@@ -75,7 +75,7 @@
       "platform": "macos",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.zip",
-      "sha256": "aa97d54f395a5f1211d67845e091225add4e3767bc03b4d3c5cdc4b3290129b8",
+      "sha256": "f0db83ad687929b7e07f472b0891848fc00aa227f69777e5f66b1ff5ca60f2c3",
       "sizeBytes": 3584177,
       "isPrimary": true
     }
