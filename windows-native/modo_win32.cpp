@@ -133,7 +133,9 @@ enum WidgetID {
     W_GRID_AREA,
     W_INSP_TAB_STYLE,
     W_INSP_TAB_GEOMETRY,
-    W_INSP_TAB_OPTIONS
+    W_INSP_TAB_OPTIONS,
+    // Surface material pills (5 materials)
+    W_MATERIAL_0, W_MATERIAL_1, W_MATERIAL_2, W_MATERIAL_3, W_MATERIAL_4
 };
 
 struct HitZone {
@@ -385,6 +387,8 @@ static void SaveStyleConfig() {
     WritePrivateProfileStringW(L"Style", L"Monochrome", g_style.monochrome ? L"1" : L"0", cfgPath.c_str());
     wsprintfW(buf, L"%u", (unsigned)g_style.customColor);
     WritePrivateProfileStringW(L"Style", L"CustomColor", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)g_style.material);
+    WritePrivateProfileStringW(L"Style", L"Material", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", g_gridIconSize);
     WritePrivateProfileStringW(L"Style", L"GridIconSize", buf, cfgPath.c_str());
 }
@@ -412,6 +416,7 @@ static void LoadStyleConfig() {
     g_style.fullBleed = GetPrivateProfileIntW(L"Style", L"FullBleed", 0, cfgPath.c_str()) != 0;
     g_style.monochrome = GetPrivateProfileIntW(L"Style", L"Monochrome", 0, cfgPath.c_str()) != 0;
     g_style.customColor = (COLORREF)GetPrivateProfileIntW(L"Style", L"CustomColor", (INT)RGB(26, 115, 232), cfgPath.c_str());
+    g_style.material = (SurfaceMaterial)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Material", 0, cfgPath.c_str()), 0, 4);
     g_gridIconSize = std::clamp((int)GetPrivateProfileIntW(L"Style", L"GridIconSize", 56, cfgPath.c_str()), 48, 96);
 }
 
@@ -1104,6 +1109,11 @@ static const wchar_t* GetWidgetTooltip(WidgetID id) {
         case W_SHAPE_2: return L"Форма подложки: Галька (Pebble)";
         case W_SHAPE_3: return L"Форма подложки: Шестиугольник (Hexagon)";
         case W_SHAPE_4: return L"Форма подложки: Скруглённый прямоугольник (Windows)";
+        case W_MATERIAL_0: return L"Материал: Гладкий плоский фон (Smooth Flat)";
+        case W_MATERIAL_1: return L"Материал: Матовое стекло с бликом (VisionOS Frosted Glass)";
+        case W_MATERIAL_2: return L"Материал: Шлифованный металл с микротекстурой (Brushed Titanium)";
+        case W_MATERIAL_3: return L"Материал: Мягкий объёмный рельеф (Neumorphic Emboss)";
+        case W_MATERIAL_4: return L"Материал: Голографическая дисперсия света (Prism Chromatic)";
         default:
             if (id >= W_PACK_0 && id <= W_PACK_18) {
                 int p = id - W_PACK_0;
@@ -1702,6 +1712,16 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             g.DrawEllipse(&sp, sr);
         }
 
+        // Surface Material Shaders (Frosted Glass, Titanium, Neumorphic, Prism)
+        REAL matY = swRowY + swW + 14.0f;
+        g.DrawString(L"Материал и текстура подложки", -1, &fSmallBold, PointF((REAL)(inspX + 16), matY), NULL, &primBr);
+        const wchar_t* matNames[5] = { L"Гладкий", L"Стекло", L"Титан", L"Эмбосс", L"Призма" };
+        REAL matW = (inspW - 32.0f - 4.0f * 4.0f) / 5.0f;
+        for (int m = 0; m < 5; ++m) {
+            RectF mr((REAL)(inspX + 16) + m * (matW + 4.0f), matY + 18.0f, matW, 26.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_MATERIAL_0 + m), mr, matNames[m], fSmallBold, theme, false, (int)g_style.material == m);
+        }
+
     } else if (g_inspectorTab == INSP_TAB_GEOMETRY) {
         // --- TAB 2: ГЕОМЕТРИЯ И СЛАЙДЕРЫ ---
         // Scale
@@ -1889,6 +1909,11 @@ enum MenuCommandID {
     IDM_STYLE_SHAPE_PEBBLE,
     IDM_STYLE_SHAPE_HEXAGON,
     IDM_STYLE_SHAPE_ROUNDEDRECT,
+    IDM_STYLE_MATERIAL_SMOOTH,
+    IDM_STYLE_MATERIAL_FROSTED_GLASS,
+    IDM_STYLE_MATERIAL_BRUSHED_TITANIUM,
+    IDM_STYLE_MATERIAL_NEUMORPHIC,
+    IDM_STYLE_MATERIAL_PRISM_GLOW,
     IDM_STYLE_EYEDROPPER,
     IDM_STYLE_RESET_DEFAULT,
     IDM_STYLE_PACK_BASE = 10100,
@@ -1956,6 +1981,14 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hShapeSub, (g_style.shape == SHAPE_HEXAGON ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_HEXAGON, L"Шестиугольник (Hexagon)");
     AppendMenuW(hShapeSub, (g_style.shape == SHAPE_ROUNDED_RECT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_SHAPE_ROUNDEDRECT, L"Скругленный прямоугольник");
     AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hShapeSub, L"Форма подложки (Surface)");
+
+    HMENU hMatSub = CreatePopupMenu();
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_SMOOTH ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_SMOOTH, L"Гладкий (Smooth Flat)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_FROSTED_GLASS ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_FROSTED_GLASS, L"Матовое стекло (VisionOS Frosted Glass)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_BRUSHED_TITANIUM ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_BRUSHED_TITANIUM, L"Шлифованный металл (Brushed Titanium)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_NEUMORPHIC ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_NEUMORPHIC, L"Неоморфизм (Neumorphic Emboss)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_PRISM_GLOW ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_PRISM_GLOW, L"Призма (Prism Chromatic)");
+    AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hMatSub, L"Материал и текстура");
 
     HMENU hPackSub = CreatePopupMenu();
     int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
@@ -2085,6 +2118,16 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
         case IDM_STYLE_SHAPE_ROUNDEDRECT:
             HandleWidgetClick(hwnd, W_SHAPE_4, dummyPt);
             break;
+        case IDM_STYLE_MATERIAL_SMOOTH:
+        case IDM_STYLE_MATERIAL_FROSTED_GLASS:
+        case IDM_STYLE_MATERIAL_BRUSHED_TITANIUM:
+        case IDM_STYLE_MATERIAL_NEUMORPHIC:
+        case IDM_STYLE_MATERIAL_PRISM_GLOW:
+            g_style.material = (SurfaceMaterial)(cmd - IDM_STYLE_MATERIAL_SMOOTH);
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
         case IDM_STYLE_EYEDROPPER:
             HandleWidgetClick(hwnd, W_BTN_EYEDROPPER, dummyPt);
             break;
@@ -2151,6 +2194,7 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 g_style.innerShadow = pk.innerShadow;
                 g_style.monochrome = pk.monochrome;
                 g_style.customColor = pk.customColor;
+                g_style.material = pk.material;
                 g_style.offsetX = 0.0;
                 g_style.offsetY = 0.0;
                 g_activePack = packIdx;
@@ -2334,6 +2378,14 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 
+        case W_MATERIAL_0: case W_MATERIAL_1: case W_MATERIAL_2: case W_MATERIAL_3: case W_MATERIAL_4:
+            g_style.material = (SurfaceMaterial)(id - W_MATERIAL_0);
+            g_activePack = -1;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+
         case W_PACK_0:  case W_PACK_1:  case W_PACK_2:  case W_PACK_3:
         case W_PACK_4:  case W_PACK_5:  case W_PACK_6:  case W_PACK_7:
         case W_PACK_8:  case W_PACK_9:  case W_PACK_10: case W_PACK_11:
@@ -2350,6 +2402,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                 g_style.innerShadow = pk.innerShadow;
                 g_style.monochrome = pk.monochrome;
                 g_style.customColor = pk.customColor;
+                g_style.material = pk.material;
                 g_style.offsetX = 0.0;
                 g_style.offsetY = 0.0;
                 g_activePack = idx;

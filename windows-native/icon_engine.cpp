@@ -377,6 +377,89 @@ static void AddShapePath(GraphicsPath& path, IconShape shape, RectF r) {
     }
 }
 
+static void ApplySurfaceMaterialShader(Graphics& g, SurfaceMaterial mat, RectF rect) {
+    if (mat == MATERIAL_SMOOTH) return;
+
+    PointF startPt(rect.X, rect.GetBottom());
+    PointF endPt(rect.GetRight(), rect.Y);
+
+    switch (mat) {
+        case MATERIAL_FROSTED_GLASS: {
+            LinearGradientBrush sweep(startPt, endPt, Color(80, 255, 255, 255), Color(0, 255, 255, 255));
+            Color sweepCols[3] = {
+                Color(82, 255, 255, 255),
+                Color(20, 255, 255, 255),
+                Color(0, 255, 255, 255)
+            };
+            REAL sweepPos[3] = { 0.0f, 0.45f, 1.0f };
+            sweep.SetInterpolationColors(sweepCols, sweepPos, 3);
+            g.FillRectangle(&sweep, rect);
+
+            RectF topGlow(rect.X, rect.Y, rect.Width, rect.Height * 0.5f);
+            SolidBrush topBr(Color(22, 255, 255, 255));
+            g.FillRectangle(&topBr, topGlow);
+            break;
+        }
+
+        case MATERIAL_BRUSHED_TITANIUM: {
+            LinearGradientBrush metal(startPt, endPt, Color(41, 255, 255, 255), Color(26, 255, 255, 255));
+            Color metalCols[5] = {
+                Color(41, 255, 255, 255),
+                Color(31, 0, 0, 0),
+                Color(56, 255, 255, 255),
+                Color(36, 0, 0, 0),
+                Color(26, 255, 255, 255)
+            };
+            REAL metalPos[5] = { 0.0f, 0.28f, 0.52f, 0.78f, 1.0f };
+            metal.SetInterpolationColors(metalCols, metalPos, 5);
+            g.FillRectangle(&metal, rect);
+
+            Pen grainPen(Color(10, 255, 255, 255), 1.0f);
+            REAL y = rect.Y + 4.0f;
+            while (y < rect.GetBottom()) {
+                g.DrawLine(&grainPen, rect.X, y, rect.GetRight(), y);
+                y += 5.0f;
+            }
+            break;
+        }
+
+        case MATERIAL_NEUMORPHIC: {
+            PointF nw(rect.X, rect.Y);
+            PointF se(rect.GetRight(), rect.GetBottom());
+            LinearGradientBrush neu(nw, se, Color(71, 255, 255, 255), Color(56, 0, 0, 0));
+            Color neuCols[3] = {
+                Color(71, 255, 255, 255),
+                Color(0, 255, 255, 255),
+                Color(56, 0, 0, 0)
+            };
+            REAL neuPos[3] = { 0.0f, 0.50f, 1.0f };
+            neu.SetInterpolationColors(neuCols, neuPos, 3);
+            g.FillRectangle(&neu, rect);
+            break;
+        }
+
+        case MATERIAL_PRISM_GLOW: {
+            PointF nw(rect.X, rect.Y);
+            PointF se(rect.GetRight(), rect.GetBottom());
+            LinearGradientBrush prism(nw, se, Color(46, 242, 89, 115), Color(46, 191, 89, 242));
+            Color prismCols[5] = {
+                Color(46, 242, 89, 115),
+                Color(41, 242, 191, 64),
+                Color(46, 76, 217, 140),
+                Color(51, 64, 166, 242),
+                Color(46, 191, 89, 242)
+            };
+            REAL prismPos[5] = { 0.0f, 0.25f, 0.50f, 0.75f, 1.0f };
+            prism.SetInterpolationColors(prismCols, prismPos, 5);
+            g.FillRectangle(&prism, rect);
+            break;
+        }
+
+        default:
+            break;
+    }
+}
+
 Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int canvasSize) {
     Bitmap* out = new Bitmap(canvasSize, canvasSize, PixelFormat32bppARGB);
     if (!sourceBitmap) return out;
@@ -455,6 +538,8 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
     AddShapePath(clipPath, style.shape, circleRect);
     GraphicsState state = g.Save();
     g.SetClip(&clipPath, CombineModeReplace);
+
+    ApplySurfaceMaterialShader(g, style.material, circleRect);
 
     double opticalFactor = style.autoTrim
         ? std::clamp(0.50 / std::max(0.42, colors.opticalRadiusNorm), 0.72, 1.08)
