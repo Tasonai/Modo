@@ -92,6 +92,7 @@ struct AppEntry {
     std::wstring defaultRestoreIcon;
     bool isFileExplorer = false;
     bool isRecycleBin = false;
+    bool isFolder = false;
     bool isSystemPinnedTop = false;
     bool isApplied = false;
     Bitmap* origBitmap = nullptr;

@@ -512,8 +512,67 @@ static bool ApplyRoundIcon(AppEntry& app, bool* outNeedsAdmin = nullptr) {
     return ShellIntegration::ApplyRoundIconToEntry(app, g_style, &g_pngClsid, g_iconRevCounter, outNeedsAdmin);
 }
 
+static bool AddFolderEntry(HWND hwnd, const std::wstring& folderPath) {
+    if (folderPath.empty()) return false;
+    DWORD attr = GetFileAttributesW(folderPath.c_str());
+    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) return false;
+
+    for (size_t i = 0; i < g_allApps.size(); ++i) {
+        if (_wcsicmp(g_allApps[i].targetPath.c_str(), folderPath.c_str()) == 0) {
+            g_selectedAppIndex = (int)i;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return true;
+        }
+    }
+
+    AppEntry entry;
+    std::wstring fname = PathFindFileNameW(folderPath.c_str());
+    if (fname.empty()) fname = folderPath;
+    entry.name = fname;
+    entry.targetPath = folderPath;
+    entry.isFolder = true;
+    entry.category = L"Папки";
+    entry.origBitmap = LoadHighResIcon(entry.targetPath, L"");
+
+    std::wstring iniPath = folderPath + L"\\desktop.ini";
+    if (GetFileAttributesW(iniPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        wchar_t res[MAX_PATH] = { 0 };
+        GetPrivateProfileStringW(L".ShellClassInfo", L"IconResource", L"", res, MAX_PATH, iniPath.c_str());
+        if (!res[0]) {
+            GetPrivateProfileStringW(L".ShellClassInfo", L"IconFile", L"", res, MAX_PATH, iniPath.c_str());
+        }
+        if (res[0]) entry.isApplied = true;
+    }
+
+    g_allApps.insert(g_allApps.begin(), entry);
+    RebuildFilteredList();
+    g_selectedAppIndex = 0;
+    g_statusText = L"Добавлена папка для оформления: " + entry.name;
+    InvalidateRect(hwnd, NULL, FALSE);
+    return true;
+}
+
+static void AddCustomFolder(HWND hwnd) {
+    BROWSEINFOW bi = { 0 };
+    bi.hwndOwner = hwnd;
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE | BIF_USENEWUI;
+    bi.lpszTitle = L"Выберите папку для применения адаптивного стиля Modo:";
+    LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+    if (pidl) {
+        wchar_t folderPath[MAX_PATH] = { 0 };
+        if (SHGetPathFromIDListW(pidl, folderPath) && folderPath[0]) {
+            AddFolderEntry(hwnd, folderPath);
+        }
+        CoTaskMemFree(pidl);
+    }
+}
+
 static bool AddFileOrAppPath(HWND hwnd, const std::wstring& filePath) {
     if (filePath.empty()) return false;
+    DWORD attr = GetFileAttributesW(filePath.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+        return AddFolderEntry(hwnd, filePath);
+    }
     std::wstring path = filePath;
     std::wstring fname = PathFindFileNameW(filePath.c_str());
     size_t dot = fname.find_last_of(L'.');
@@ -1576,7 +1635,11 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             g.DrawString(app.name.c_str(), -1, &fBodyBold, titleR, &sfTrim, &primBr);
 
             wchar_t subBuf[128];
-            wsprintfW(subBuf, L"%s · %u ярл.", app.category.c_str(), (unsigned)std::max<size_t>(1, app.allLnkPaths.size()));
+            if (app.isFolder) {
+                wsprintfW(subBuf, L"Папка · desktop.ini");
+            } else {
+                wsprintfW(subBuf, L"%s · %u ярл.", app.category.c_str(), (unsigned)std::max<size_t>(1, app.allLnkPaths.size()));
+            }
             g.DrawString(subBuf, -1, &fSmall, subR, &sfTrim, &mutBr);
 
             if (app.isApplied) {
@@ -2087,7 +2150,7 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     // 1. File Menu
     HMENU hFileMenu = CreatePopupMenu();
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_CUSTOM, L"Добавить приложение или файл…\tCtrl+N");
-    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_FOLDER, L"Добавить папку для стилизации…\tCtrl+O");
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_FOLDER, L"Добавить папку для стилизации…\tCtrl+Shift+O");
     AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT, L"Экспорт иконки (.ICO, .PNG)…\tCtrl+E");
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT_WEB_FAVICON_KIT, L"Экспорт Web Favicon Kit & Manifest…");
@@ -2189,8 +2252,10 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     POINT dummyPt = {0, 0};
     switch (cmd) {
         case IDM_FILE_ADD_CUSTOM:
-        case IDM_FILE_ADD_FOLDER:
             AddCustomAppOrImage(hwnd);
+            break;
+        case IDM_FILE_ADD_FOLDER:
+            AddCustomFolder(hwnd);
             break;
         case IDM_FILE_EXPORT:
             ExportStandardIcons(hwnd);
@@ -3250,6 +3315,10 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'F' || wParam == 'f')) {
                 g_searchFocused = true;
                 InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_SHIFT) & 0x8000) && (wParam == 'O' || wParam == 'o')) {
+                AddCustomFolder(hwnd);
                 return 0;
             }
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'N' || wParam == 'n' || wParam == 'O' || wParam == 'o')) {

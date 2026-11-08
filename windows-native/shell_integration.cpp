@@ -497,6 +497,12 @@ bool ApplyRoundIconToEntry(AppEntry& app, const RoundStyle& style, const CLSID* 
 
     if (!IconEngine::SaveMultiSizeIco(app.origBitmap, style, icoPath, pngClsid)) return false;
 
+    if (app.isFolder) {
+        bool ok = ApplyCustomFolderIcon(app.targetPath, icoPath);
+        app.isApplied = ok;
+        return ok;
+    }
+
     if (app.allLnkPaths.empty() && !app.lnkPath.empty()) {
         app.allLnkPaths.push_back(app.lnkPath);
     }
@@ -584,6 +590,11 @@ bool ApplyRoundIconToEntry(AppEntry& app, const RoundStyle& style, const CLSID* 
 }
 
 bool RestoreOriginalEntry(AppEntry& app) {
+    if (app.isFolder) {
+        bool ok = RestoreFolderIcon(app.targetPath);
+        app.isApplied = !ok;
+        return ok;
+    }
     if (!app.systemClsid.empty() && !app.defaultRestoreIcon.empty()) {
         std::wstring explorerClsidKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\" + app.systemClsid + L"\\DefaultIcon";
         std::wstring classesClsidKey  = L"Software\\Classes\\CLSID\\" + app.systemClsid + L"\\DefaultIcon";
