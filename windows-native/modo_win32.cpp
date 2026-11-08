@@ -122,11 +122,14 @@ enum WidgetID {
     W_BTN_EXPORT,
     // Shape pills
     W_SHAPE_0, W_SHAPE_1, W_SHAPE_2, W_SHAPE_3, W_SHAPE_4,
-    // Icon pack pills
+    // Icon pack pills (19 curated packs)
     W_PACK_0, W_PACK_1, W_PACK_2, W_PACK_3, W_PACK_4, W_PACK_5, W_PACK_6, W_PACK_7,
+    W_PACK_8, W_PACK_9, W_PACK_10, W_PACK_11, W_PACK_12, W_PACK_13, W_PACK_14, W_PACK_15,
+    W_PACK_16, W_PACK_17, W_PACK_18,
     // 3-Column View Mode & Tabs
     W_BTN_APP_VIEW_GRID,
     W_BTN_APP_VIEW_LIST,
+    W_SLIDER_GRID_SIZE,
     W_GRID_AREA,
     W_INSP_TAB_STYLE,
     W_INSP_TAB_GEOMETRY,
@@ -261,6 +264,7 @@ static std::vector<int> g_filteredIndices;
 static int g_selectedAppIndex = -1;
 static int g_sidebarFilter = 0; // 0 = All, 1 = Applied only, 2 = System, 3 = Third-party
 static int g_listScrollY = 0;
+static int g_sidebarScrollY = 0;
 static int g_hoveredListRow = -1;
 
 static bool g_searchFocused = false;
@@ -292,6 +296,7 @@ static int g_activePack = -1;
 enum AppGalleryMode { APP_VIEW_GRID = 0, APP_VIEW_LIST = 1 };
 static int g_viewMode = APP_VIEW_GRID;
 static int g_gridScrollY = 0;
+static int g_gridIconSize = 56; // Grid Gallery icon size in px (48..96)
 
 enum InspectorTab { INSP_TAB_STYLE = 0, INSP_TAB_GEOMETRY = 1, INSP_TAB_OPTIONS = 2 };
 static int g_inspectorTab = INSP_TAB_STYLE;
@@ -310,8 +315,16 @@ static void UpdateWindowImmersiveDarkMode(HWND hwnd, bool dark) {
             fn(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &bDark, sizeof(bDark));
             fn(hwnd, 19 /* older Win10 build */, &bDark, sizeof(bDark));
 
-            DWORD cornerPref = 2; // DWMWCP_ROUND
+            DWORD cornerPref = 2; // DWMWCP_ROUND (DWMWA_WINDOW_CORNER_PREFERENCE = 33)
             fn(hwnd, 33, &cornerPref, sizeof(cornerPref));
+
+            // Windows 11 22H2+ System Backdrop (Mica = 2, Acrylic = 3, Tabbed/Mica Alt = 4)
+            DWORD backdropType = 2; // DWMSBT_MAINWINDOW (Mica)
+            fn(hwnd, 38 /* DWMWA_SYSTEMBACKDROP_TYPE */, &backdropType, sizeof(backdropType));
+
+            // Windows 11 21H2 (Build 22000) Mica toggle
+            BOOL bMica = TRUE;
+            fn(hwnd, 1029 /* DWMWA_MICA_EFFECT */, &bMica, sizeof(bMica));
         }
         FreeLibrary(hDwm);
     }
@@ -345,7 +358,7 @@ static void InvalidateAllThumbs() {
 
 static Bitmap* GetAppThumb(AppEntry& app) {
     if (!app.cachedThumb && app.origBitmap) {
-        app.cachedThumb = RenderGoogleRoundIcon(app.origBitmap, g_style, 64);
+        app.cachedThumb = RenderGoogleRoundIcon(app.origBitmap, g_style, 128);
     }
     return app.cachedThumb;
 }
@@ -372,6 +385,8 @@ static void SaveStyleConfig() {
     WritePrivateProfileStringW(L"Style", L"Monochrome", g_style.monochrome ? L"1" : L"0", cfgPath.c_str());
     wsprintfW(buf, L"%u", (unsigned)g_style.customColor);
     WritePrivateProfileStringW(L"Style", L"CustomColor", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", g_gridIconSize);
+    WritePrivateProfileStringW(L"Style", L"GridIconSize", buf, cfgPath.c_str());
 }
 
 static void LoadStyleConfig() {
@@ -397,6 +412,7 @@ static void LoadStyleConfig() {
     g_style.fullBleed = GetPrivateProfileIntW(L"Style", L"FullBleed", 0, cfgPath.c_str()) != 0;
     g_style.monochrome = GetPrivateProfileIntW(L"Style", L"Monochrome", 0, cfgPath.c_str()) != 0;
     g_style.customColor = (COLORREF)GetPrivateProfileIntW(L"Style", L"CustomColor", (INT)RGB(26, 115, 232), cfgPath.c_str());
+    g_gridIconSize = std::clamp((int)GetPrivateProfileIntW(L"Style", L"GridIconSize", 56, cfgPath.c_str()), 48, 96);
 }
 
 static void RebuildFilteredList() {
@@ -1061,20 +1077,23 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     g.DrawLine(&divPen, 16, (INT)packsHeaderY, sideW - 16, (INT)packsHeaderY);
     g.DrawString(L"ПАКИ И ТЕМЫ", -1, &fSection, PointF(16.0f, packsHeaderY + 10.0f), NULL, &mutBr);
 
-    Color packDots[8] = {
-        Color(255, 10, 132, 255),  // WhiteSur
-        Color(255, 66, 133, 244),  // Pixel
-        Color(255, 136, 192, 208), // Nordic
-        Color(255, 245, 194, 231), // Catppuccin
-        Color(255, 0, 255, 157),   // Neon
-        Color(255, 142, 142, 147), // Obsidian
-        Color(255, 191, 90, 242),  // Tela
-        Color(255, 255, 159, 10)   // Lawnicons
-    };
+    int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
+    REAL packAreaY = packsHeaderY + 28.0f;
+    REAL packAreaH = (REAL)(contentH - (packAreaY - contentY) - 10.0f);
+    RectF packScrollArea(0.0f, packAreaY, (REAL)sideW, packAreaH);
 
-    REAL packListY = packsHeaderY + 28.0f;
-    for (int p = 0; p < 8; ++p) {
-        RectF pr(8.0f, packListY + p * 30.0f, (REAL)(sideW - 16), 26.0f);
+    REAL totalPacksH = totalPacks * 30.0f + 10.0f;
+    int maxSidebarScroll = std::max(0, (int)(totalPacksH - packAreaH));
+    g_sidebarScrollY = std::clamp(g_sidebarScrollY, 0, maxSidebarScroll);
+
+    GraphicsState sideState = g.Save();
+    g.SetClip(packScrollArea);
+
+    for (int p = 0; p < totalPacks; ++p) {
+        REAL py = packAreaY + p * 30.0f - g_sidebarScrollY;
+        if (py + 26.0f < packAreaY || py > packAreaY + packAreaH) continue;
+
+        RectF pr(8.0f, py, (REAL)(sideW - 16), 26.0f);
         RegisterHit((WidgetID)(W_PACK_0 + p), pr);
         bool isAct = (g_activePack == p);
         bool isHov = (g_hoveredWidget == (WidgetID)(W_PACK_0 + p));
@@ -1086,8 +1105,13 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             FillRoundRect(g, pr, 6.0f, theme.hovRowBg);
         }
 
-        // Color dot
-        SolidBrush db(packDots[p]);
+        // Color dot: derived from pack preset / custom color
+        COLORREF dotColor = kIconPacks[p].customColor;
+        if (kIconPacks[p].preset == PRESET_GOOGLE_WHITE) dotColor = RGB(66, 133, 244);
+        else if (kIconPacks[p].preset == PRESET_MATERIAL_PASTEL) dotColor = RGB(136, 192, 208);
+        else if (kIconPacks[p].preset == PRESET_DARK_MATERIAL) dotColor = RGB(56, 189, 248);
+        Color dc(255, GetRValue(dotColor), GetGValue(dotColor), GetBValue(dotColor));
+        SolidBrush db(dc);
         g.FillEllipse(&db, pr.X + 10.0f, pr.Y + 9.0f, 8.0f, 8.0f);
 
         StringFormat sfP; sfP.SetLineAlignment(StringAlignmentCenter);
@@ -1098,6 +1122,15 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             DrawGlyphIcon(g, GLYPH_CHECKMARK, cr, theme.isDark ? Color(255, 52, 199, 89) : Color(255, 0, 122, 255));
         }
     }
+
+    if (maxSidebarScroll > 0) {
+        REAL trackH = packAreaH;
+        REAL thumbH = std::max(24.0f, trackH * (trackH / totalPacksH));
+        REAL thumbY = packAreaY + (trackH - thumbH) * ((REAL)g_sidebarScrollY / (REAL)maxSidebarScroll);
+        FillRoundRect(g, RectF(sideW - 5.0f, thumbY, 3.0f, thumbH), 1.5f, theme.isDark ? Color(120, 110, 118, 135) : Color(120, 160, 165, 175));
+    }
+
+    g.Restore(sideState);
 
     // =========================================================================
     // COLUMN 2: CENTER GALLERY / LIST (Flexible Width)
@@ -1181,8 +1214,9 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         // --- VIEW MODE A: GRID GALLERY (APP STORE STYLE) ---
         RegisterHit(W_GRID_AREA, galArea);
 
-        int cardW = 104;
-        int cardH = 114;
+        int iconSize = g_gridIconSize;
+        int cardW = iconSize + 48;
+        int cardH = iconSize + 58;
         int gapX = 10;
         int gapY = 10;
         int numCols = std::max(1, (galW - 20) / (cardW + gapX));
@@ -1219,12 +1253,12 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
             AppEntry& app = g_allApps[appIdx];
             if (Bitmap* thumb = GetAppThumb(app)) {
-                RectF iconR(cx + (cardW - 56) * 0.5f, cy + 12.0f, 56.0f, 56.0f);
+                RectF iconR(cx + (cardW - iconSize) * 0.5f, cy + 8.0f, (REAL)iconSize, (REAL)iconSize);
                 g.DrawImage(thumb, iconR);
             }
 
             // Title
-            RectF titleR(cx + 6.0f, cy + 74.0f, (REAL)(cardW - 12), 16.0f);
+            RectF titleR(cx + 6.0f, cy + 8.0f + iconSize + 4.0f, (REAL)(cardW - 12), 16.0f);
             StringFormat sfTrim;
             sfTrim.SetAlignment(StringAlignmentCenter);
             sfTrim.SetTrimming(StringTrimmingEllipsisCharacter);
@@ -1233,7 +1267,7 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
             // Badge
             if (app.isApplied) {
-                RectF badgeR(cx + (cardW - 46) * 0.5f, cy + 93.0f, 46.0f, 15.0f);
+                RectF badgeR(cx + (cardW - 46) * 0.5f, cy + 8.0f + iconSize + 22.0f, 46.0f, 15.0f);
                 FillRoundRect(g, badgeR, 7.5f, theme.badgeBg);
                 SolidBrush bText(theme.badgeText);
                 StringFormat sfB; sfB.SetAlignment(StringAlignmentCenter); sfB.SetLineAlignment(StringAlignmentCenter);
@@ -1317,6 +1351,30 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     wchar_t galFoot[128];
     wsprintfW(galFoot, L"%d приложений · %d стилизовано", totalApps, appliedTotal);
     g.DrawString(galFoot, -1, &fSmall, PointF((REAL)(galX + 16), (REAL)(contentY + contentH - 20)), NULL, &mutBr);
+
+    if (g_viewMode == APP_VIEW_GRID) {
+        // macOS-style Grid Icon Size Slider in footer (48px .. 96px)
+        REAL sWidth = 84.0f;
+        REAL sRight = (REAL)(galX + galW - 54);
+        REAL sLeft = sRight - sWidth;
+        REAL sY = (REAL)(contentY + contentH - 22);
+
+        // Small dot indicator on left
+        SolidBrush dotBr(theme.textMuted);
+        g.FillEllipse(&dotBr, sLeft - 12.0f, sY + 6.0f, 4.0f, 4.0f);
+
+        // Slider
+        double normGridSize = (double)(g_gridIconSize - 48) / (96.0 - 48.0);
+        DrawStudioSlider(g, W_SLIDER_GRID_SIZE, RectF(sLeft, sY, sWidth, 18.0f), normGridSize, theme);
+
+        // Large dot indicator on right
+        g.FillEllipse(&dotBr, sRight + 6.0f, sY + 4.5f, 7.0f, 7.0f);
+
+        // Pixel label: "56px"
+        wchar_t szSize[32];
+        wsprintfW(szSize, L"%dpx", g_gridIconSize);
+        g.DrawString(szSize, -1, &fSmall, PointF(sRight + 18.0f, (REAL)(contentY + contentH - 20)), NULL, &secBr);
+    }
 
     // =========================================================================
     // COLUMN 3: RIGHT FOCUSED INSPECTOR (Width: 360px)
@@ -1600,8 +1658,10 @@ static void UpdateSliderFromMouse(WidgetID id, int mouseX, bool isFinalRelease =
         g_style.offsetY = -1.0 + norm * 2.0;
     } else if (id == W_SLIDER_SHADOW) {
         g_style.shadow = norm;
+    } else if (id == W_SLIDER_GRID_SIZE) {
+        g_gridIconSize = std::clamp((int)std::round(48.0 + norm * (96.0 - 48.0)), 48, 96);
     }
-    if (isFinalRelease) {
+    if (isFinalRelease && id != W_SLIDER_GRID_SIZE) {
         InvalidateAllThumbs();
     }
     InvalidateRect(g_hMainWnd, NULL, FALSE);
@@ -1956,8 +2016,9 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
         case W_GRID_AREA: {
             RectF gridArea;
             if (GetWidgetRect(W_GRID_AREA, gridArea)) {
-                int cardW = 104;
-                int cardH = 114;
+                int iconSize = g_gridIconSize;
+                int cardW = iconSize + 48;
+                int cardH = iconSize + 58;
                 int gapX = 10;
                 int gapY = 10;
                 int numCols = std::max(1, ((int)gridArea.Width - 20) / (cardW + gapX));
@@ -1966,7 +2027,9 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                 if (relX >= 0 && relY >= 0) {
                     int col = relX / (cardW + gapX);
                     int row = relY / (cardH + gapY);
-                    if (col < numCols) {
+                    int cardRelX = relX % (cardW + gapX);
+                    int cardRelY = relY % (cardH + gapY);
+                    if (col < numCols && cardRelX < cardW && cardRelY < cardH) {
                         int idx = row * numCols + col;
                         if (idx >= 0 && idx < (int)g_filteredIndices.size()) {
                             g_selectedAppIndex = g_filteredIndices[idx];
@@ -2045,23 +2108,29 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 
-        case W_PACK_0: case W_PACK_1: case W_PACK_2: case W_PACK_3:
-        case W_PACK_4: case W_PACK_5: case W_PACK_6: case W_PACK_7: {
+        case W_PACK_0:  case W_PACK_1:  case W_PACK_2:  case W_PACK_3:
+        case W_PACK_4:  case W_PACK_5:  case W_PACK_6:  case W_PACK_7:
+        case W_PACK_8:  case W_PACK_9:  case W_PACK_10: case W_PACK_11:
+        case W_PACK_12: case W_PACK_13: case W_PACK_14: case W_PACK_15:
+        case W_PACK_16: case W_PACK_17: case W_PACK_18: {
             int idx = id - W_PACK_0;
-            const IconPackDef& pk = kIconPacks[idx];
-            g_style.preset = pk.preset;
-            g_style.shape = pk.shape;
-            g_style.scale = pk.scale;
-            g_style.shadow = pk.shadow;
-            g_style.innerShadow = pk.innerShadow;
-            g_style.monochrome = pk.monochrome;
-            g_style.customColor = pk.customColor;
-            g_style.offsetX = 0.0;
-            g_style.offsetY = 0.0;
-            g_activePack = idx;
-            SaveStyleConfig();
-            InvalidateAllThumbs();
-            InvalidateRect(hwnd, NULL, FALSE);
+            int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
+            if (idx >= 0 && idx < totalPacks) {
+                const IconPackDef& pk = kIconPacks[idx];
+                g_style.preset = pk.preset;
+                g_style.shape = pk.shape;
+                g_style.scale = pk.scale;
+                g_style.shadow = pk.shadow;
+                g_style.innerShadow = pk.innerShadow;
+                g_style.monochrome = pk.monochrome;
+                g_style.customColor = pk.customColor;
+                g_style.offsetX = 0.0;
+                g_style.offsetY = 0.0;
+                g_activePack = idx;
+                SaveStyleConfig();
+                InvalidateAllThumbs();
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
             break;
         }
 
@@ -2326,7 +2395,8 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 return 0;
             }
 
-            if (hit == W_SLIDER_SCALE || hit == W_SLIDER_OFFX || hit == W_SLIDER_OFFY || hit == W_SLIDER_SHADOW) {
+            if (hit == W_SLIDER_SCALE || hit == W_SLIDER_OFFX || hit == W_SLIDER_OFFY ||
+                hit == W_SLIDER_SHADOW || hit == W_SLIDER_GRID_SIZE) {
                 SetCapture(hwnd);
                 UpdateSliderFromMouse(hit, pt.x);
                 return 0;
@@ -2405,7 +2475,8 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
 
             if (g_activeWidget == W_SLIDER_SCALE || g_activeWidget == W_SLIDER_OFFX ||
-                g_activeWidget == W_SLIDER_OFFY  || g_activeWidget == W_SLIDER_SHADOW) {
+                g_activeWidget == W_SLIDER_OFFY  || g_activeWidget == W_SLIDER_SHADOW ||
+                g_activeWidget == W_SLIDER_GRID_SIZE) {
                 UpdateSliderFromMouse(g_activeWidget, pt.x);
                 return 0;
             }
@@ -2421,6 +2492,30 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     int row = (pt.y - (int)listArea.Y + g_listScrollY) / 50;
                     if (row >= 0 && row < (int)g_filteredIndices.size()) {
                         g_hoveredListRow = row;
+                    }
+                }
+            } else if (g_hoveredWidget == W_GRID_AREA) {
+                RectF gridArea;
+                if (GetWidgetRect(W_GRID_AREA, gridArea)) {
+                    int iconSize = g_gridIconSize;
+                    int cardW = iconSize + 48;
+                    int cardH = iconSize + 58;
+                    int gapX = 10;
+                    int gapY = 10;
+                    int numCols = std::max(1, ((int)gridArea.Width - 20) / (cardW + gapX));
+                    int relX = pt.x - (int)gridArea.X - 10;
+                    int relY = pt.y - (int)gridArea.Y + g_gridScrollY - 10;
+                    if (relX >= 0 && relY >= 0) {
+                        int col = relX / (cardW + gapX);
+                        int row = relY / (cardH + gapY);
+                        int cardRelX = relX % (cardW + gapX);
+                        int cardRelY = relY % (cardH + gapY);
+                        if (col < numCols && cardRelX < cardW && cardRelY < cardH) {
+                            int idx = row * numCols + col;
+                            if (idx >= 0 && idx < (int)g_filteredIndices.size()) {
+                                g_hoveredListRow = idx;
+                            }
+                        }
                     }
                 }
             }
@@ -2442,7 +2537,8 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
             if (g_activeWidget != W_NONE) {
                 if (g_activeWidget == W_SLIDER_SCALE || g_activeWidget == W_SLIDER_OFFX ||
-                    g_activeWidget == W_SLIDER_OFFY  || g_activeWidget == W_SLIDER_SHADOW) {
+                    g_activeWidget == W_SLIDER_OFFY  || g_activeWidget == W_SLIDER_SHADOW ||
+                    g_activeWidget == W_SLIDER_GRID_SIZE) {
                     UpdateSliderFromMouse(g_activeWidget, GET_X_LPARAM(lParam), true);
                     ReleaseCapture();
                     SaveStyleConfig();
@@ -2473,7 +2569,10 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             int clientW = rc.right;
 
             if (pt.x < 210) {
-                // Left sidebar
+                // Left sidebar icon packs scroll
+                g_sidebarScrollY -= (delta > 0) ? 35 : -35;
+                g_sidebarScrollY = std::max(0, g_sidebarScrollY);
+                InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             } else if (pt.x >= 210 && pt.x < clientW - 360) {
                 // Center gallery
