@@ -20,5 +20,10 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
 
 // Multi-size .ico encoder
 bool SaveMultiSizeIco(Bitmap* src, const RoundStyle& style, const std::wstring& outPath, const CLSID* pngClsid = nullptr);
+bool SaveFaviconIco(Bitmap* src, const RoundStyle& style, const std::wstring& outPath, const CLSID* pngClsid = nullptr);
+
+// Developer Export Suite
+bool ExportWebFaviconKit(Bitmap* src, const RoundStyle& style, const std::wstring& appName, const std::wstring& outDir, const CLSID* pngClsid);
+bool ExportXcodeAssetCatalog(Bitmap* src, const RoundStyle& style, const std::wstring& appName, const std::wstring& outDir, const CLSID* pngClsid);
 
 } // namespace IconEngine

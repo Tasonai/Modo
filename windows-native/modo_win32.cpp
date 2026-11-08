@@ -574,10 +574,14 @@ static void AddCustomAppOrImage(HWND hwnd) {
     }
 }
 
-static void ExportCurrentOrAllIcons(HWND hwnd) {
+static void ExportStandardIcons(HWND hwnd) {
+    if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
+        MessageBoxW(hwnd, L"Выберите приложение в галерее или списке для экспорта.", L"Modo Studio", MB_OK | MB_ICONWARNING);
+        return;
+    }
     BROWSEINFOW bi = {0};
     bi.hwndOwner = hwnd;
-    bi.lpszTitle = L"Выберите папку для экспорта иконок (.ICO и 1024x1024 .PNG):";
+    bi.lpszTitle = L"Выберите папку для экспорта иконки (.ico и 1024px .png):";
     bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
     LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
     if (!pidl) return;
@@ -585,22 +589,98 @@ static void ExportCurrentOrAllIcons(HWND hwnd) {
     wchar_t outDir[MAX_PATH] = {0};
     if (SHGetPathFromIDListW(pidl, outDir) && outDir[0]) {
         std::wstring dir = outDir;
-        if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
-            AppEntry& app = g_allApps[g_selectedAppIndex];
-            std::wstring safe = SanitizeFileName(app.name);
-            Bitmap* master1024 = RenderGoogleRoundIcon(app.origBitmap, g_style, 1024);
-            std::wstring icoFile = dir + L"\\" + safe + L".ico";
-            std::wstring pngFile = dir + L"\\" + safe + L".png";
-            SaveMultiSizeIco(app.origBitmap, g_style, icoFile);
+        AppEntry& app = g_allApps[g_selectedAppIndex];
+        std::wstring safe = SanitizeFileName(app.name);
+        Bitmap* master1024 = RenderGoogleRoundIcon(app.origBitmap, g_style, 1024);
+        std::wstring icoFile = dir + L"\\" + safe + L".ico";
+        std::wstring pngFile = dir + L"\\" + safe + L".png";
+        SaveMultiSizeIco(app.origBitmap, g_style, icoFile, &g_pngClsid);
+        if (master1024) {
             master1024->Save(pngFile.c_str(), &g_pngClsid, NULL);
             delete master1024;
         }
-        g_statusText = L"Экспортированы .ICO + 1024px .PNG в " + dir;
+        g_statusText = L"Экспортированы .ico + 1024px .png в " + dir;
         InvalidateRect(hwnd, NULL, FALSE);
-        MessageBoxW(hwnd, (L"Иконка (.ICO + 1024px .PNG) сохранена в:\n" + dir).c_str(),
+        MessageBoxW(hwnd, (L"Иконка (.ico + 1024px .png) успешно сохранена в:\n" + dir).c_str(),
                     L"Экспорт завершён", MB_ICONINFORMATION);
     }
     CoTaskMemFree(pidl);
+}
+
+static void ExportWebFaviconKitDialog(HWND hwnd) {
+    if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
+        MessageBoxW(hwnd, L"Выберите приложение в галерее или списке для экспорта.", L"Modo Studio", MB_OK | MB_ICONWARNING);
+        return;
+    }
+    BROWSEINFOW bi = {0};
+    bi.hwndOwner = hwnd;
+    bi.lpszTitle = L"Выберите папку для создания пакета Web Favicon Kit & Manifest:";
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+    if (!pidl) return;
+
+    wchar_t outDir[MAX_PATH] = {0};
+    if (SHGetPathFromIDListW(pidl, outDir) && outDir[0]) {
+        std::wstring dir = outDir;
+        AppEntry& app = g_allApps[g_selectedAppIndex];
+        if (ExportWebFaviconKit(app.origBitmap, g_style, app.name, dir, &g_pngClsid)) {
+            g_statusText = L"Web Favicon Kit успешно сохранён в " + dir;
+            InvalidateRect(hwnd, NULL, FALSE);
+            MessageBoxW(hwnd, (L"Пакет Web Favicon Kit (favicon.ico, PNG 16/32/180/192/512, site.webmanifest, HTML-теги) успешно создан в:\n" + dir).c_str(),
+                        L"Экспорт Web Favicon Kit", MB_ICONINFORMATION);
+        } else {
+            MessageBoxW(hwnd, L"Не удалось создать пакет веб-иконок.", L"Ошибка экспорта", MB_OK | MB_ICONERROR);
+        }
+    }
+    CoTaskMemFree(pidl);
+}
+
+static void ExportXcodeCatalogDialog(HWND hwnd) {
+    if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
+        MessageBoxW(hwnd, L"Выберите приложение в галерее или списке для экспорта.", L"Modo Studio", MB_OK | MB_ICONWARNING);
+        return;
+    }
+    BROWSEINFOW bi = {0};
+    bi.hwndOwner = hwnd;
+    bi.lpszTitle = L"Выберите папку для создания каталога Xcode Asset Catalog (.appiconset):";
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+    if (!pidl) return;
+
+    wchar_t outDir[MAX_PATH] = {0};
+    if (SHGetPathFromIDListW(pidl, outDir) && outDir[0]) {
+        std::wstring dir = outDir;
+        AppEntry& app = g_allApps[g_selectedAppIndex];
+        if (ExportXcodeAssetCatalog(app.origBitmap, g_style, app.name, dir, &g_pngClsid)) {
+            g_statusText = L"Xcode Asset Catalog успешно сохранён в " + dir;
+            InvalidateRect(hwnd, NULL, FALSE);
+            MessageBoxW(hwnd, (L"Каталог Xcode Asset Catalog (.appiconset с 11 размерами и Contents.json) успешно создан в:\n" + dir).c_str(),
+                        L"Экспорт Xcode Catalog", MB_ICONINFORMATION);
+        } else {
+            MessageBoxW(hwnd, L"Не удалось создать каталог Xcode.", L"Ошибка экспорта", MB_OK | MB_ICONERROR);
+        }
+    }
+    CoTaskMemFree(pidl);
+}
+
+static void ShowExportMenu(HWND hwnd, POINT screenPt) {
+    HMENU hMenu = CreatePopupMenu();
+    AppendMenuW(hMenu, MF_STRING, 1, L"Стандартный экспорт (.ico + 1024px .png)\tCtrl+E");
+    AppendMenuW(hMenu, MF_STRING, 2, L"Веб-набор (Web Favicon Kit & Manifest)...");
+    AppendMenuW(hMenu, MF_STRING, 3, L"Xcode Asset Catalog (.appiconset)...");
+
+    SetForegroundWindow(hwnd);
+    int cmd = TrackPopupMenu(hMenu, TPM_LEFTALIGN | TPM_BOTTOMALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
+                            screenPt.x, screenPt.y, 0, hwnd, NULL);
+    DestroyMenu(hMenu);
+
+    if (cmd == 1) {
+        ExportStandardIcons(hwnd);
+    } else if (cmd == 2) {
+        ExportWebFaviconKitDialog(hwnd);
+    } else if (cmd == 3) {
+        ExportXcodeCatalogDialog(hwnd);
+    }
 }
 
 // ============================================================================
@@ -1018,7 +1098,7 @@ static const wchar_t* GetWidgetTooltip(WidgetID id) {
         case W_BTN_APPLY_ALL: return L"Пакетно применить текущий стиль ко всем отфильтрованным (Shift+Enter)";
         case W_BTN_RESTORE_ONE: return L"Восстановить оригинальную иконку выбранного приложения (Delete)";
         case W_BTN_RESTORE_ALL: return L"Сбросить кастомные иконки для всех приложений";
-        case W_BTN_EXPORT: return L"Экспорт иконки в файл .ico и 1024px .png (Ctrl+E)";
+        case W_BTN_EXPORT: return L"Меню экспорта: .ico, Web Favicon Kit, Xcode Catalog (Ctrl+E)";
         case W_SHAPE_0: return L"Форма подложки: Круг (macOS канон)";
         case W_SHAPE_1: return L"Форма подложки: Сквиркл (Суперэллипс iOS/macOS)";
         case W_SHAPE_2: return L"Форма подложки: Галька (Pebble)";
@@ -1780,6 +1860,8 @@ enum MenuCommandID {
     IDM_FILE_ADD_CUSTOM,
     IDM_FILE_ADD_FOLDER,
     IDM_FILE_EXPORT,
+    IDM_FILE_EXPORT_WEB_FAVICON_KIT,
+    IDM_FILE_EXPORT_XCODE_CATALOG,
     IDM_FILE_RESCAN,
 
     // Edit
@@ -1828,7 +1910,9 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_CUSTOM, L"Добавить приложение или файл…\tCtrl+N");
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_ADD_FOLDER, L"Добавить папку для стилизации…\tCtrl+O");
     AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT, L"Экспортировать иконку (.ICO, .PNG)…\tCtrl+E");
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT, L"Экспорт иконки (.ICO, .PNG)…\tCtrl+E");
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT_WEB_FAVICON_KIT, L"Экспорт Web Favicon Kit & Manifest…");
+    AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_EXPORT_XCODE_CATALOG, L"Экспорт Xcode Asset Catalog (.appiconset)…");
     AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hFileMenu, MF_STRING, IDM_FILE_RESCAN, L"Обновить список приложений\tF5");
     AppendMenuW(hFileMenu, MF_SEPARATOR, 0, NULL);
@@ -1918,7 +2002,13 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             AddCustomAppOrImage(hwnd);
             break;
         case IDM_FILE_EXPORT:
-            HandleWidgetClick(hwnd, W_BTN_EXPORT, dummyPt);
+            ExportStandardIcons(hwnd);
+            break;
+        case IDM_FILE_EXPORT_WEB_FAVICON_KIT:
+            ExportWebFaviconKitDialog(hwnd);
+            break;
+        case IDM_FILE_EXPORT_XCODE_CATALOG:
+            ExportXcodeCatalogDialog(hwnd);
             break;
         case IDM_FILE_RESCAN:
             HandleWidgetClick(hwnd, W_BTN_RESCAN, dummyPt);
@@ -2455,9 +2545,17 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             break;
         }
 
-        case W_BTN_EXPORT:
-            ExportCurrentOrAllIcons(hwnd);
+        case W_BTN_EXPORT: {
+            RectF expR;
+            if (GetWidgetRect(W_BTN_EXPORT, expR)) {
+                POINT p = { (LONG)expR.X, (LONG)expR.Y - 2 };
+                ClientToScreen(hwnd, &p);
+                ShowExportMenu(hwnd, p);
+            } else {
+                ExportStandardIcons(hwnd);
+            }
             break;
+        }
 
         default:
             break;
@@ -2822,8 +2920,7 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 return 0;
             }
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'E' || wParam == 'e')) {
-                POINT dummyPt = {0, 0};
-                HandleWidgetClick(hwnd, W_BTN_EXPORT, dummyPt);
+                ExportStandardIcons(hwnd);
                 return 0;
             }
             if (wParam == VK_F5) {

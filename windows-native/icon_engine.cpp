@@ -1,6 +1,8 @@
 #include "icon_engine.h"
+#include "shell_integration.h"
 #include <algorithm>
 #include <cmath>
+#include <cwctype>
 #include <vector>
 
 namespace IconEngine {
@@ -621,10 +623,8 @@ static bool EncodeBitmapToDibFrame(Bitmap* bmp, std::vector<uint8_t>& outBytes) 
     return true;
 }
 
-bool SaveMultiSizeIco(Bitmap* sourceOrigBitmap, const RoundStyle& style, const std::wstring& icoPath, const CLSID* pngClsid) {
-    if (!sourceOrigBitmap) return false;
-    const int sizes[] = { 256, 128, 96, 64, 48, 40, 32, 24, 16 };
-    const int count = (int)(sizeof(sizes) / sizeof(sizes[0]));
+static bool SaveIcoWithSizes(Bitmap* sourceOrigBitmap, const RoundStyle& style, const std::wstring& icoPath, const int* sizes, int count, const CLSID* pngClsid) {
+    if (!sourceOrigBitmap || count <= 0) return false;
     std::vector<std::vector<uint8_t>> frames(count);
 
     for (int i = 0; i < count; ++i) {
@@ -665,6 +665,217 @@ bool SaveMultiSizeIco(Bitmap* sourceOrigBitmap, const RoundStyle& style, const s
     }
 
     CloseHandle(hFile);
+    return true;
+}
+
+bool SaveMultiSizeIco(Bitmap* sourceOrigBitmap, const RoundStyle& style, const std::wstring& icoPath, const CLSID* pngClsid) {
+    const int sizes[] = { 256, 128, 96, 64, 48, 40, 32, 24, 16 };
+    return SaveIcoWithSizes(sourceOrigBitmap, style, icoPath, sizes, (int)(sizeof(sizes)/sizeof(sizes[0])), pngClsid);
+}
+
+bool SaveFaviconIco(Bitmap* sourceOrigBitmap, const RoundStyle& style, const std::wstring& icoPath, const CLSID* pngClsid) {
+    const int sizes[] = { 48, 32, 16 };
+    return SaveIcoWithSizes(sourceOrigBitmap, style, icoPath, sizes, (int)(sizeof(sizes)/sizeof(sizes[0])), pngClsid);
+}
+
+static bool WriteUtf8File(const std::wstring& path, const std::string& content) {
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0;
+    WriteFile(hFile, content.data(), (DWORD)content.size(), &written, NULL);
+    CloseHandle(hFile);
+    return written == (DWORD)content.size();
+}
+
+bool ExportWebFaviconKit(Bitmap* src, const RoundStyle& style, const std::wstring& appName, const std::wstring& outDir, const CLSID* pngClsid) {
+    if (!src || !pngClsid || outDir.empty()) return false;
+    std::wstring clean = ShellIntegration::SanitizeFileName(appName);
+    if (clean.empty()) clean = L"modo-app";
+    for (auto& ch : clean) {
+        if (ch == L' ') ch = L'-';
+        else ch = towlower(ch);
+    }
+    std::wstring kitDir = outDir + L"\\" + clean + L"-favicons";
+    CreateDirectoryW(kitDir.c_str(), NULL);
+
+    // 1. Multi-resolution favicon.ico (16, 32, 48)
+    SaveFaviconIco(src, style, kitDir + L"\\favicon.ico", pngClsid);
+
+    // 2. Web PNGs
+    struct WebSpec { const wchar_t* name; int px; };
+    const WebSpec specs[] = {
+        { L"favicon-16x16.png", 16 },
+        { L"favicon-32x32.png", 32 },
+        { L"apple-touch-icon.png", 180 },
+        { L"android-chrome-192x192.png", 192 },
+        { L"android-chrome-512x512.png", 512 }
+    };
+
+    for (const auto& sp : specs) {
+        Bitmap* bmp = RenderGoogleRoundIcon(src, style, sp.px);
+        if (bmp) {
+            std::wstring fpath = kitDir + L"\\" + sp.name;
+            bmp->Save(fpath.c_str(), pngClsid, NULL);
+            delete bmp;
+        }
+    }
+
+    // 3. App title UTF-8
+    int utf8Len = WideCharToMultiByte(CP_UTF8, 0, appName.c_str(), -1, NULL, 0, NULL, NULL);
+    std::string nameUtf8(utf8Len > 1 ? utf8Len - 1 : 0, '\0');
+    if (!nameUtf8.empty()) {
+        WideCharToMultiByte(CP_UTF8, 0, appName.c_str(), -1, nameUtf8.data(), utf8Len, NULL, NULL);
+    }
+    if (nameUtf8.empty()) nameUtf8 = "Modo";
+
+    // 4. site.webmanifest
+    std::string manifest =
+        "{\n"
+        "  \"name\": \"" + nameUtf8 + "\",\n"
+        "  \"short_name\": \"" + nameUtf8 + "\",\n"
+        "  \"icons\": [\n"
+        "    {\n"
+        "      \"src\": \"/android-chrome-192x192.png\",\n"
+        "      \"sizes\": \"192x192\",\n"
+        "      \"type\": \"image/png\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"src\": \"/android-chrome-512x512.png\",\n"
+        "      \"sizes\": \"512x512\",\n"
+        "      \"type\": \"image/png\"\n"
+        "    }\n"
+        "  ],\n"
+        "  \"theme_color\": \"#ffffff\",\n"
+        "  \"background_color\": \"#ffffff\",\n"
+        "  \"display\": \"standalone\"\n"
+        "}\n";
+    WriteUtf8File(kitDir + L"\\site.webmanifest", manifest);
+
+    // 5. html_snippet.html
+    std::string snippet =
+        "<!-- Modo Web Favicon Tags -->\n"
+        "<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">\n"
+        "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n"
+        "<link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n"
+        "<link rel=\"manifest\" href=\"/site.webmanifest\">\n"
+        "<meta name=\"theme-color\" content=\"#ffffff\">\n";
+    WriteUtf8File(kitDir + L"\\html_snippet.html", snippet);
+
+    return true;
+}
+
+bool ExportXcodeAssetCatalog(Bitmap* src, const RoundStyle& style, const std::wstring& appName, const std::wstring& outDir, const CLSID* pngClsid) {
+    if (!src || !pngClsid || outDir.empty()) return false;
+    std::wstring clean;
+    for (wchar_t c : appName) {
+        if (iswalnum(c)) clean.push_back(c);
+    }
+    if (clean.empty()) clean = L"AppIcon";
+    std::wstring setDir = outDir + L"\\" + clean + L".appiconset";
+    CreateDirectoryW(setDir.c_str(), NULL);
+
+    struct XcodeSpec { const wchar_t* filename; int px; };
+    const XcodeSpec specs[] = {
+        { L"icon_16x16.png", 16 },
+        { L"icon_16x16@2x.png", 32 },
+        { L"icon_32x32.png", 32 },
+        { L"icon_32x32@2x.png", 64 },
+        { L"icon_128x128.png", 128 },
+        { L"icon_128x128@2x.png", 256 },
+        { L"icon_256x256.png", 256 },
+        { L"icon_256x256@2x.png", 512 },
+        { L"icon_512x512.png", 512 },
+        { L"icon_512x512@2x.png", 1024 },
+        { L"icon_1024x1024.png", 1024 }
+    };
+
+    for (const auto& sp : specs) {
+        Bitmap* bmp = RenderGoogleRoundIcon(src, style, sp.px);
+        if (bmp) {
+            std::wstring fpath = setDir + L"\\" + sp.filename;
+            bmp->Save(fpath.c_str(), pngClsid, NULL);
+            delete bmp;
+        }
+    }
+
+    std::string contentsJson =
+        "{\n"
+        "  \"images\" : [\n"
+        "    {\n"
+        "      \"filename\" : \"icon_16x16.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"1x\",\n"
+        "      \"size\" : \"16x16\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_16x16@2x.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"2x\",\n"
+        "      \"size\" : \"16x16\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_32x32.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"1x\",\n"
+        "      \"size\" : \"32x32\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_32x32@2x.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"2x\",\n"
+        "      \"size\" : \"32x32\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_128x128.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"1x\",\n"
+        "      \"size\" : \"128x128\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_128x128@2x.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"2x\",\n"
+        "      \"size\" : \"128x128\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_256x256.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"1x\",\n"
+        "      \"size\" : \"256x256\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_256x256@2x.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"2x\",\n"
+        "      \"size\" : \"256x256\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_512x512.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"1x\",\n"
+        "      \"size\" : \"512x512\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_512x512@2x.png\",\n"
+        "      \"idiom\" : \"mac\",\n"
+        "      \"scale\" : \"2x\",\n"
+        "      \"size\" : \"512x512\"\n"
+        "    },\n"
+        "    {\n"
+        "      \"filename\" : \"icon_1024x1024.png\",\n"
+        "      \"idiom\" : \"universal\",\n"
+        "      \"platform\" : \"ios\",\n"
+        "      \"scale\" : \"1x\",\n"
+        "      \"size\" : \"1024x1024\"\n"
+        "    }\n"
+        "  ],\n"
+        "  \"info\" : {\n"
+        "    \"author\" : \"Modo by Atoma\",\n"
+        "    \"version\" : 1\n"
+        "  }\n"
+        "}\n";
+    WriteUtf8File(setDir + L"\\Contents.json", contentsJson);
+
     return true;
 }
 
