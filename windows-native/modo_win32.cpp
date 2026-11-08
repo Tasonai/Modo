@@ -499,41 +499,78 @@ static bool ApplyRoundIcon(AppEntry& app, bool* outNeedsAdmin = nullptr) {
     return ShellIntegration::ApplyRoundIconToEntry(app, g_style, &g_pngClsid, g_iconRevCounter, outNeedsAdmin);
 }
 
+static bool AddFileOrAppPath(HWND hwnd, const std::wstring& filePath) {
+    if (filePath.empty()) return false;
+    std::wstring path = filePath;
+    std::wstring fname = PathFindFileNameW(filePath.c_str());
+    size_t dot = fname.find_last_of(L'.');
+    std::wstring title = (dot != std::wstring::npos) ? fname.substr(0, dot) : fname;
+    std::wstring ext = PathFindExtensionW(filePath.c_str());
+    for (auto& c : ext) c = towlower(c);
+
+    // If it's an image file (.png, .jpg, .ico, .bmp)
+    if (ext == L".png" || ext == L".ico" || ext == L".jpg" || ext == L".jpeg" || ext == L".bmp") {
+        Bitmap* bmp = Bitmap::FromFile(path.c_str());
+        if (bmp && bmp->GetLastStatus() == Ok) {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                AppEntry& app = g_allApps[g_selectedAppIndex];
+                if (app.origBitmap) delete app.origBitmap;
+                app.origBitmap = bmp;
+                if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
+                g_statusText = L"Пользовательская иконка назначена: " + app.name;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return true;
+            } else {
+                AppEntry entry;
+                entry.name = title;
+                entry.targetPath = path;
+                entry.category = L"Изображения";
+                entry.origBitmap = bmp;
+                g_allApps.insert(g_allApps.begin(), entry);
+                RebuildFilteredList();
+                g_selectedAppIndex = 0;
+                g_statusText = L"Добавлено изображение: " + entry.name;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return true;
+            }
+        }
+    }
+
+    // Executable, shortcut, or folder
+    AppEntry entry;
+    entry.name = title;
+    if (ext == L".lnk") {
+        entry.lnkPath = path;
+        entry.allLnkPaths.push_back(path);
+        std::wstring customIcon;
+        ResolveShortcut(path, entry.targetPath, customIcon);
+        if (entry.targetPath.empty()) entry.targetPath = path;
+    } else {
+        entry.targetPath = path;
+    }
+    entry.category = (ext == L".lnk") ? L"Ярлыки" : L"Добавлено вручную";
+    entry.origBitmap = LoadHighResIcon(entry.targetPath, entry.lnkPath);
+    g_allApps.insert(g_allApps.begin(), entry);
+    RebuildFilteredList();
+    g_selectedAppIndex = 0;
+    g_statusText = L"Добавлено: " + entry.name;
+    InvalidateRect(hwnd, NULL, FALSE);
+    return true;
+}
+
 static void AddCustomAppOrImage(HWND hwnd) {
     wchar_t filePath[MAX_PATH] = {0};
     OPENFILENAMEW ofn = {0};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = hwnd;
-    ofn.lpstrFilter = L"Приложения и иконки (*.exe;*.lnk;*.png;*.ico)\0*.exe;*.lnk;*.png;*.ico\0Все файлы (*.*)\0*.*\0";
+    ofn.lpstrFilter = L"Приложения и иконки (*.exe;*.lnk;*.png;*.ico;*.jpg)\0*.exe;*.lnk;*.png;*.ico;*.jpg\0Все файлы (*.*)\0*.*\0";
     ofn.lpstrFile = filePath;
     ofn.nMaxFile = MAX_PATH;
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
     ofn.lpstrTitle = L"Выберите приложение (.exe/.lnk) или изображение (.png/.ico)";
 
     if (GetOpenFileNameW(&ofn) && filePath[0]) {
-        std::wstring path = filePath;
-        std::wstring fname = PathFindFileNameW(filePath);
-        size_t dot = fname.find_last_of(L'.');
-        std::wstring title = (dot != std::wstring::npos) ? fname.substr(0, dot) : fname;
-
-        AppEntry entry;
-        entry.name = title;
-        if (_wcsicmp(PathFindExtensionW(filePath), L".lnk") == 0) {
-            entry.lnkPath = path;
-            entry.allLnkPaths.push_back(path);
-            std::wstring customIcon;
-            ResolveShortcut(path, entry.targetPath, customIcon);
-            if (entry.targetPath.empty()) entry.targetPath = path;
-        } else {
-            entry.targetPath = path;
-        }
-        entry.category = L"Добавлено вручную";
-        entry.origBitmap = LoadHighResIcon(entry.targetPath, entry.lnkPath);
-        g_allApps.insert(g_allApps.begin(), entry);
-        RebuildFilteredList();
-        g_selectedAppIndex = 0;
-        g_statusText = L"Добавлено: " + entry.name;
-        InvalidateRect(hwnd, NULL, FALSE);
+        AddFileOrAppPath(hwnd, filePath);
     }
 }
 
@@ -2355,6 +2392,28 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             break;
         }
 
+        case WM_DROPFILES: {
+            HDROP hDrop = (HDROP)wParam;
+            UINT count = DragQueryFileW(hDrop, 0xFFFFFFFF, NULL, 0);
+            int added = 0;
+            for (UINT i = 0; i < count; ++i) {
+                wchar_t droppedPath[MAX_PATH * 2] = {0};
+                if (DragQueryFileW(hDrop, i, droppedPath, MAX_PATH * 2 - 1)) {
+                    if (AddFileOrAppPath(hwnd, droppedPath)) {
+                        added++;
+                    }
+                }
+            }
+            DragFinish(hDrop);
+            if (added > 1) {
+                wchar_t msg[128];
+                wsprintfW(msg, L"Перетащено объектов: %d", added);
+                g_statusText = msg;
+            }
+            InvalidateRect(hwnd, NULL, FALSE);
+            return 0;
+        }
+
         case WM_LBUTTONDOWN: {
             POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             g_cursorClientPt = pt;
@@ -2806,6 +2865,20 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
     );
 
     UpdateWindowImmersiveDarkMode(g_hMainWnd, g_isDarkMode);
+    DragAcceptFiles(g_hMainWnd, TRUE);
+
+    // Allow Explorer drag-and-drop through UIPI even if running as Administrator
+    typedef BOOL(WINAPI* PFN_ChangeWindowMessageFilterEx)(HWND, UINT, DWORD, PVOID);
+    HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+    if (hUser32) {
+        PFN_ChangeWindowMessageFilterEx fnFilter = (PFN_ChangeWindowMessageFilterEx)GetProcAddress(hUser32, "ChangeWindowMessageFilterEx");
+        if (fnFilter) {
+            fnFilter(g_hMainWnd, WM_DROPFILES, 1 /* MSGFLT_ALLOW */, NULL);
+            fnFilter(g_hMainWnd, WM_COPYDATA, 1 /* MSGFLT_ALLOW */, NULL);
+            fnFilter(g_hMainWnd, 0x0049 /* WM_COPYGLOBALDATA */, 1 /* MSGFLT_ALLOW */, NULL);
+        }
+    }
+
     ShowWindow(g_hMainWnd, nCmdShow);
     UpdateWindow(g_hMainWnd);
 
