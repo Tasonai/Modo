@@ -979,6 +979,63 @@ static void DrawStudioToggle(
     g.DrawString(label, -1, &font, textRect, &sf, &tb);
 }
 
+static const wchar_t* GetWidgetTooltip(WidgetID id) {
+    switch (id) {
+        case W_TRAFFIC_CLOSE: return L"Закрыть Modo Studio";
+        case W_TRAFFIC_MIN: return L"Свернуть окно в панель задач";
+        case W_TRAFFIC_ZOOM: return L"Развернуть / Восстановить окно";
+        case W_BTN_MODO_MENU: return L"Главное меню Modo Studio (Alt / Alt+M / F1)";
+        case W_BTN_THEME_DARK: return L"Включить тёмную монохромную тему оформления";
+        case W_BTN_THEME_LIGHT: return L"Включить светлую монохромную тему оформления";
+        case W_BTN_ADMIN: return L"Запуск от имени администратора для модификации системных ярлыков";
+        case W_BTN_SHORTCUTS: return L"Создать ярлыки Modo Studio на Рабочем столе и в меню Пуск";
+        case W_BTN_RESCAN: return L"Обновить список установленных приложений и кэш (F5)";
+        case W_BTN_ADD_FILE: return L"Добавить стороннее приложение или изображение (Ctrl+N / Ctrl+O)";
+        case W_TAB_ALL: return L"Показать все обнаруженные приложения";
+        case W_TAB_APPLIED: return L"Показать только приложения со стилизованными иконками Modo";
+        case W_TAB_SYSTEM: return L"Показать встроенные системные приложения Windows";
+        case W_TAB_THIRDPARTY: return L"Показать сторонние пользовательские приложения";
+        case W_SEARCH_BOX: return L"Поиск приложения по названию или пути (Ctrl+F)";
+        case W_SEARCH_CLEAR: return L"Очистить строку поиска (Esc)";
+        case W_BTN_APP_VIEW_GRID: return L"Галерея карточек с крупными значками (Ctrl+1)";
+        case W_BTN_APP_VIEW_LIST: return L"Компактный детальный список приложений (Ctrl+2)";
+        case W_SLIDER_GRID_SIZE: return L"Размер значков карточек в сетке: 48-96px (Ctrl++ / Ctrl+-)";
+        case W_INSP_TAB_STYLE: return L"Вкладка: Стиль, форма подложки и цвет";
+        case W_INSP_TAB_GEOMETRY: return L"Вкладка: Геометрия, масштаб и смещение значка";
+        case W_INSP_TAB_OPTIONS: return L"Вкладка: Тени, автообрезка полей и монохром";
+        case W_BTN_EYEDROPPER: return L"Экранная пипетка: захват цвета из любой точки экрана (Esc для отмены)";
+        case W_BTN_PALETTE: return L"Выбор произвольного цвета фона в палитре Windows";
+        case W_SLIDER_SCALE: return L"Масштаб исходного значка внутри подложки";
+        case W_SLIDER_OFFX: return L"Горизонтальное смещение значка влево/вправо";
+        case W_SLIDER_OFFY: return L"Вертикальное смещение значка вверх/вниз";
+        case W_BTN_CENTER: return L"Центрировать значок по осям X и Y";
+        case W_SLIDER_SHADOW: return L"Интенсивность внешней тени подложки";
+        case W_TOGGLE_AUTOTRIM: return L"Автоматическая обрезка пустых прозрачных полей значка";
+        case W_TOGGLE_INNERSHAD: return L"Мягкая внутренняя тень по контуру формы";
+        case W_TOGGLE_FULLBLEED: return L"Режим заполнения формы целиком без внутренних полей";
+        case W_TOGGLE_MONO: return L"Преобразование цветного значка в монохромный трафарет";
+        case W_BTN_APPLY_ONE: return L"Применить стилизованную иконку к выбранному приложению (Enter)";
+        case W_BTN_APPLY_ALL: return L"Пакетно применить текущий стиль ко всем отфильтрованным (Shift+Enter)";
+        case W_BTN_RESTORE_ONE: return L"Восстановить оригинальную иконку выбранного приложения (Delete)";
+        case W_BTN_RESTORE_ALL: return L"Сбросить кастомные иконки для всех приложений";
+        case W_BTN_EXPORT: return L"Экспорт иконки в файл .ico и 1024px .png (Ctrl+E)";
+        case W_SHAPE_0: return L"Форма подложки: Круг (macOS канон)";
+        case W_SHAPE_1: return L"Форма подложки: Сквиркл (Суперэллипс iOS/macOS)";
+        case W_SHAPE_2: return L"Форма подложки: Галька (Pebble)";
+        case W_SHAPE_3: return L"Форма подложки: Шестиугольник (Hexagon)";
+        case W_SHAPE_4: return L"Форма подложки: Скруглённый прямоугольник (Windows)";
+        default:
+            if (id >= W_PACK_0 && id <= W_PACK_18) {
+                int p = id - W_PACK_0;
+                int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
+                if (p < totalPacks) {
+                    return kIconPacks[p].name;
+                }
+            }
+            return nullptr;
+    }
+}
+
 static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     if (clientW <= 0 || clientH <= 0) return;
 
@@ -1634,13 +1691,23 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     sfTrimEllipsis.SetTrimming(StringTrimmingEllipsisCharacter);
     sfTrimEllipsis.SetLineAlignment(StringAlignmentCenter);
     sfTrimEllipsis.SetFormatFlags(StringFormatFlagsNoWrap);
-    g.DrawString(g_statusText.c_str(), -1, &fSmall, RectF(16.0f, (REAL)(clientH - 32), (REAL)(clientW - 260), 32.0f), &sfTrimEllipsis, &mutBr);
+
+    const wchar_t* pTip = GetWidgetTooltip(g_hoveredWidget);
+    std::wstring dispStatus = pTip ? pTip : g_statusText;
+    g.DrawString(dispStatus.c_str(), -1, &fSmall, RectF(16.0f, (REAL)(clientH - 32), (REAL)(clientW - 390), 32.0f), &sfTrimEllipsis, pTip ? &primBr : &mutBr);
 
     if (g_progressRatio > 0.001) {
         RectF progBg((REAL)(clientW - 220), (REAL)(clientH - 20), 200.0f, 8.0f);
         FillRoundRect(g, progBg, 4.0f, theme.controlBg);
         RectF progFg(progBg.X, progBg.Y, (REAL)(progBg.Width * std::clamp(g_progressRatio, 0.0, 1.0)), 8.0f);
         FillRoundRect(g, progFg, 4.0f, theme.primaryBtnBg);
+    } else {
+        StringFormat sfRight;
+        sfRight.SetAlignment(StringAlignmentFar);
+        sfRight.SetLineAlignment(StringAlignmentCenter);
+        sfRight.SetFormatFlags(StringFormatFlagsNoWrap);
+        g.DrawString(L"Ctrl+1 Сетка · Ctrl+2 Список · Enter Применить · Del Сброс", -1, &fSmall,
+                     RectF((REAL)(clientW - 380), (REAL)(clientH - 32), 364.0f, 32.0f), &sfRight, &secBr);
     }
 
     // Floating Eyedropper Magnifier Loupe
@@ -1722,6 +1789,10 @@ enum MenuCommandID {
     // View
     IDM_VIEW_DARK_THEME,
     IDM_VIEW_LIGHT_THEME,
+    IDM_VIEW_MODE_GRID,
+    IDM_VIEW_MODE_LIST,
+    IDM_VIEW_ZOOM_IN,
+    IDM_VIEW_ZOOM_OUT,
     IDM_VIEW_FILTER_ALL,
     IDM_VIEW_FILTER_APPLIED,
     IDM_VIEW_FILTER_SYSTEM,
@@ -1774,6 +1845,12 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     HMENU hViewMenu = CreatePopupMenu();
     AppendMenuW(hViewMenu, (g_isDarkMode ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_DARK_THEME, L"Тёмная тема (Монохром)");
     AppendMenuW(hViewMenu, (!g_isDarkMode ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_LIGHT_THEME, L"Светлая тема (Монохром)");
+    AppendMenuW(hViewMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hViewMenu, (g_viewMode == APP_VIEW_GRID ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_MODE_GRID, L"Галерея карточек (Сетка)\tCtrl+1");
+    AppendMenuW(hViewMenu, (g_viewMode == APP_VIEW_LIST ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_MODE_LIST, L"Компактный список\tCtrl+2");
+    AppendMenuW(hViewMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hViewMenu, MF_STRING, IDM_VIEW_ZOOM_IN, L"Увеличить значки сетки\tCtrl++");
+    AppendMenuW(hViewMenu, MF_STRING, IDM_VIEW_ZOOM_OUT, L"Уменьшить значки сетки\tCtrl+-");
     AppendMenuW(hViewMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hViewMenu, (g_sidebarFilter == 0 ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_FILTER_ALL, L"Все приложения");
     AppendMenuW(hViewMenu, (g_sidebarFilter == 1 ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_VIEW_FILTER_APPLIED, L"Стилизованные (Круг)");
@@ -1864,6 +1941,24 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
         case IDM_VIEW_LIGHT_THEME:
             HandleWidgetClick(hwnd, W_BTN_THEME_LIGHT, dummyPt);
             break;
+        case IDM_VIEW_MODE_GRID:
+            g_viewMode = APP_VIEW_GRID;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_VIEW_MODE_LIST:
+            g_viewMode = APP_VIEW_LIST;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_VIEW_ZOOM_IN:
+            g_gridIconSize = std::clamp(g_gridIconSize + 4, 48, 96);
+            SaveStyleConfig();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_VIEW_ZOOM_OUT:
+            g_gridIconSize = std::clamp(g_gridIconSize - 4, 48, 96);
+            SaveStyleConfig();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
         case IDM_VIEW_FILTER_ALL:
             HandleWidgetClick(hwnd, W_TAB_ALL, dummyPt);
             break;
@@ -1921,14 +2016,18 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             MessageBoxW(
                 hwnd,
                 L"Горячие клавиши Modo Studio (Windows):\n\n"
-                L"  • Ctrl+N / Ctrl+O: Добавить приложение или папку\n"
-                L"  • Ctrl+E: Экспорт иконки (.ICO + 1024px .PNG)\n"
-                L"  • Ctrl+F: Поиск приложения в списке\n"
+                L"  • Ctrl+1: Режим галереи карточек (Сетка)\n"
+                L"  • Ctrl+2: Режим компактного списка\n"
+                L"  • Ctrl++ / Ctrl+-: Изменить размер карточек сетки\n"
+                L"  • Стрелки (←/→/↑/↓): Навигация по приложениям\n"
                 L"  • Enter: Применить адаптивную иконку к выбранному\n"
                 L"  • Shift+Enter: Применить ко всем отфильтрованным\n"
                 L"  • Delete: Восстановить оригинальную иконку\n"
+                L"  • Ctrl+N / Ctrl+O: Добавить приложение или папку\n"
+                L"  • Ctrl+E: Экспорт иконки (.ICO + 1024px .PNG)\n"
+                L"  • Ctrl+F: Поиск приложения в списке\n"
                 L"  • F5: Обновить список приложений и рескан\n"
-                L"  • Alt / Alt+M: Открыть главное меню Modo\n"
+                L"  • Alt / Alt+M / F1: Главное меню Modo\n"
                 L"  • Esc: Сброс поиска / отмена пипетки",
                 L"Горячие клавиши Modo Studio",
                 MB_OK | MB_ICONINFORMATION
@@ -2677,6 +2776,42 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
 
         case WM_KEYDOWN: {
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && wParam == '1') {
+                g_viewMode = APP_VIEW_GRID;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && wParam == '2') {
+                g_viewMode = APP_VIEW_LIST;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == VK_OEM_PLUS || wParam == VK_ADD || wParam == 0xBB)) {
+                g_gridIconSize = std::clamp(g_gridIconSize + 4, 48, 96);
+                SaveStyleConfig();
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == VK_OEM_MINUS || wParam == VK_SUBTRACT || wParam == 0xBD)) {
+                g_gridIconSize = std::clamp(g_gridIconSize - 4, 48, 96);
+                SaveStyleConfig();
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            if (wParam == VK_ESCAPE) {
+                if (g_isEyedropperActive) {
+                    g_isEyedropperActive = false;
+                    ReleaseCapture();
+                    g_statusText = L"Пипетка отменена";
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+                if (g_searchFocused) {
+                    g_searchFocused = false;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+            }
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'F' || wParam == 'f')) {
                 g_searchFocused = true;
                 InvalidateRect(hwnd, NULL, FALSE);
@@ -2708,13 +2843,59 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
 
             if (!g_searchFocused && !g_filteredIndices.empty()) {
-                if (wParam == VK_DOWN || wParam == VK_UP) {
+                if (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT) {
                     int pos = 0;
                     for (size_t i = 0; i < g_filteredIndices.size(); ++i) {
                         if (g_filteredIndices[i] == g_selectedAppIndex) { pos = (int)i; break; }
                     }
-                    pos = std::clamp(pos + (wParam == VK_DOWN ? 1 : -1), 0, (int)g_filteredIndices.size() - 1);
-                    g_selectedAppIndex = g_filteredIndices[pos];
+                    int nextPos = pos;
+                    RECT rc;
+                    GetClientRect(hwnd, &rc);
+                    int clientW = rc.right - rc.left;
+                    int clientH = rc.bottom - rc.top;
+                    int sideW = 210;
+                    int inspW = 360;
+                    int galW = std::max(200, clientW - sideW - inspW);
+                    int galBodyH = clientH - 54 - 32 - 36 - 26;
+
+                    if (g_viewMode == APP_VIEW_GRID) {
+                        int cardW = g_gridIconSize + 48;
+                        int cardH = g_gridIconSize + 58;
+                        int numCols = std::max(1, (galW - 20) / (cardW + 10));
+
+                        if (wParam == VK_LEFT) nextPos = pos - 1;
+                        else if (wParam == VK_RIGHT) nextPos = pos + 1;
+                        else if (wParam == VK_UP) nextPos = pos - numCols;
+                        else if (wParam == VK_DOWN) nextPos = pos + numCols;
+
+                        nextPos = std::clamp(nextPos, 0, (int)g_filteredIndices.size() - 1);
+                        g_selectedAppIndex = g_filteredIndices[nextPos];
+
+                        // Auto-scroll to keep visible
+                        int targetRow = nextPos / numCols;
+                        int itemTop = 10 + targetRow * (cardH + 10);
+                        int itemBottom = itemTop + cardH;
+                        if (itemTop < g_gridScrollY) {
+                            g_gridScrollY = itemTop;
+                        } else if (itemBottom > g_gridScrollY + galBodyH) {
+                            g_gridScrollY = std::max(0, itemBottom - galBodyH);
+                        }
+                    } else {
+                        if (wParam == VK_UP || wParam == VK_LEFT) nextPos = pos - 1;
+                        else if (wParam == VK_DOWN || wParam == VK_RIGHT) nextPos = pos + 1;
+
+                        nextPos = std::clamp(nextPos, 0, (int)g_filteredIndices.size() - 1);
+                        g_selectedAppIndex = g_filteredIndices[nextPos];
+
+                        // Auto-scroll in list mode
+                        int itemTop = nextPos * 46;
+                        int itemBottom = itemTop + 46;
+                        if (itemTop < g_listScrollY) {
+                            g_listScrollY = itemTop;
+                        } else if (itemBottom > g_listScrollY + galBodyH) {
+                            g_listScrollY = std::max(0, itemBottom - galBodyH);
+                        }
+                    }
                     InvalidateRect(hwnd, NULL, FALSE);
                     return 0;
                 }
