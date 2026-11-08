@@ -2056,6 +2056,7 @@ enum MenuCommandID {
     IDM_STYLE_APPLY_ONE,
     IDM_STYLE_APPLY_ALL,
     IDM_STYLE_RESTORE_ONE,
+    IDM_STYLE_RESTORE_ALL,
     IDM_STYLE_SHAPE_CIRCLE,
     IDM_STYLE_SHAPE_SQUIRCLE,
     IDM_STYLE_SHAPE_PEBBLE,
@@ -2074,6 +2075,7 @@ enum MenuCommandID {
     IDM_TOOLS_ADMIN,
     IDM_TOOLS_SHORTCUTS,
     IDM_TOOLS_RESTART_EXPLORER,
+    IDM_TOOLS_SYSTEM_THEMING,
     IDM_TOOLS_SHORTCUTS_INFO
 };
 
@@ -2125,6 +2127,7 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_APPLY_ONE, L"Применить к выбранному\tEnter");
     AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_APPLY_ALL, L"Применить ко всем\tShift+Enter");
     AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_RESTORE_ONE, L"Восстановить оригинал\tDelete");
+    AppendMenuW(hStyleMenu, MF_STRING, IDM_STYLE_RESTORE_ALL, L"Восстановить оригиналы для всех…\tShift+Delete");
     AppendMenuW(hStyleMenu, MF_SEPARATOR, 0, NULL);
 
     HMENU hShapeSub = CreatePopupMenu();
@@ -2158,6 +2161,8 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
 
     // 5. Tools Menu
     HMENU hToolsMenu = CreatePopupMenu();
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SYSTEM_THEMING, L"Мастер глобальной стилизации (1-Click Theming)…\tCtrl+Shift+T");
+    AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_ADMIN, L"Интеграция в контекстное меню Windows…");
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SHORTCUTS, L"Создать ярлыки на Рабочем столе…");
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_RESTART_EXPLORER, L"Перезапустить Проводник Windows");
@@ -2259,6 +2264,15 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
         case IDM_STYLE_RESTORE_ONE:
             HandleWidgetClick(hwnd, W_BTN_RESTORE_ONE, dummyPt);
             break;
+        case IDM_STYLE_RESTORE_ALL: {
+            if (MessageBoxW(hwnd,
+                            L"Вы действительно хотите сбросить стили и вернуть оригинальные иконки для ВСЕХ приложений?",
+                            L"Modo Studio — Восстановление всех иконок",
+                            MB_YESNO | MB_ICONQUESTION) == IDYES) {
+                HandleWidgetClick(hwnd, W_BTN_RESTORE_ALL, dummyPt);
+            }
+            break;
+        }
         case IDM_STYLE_SHAPE_CIRCLE:
             HandleWidgetClick(hwnd, W_SHAPE_0, dummyPt);
             break;
@@ -2301,6 +2315,18 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             g_statusText = L"Кэш и Проводник Windows перезапущены";
             InvalidateRect(hwnd, NULL, FALSE);
             break;
+        case IDM_TOOLS_SYSTEM_THEMING: {
+            wchar_t msg[512];
+            wsprintfW(msg,
+                      L"Запустить 1-Click System Theming?\n\n"
+                      L"Это действие применит выбранную форму и стиль оформления ко всем обнаруженным приложениям (%d шт.) и обновит кэш иконок Windows Explorer.\n\n"
+                      L"Продолжить применение?",
+                      (int)g_filteredIndices.size());
+            if (MessageBoxW(hwnd, msg, L"Modo — Мастер глобальной стилизации", MB_YESNO | MB_ICONQUESTION) == IDYES) {
+                HandleWidgetClick(hwnd, W_BTN_APPLY_ALL, dummyPt);
+            }
+            break;
+        }
         case IDM_TOOLS_SHORTCUTS_INFO:
             MessageBoxW(
                 hwnd,
@@ -2312,6 +2338,8 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 L"  • Enter: Применить адаптивную иконку к выбранному\n"
                 L"  • Shift+Enter: Применить ко всем отфильтрованным\n"
                 L"  • Delete: Восстановить оригинальную иконку\n"
+                L"  • Shift+Delete: Восстановить оригиналы для всех\n"
+                L"  • Ctrl+Shift+T: Мастер глобальной стилизации (1-Click Theming)\n"
                 L"  • Ctrl+N / Ctrl+O: Добавить приложение или папку\n"
                 L"  • Ctrl+E: Экспорт иконки (.ICO + 1024px .PNG)\n"
                 L"  • Ctrl+F: Поиск приложения в списке\n"
@@ -3215,6 +3243,10 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     return 0;
                 }
             }
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_SHIFT) & 0x8000) && (wParam == 'T' || wParam == 't')) {
+                SendMessage(hwnd, WM_COMMAND, IDM_TOOLS_SYSTEM_THEMING, 0);
+                return 0;
+            }
             if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 'F' || wParam == 'f')) {
                 g_searchFocused = true;
                 InvalidateRect(hwnd, NULL, FALSE);
@@ -3311,8 +3343,12 @@ static LRESULT CALLBACK StudioWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     return 0;
                 }
                 if (wParam == VK_DELETE) {
-                    POINT dummyPt = {0, 0};
-                    HandleWidgetClick(hwnd, W_BTN_RESTORE_ONE, dummyPt);
+                    if (GetKeyState(VK_SHIFT) & 0x8000) {
+                        SendMessage(hwnd, WM_COMMAND, IDM_STYLE_RESTORE_ALL, 0);
+                    } else {
+                        POINT dummyPt = {0, 0};
+                        HandleWidgetClick(hwnd, W_BTN_RESTORE_ONE, dummyPt);
+                    }
                     return 0;
                 }
             }
