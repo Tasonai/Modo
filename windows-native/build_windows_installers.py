@@ -142,6 +142,7 @@ def main() -> None:
             str(WIN_DIR / "shell_integration.cpp"),
             str(WIN_DIR / "installer.cpp"),
             str(WIN_DIR / "updater.cpp"),
+            str(WIN_DIR / "modo_cli.cpp"),
             str(res_file),
             "-o",
             str(raw_exe),

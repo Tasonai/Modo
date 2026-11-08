@@ -30,5 +30,7 @@ bool ExportShowcaseBanner(Bitmap* src, const RoundStyle& style, const std::wstri
                          ShowcaseTheme theme, ShowcaseLayout layout,
                          const std::wstring& outPath, const CLSID* pngClsid,
                          int width = 1920, int height = 1080);
+bool ExportSvgVector(Bitmap* src, const RoundStyle& style, const std::wstring& appName,
+                     const std::wstring& outDir, const CLSID* pngClsid);
 
 } // namespace IconEngine

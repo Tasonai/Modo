@@ -1343,4 +1343,159 @@ bool ExportShowcaseBanner(Bitmap* src, const RoundStyle& style, const std::wstri
     return (canvas.Save(outPath.c_str(), pngClsid, NULL) == Ok);
 }
 
+static std::string Base64Encode(const uint8_t* data, size_t len) {
+    static const char kBase64Chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string ret;
+    ret.reserve(((len + 2) / 3) * 4);
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t val = (data[i] << 16);
+        if (i + 1 < len) val |= (data[i + 1] << 8);
+        if (i + 2 < len) val |= data[i + 2];
+        ret.push_back(kBase64Chars[(val >> 18) & 0x3F]);
+        ret.push_back(kBase64Chars[(val >> 12) & 0x3F]);
+        ret.push_back((i + 1 < len) ? kBase64Chars[(val >> 6) & 0x3F] : '=');
+        ret.push_back((i + 2 < len) ? kBase64Chars[val & 0x3F] : '=');
+    }
+    return ret;
+}
+
+static std::string BitmapToBase64Png(Bitmap* bmp, const CLSID* pngClsid) {
+    if (!bmp || !pngClsid) return "";
+    IStream* pStream = nullptr;
+    if (CreateStreamOnHGlobal(NULL, TRUE, &pStream) != S_OK || !pStream) return "";
+    if (bmp->Save(pStream, pngClsid, NULL) != Ok) {
+        pStream->Release();
+        return "";
+    }
+    HGLOBAL hGlobal = NULL;
+    GetHGlobalFromStream(pStream, &hGlobal);
+    if (!hGlobal) {
+        pStream->Release();
+        return "";
+    }
+    size_t size = GlobalSize(hGlobal);
+    const uint8_t* pData = (const uint8_t*)GlobalLock(hGlobal);
+    std::string b64;
+    if (pData && size > 0) {
+        b64 = Base64Encode(pData, size);
+        GlobalUnlock(hGlobal);
+    }
+    pStream->Release();
+    return b64;
+}
+
+bool ExportSvgVector(Bitmap* src, const RoundStyle& style, const std::wstring& appName,
+                     const std::wstring& outDir, const CLSID* pngClsid) {
+    CreateDirectoryW(outDir.c_str(), NULL);
+    std::wstring safe = ShellIntegration::SanitizeFileName(appName);
+    std::wstring svgPath = outDir + L"\\" + safe + L".svg";
+
+    std::string topColor = "#FFFFFF";
+    std::string bottomColor = "#F1F3F4";
+    if (style.preset == PRESET_DARK_MATERIAL) {
+        topColor = "#2D2E30"; bottomColor = "#1F2023";
+    } else if (style.preset == PRESET_MATERIAL_PASTEL) {
+        topColor = "#F8F9FA"; bottomColor = "#E8F0FE";
+    } else if (style.preset == PRESET_CUSTOM_COLOR) {
+        char cBuf[32];
+        sprintf_s(cBuf, "#%02X%02X%02X", GetRValue(style.customColor), GetGValue(style.customColor), GetBValue(style.customColor));
+        topColor = cBuf;
+        bottomColor = cBuf;
+    }
+
+    std::string svg;
+    svg += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    svg += "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" viewBox=\"0 0 512 512\" width=\"512\" height=\"512\">\n";
+    svg += "  <defs>\n";
+    svg += "    <filter id=\"modo-shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">\n";
+    svg += "      <feDropShadow dx=\"0\" dy=\"16\" stdDeviation=\"20\" flood-color=\"#000000\" flood-opacity=\"0.35\" />\n";
+    svg += "    </filter>\n";
+    svg += "    <linearGradient id=\"bg-grad\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\">\n";
+    svg += "      <stop offset=\"0%\" stop-color=\"" + topColor + "\" />\n";
+    svg += "      <stop offset=\"100%\" stop-color=\"" + bottomColor + "\" />\n";
+    svg += "    </linearGradient>\n";
+
+    if (style.material == MATERIAL_FROSTED_GLASS) {
+        svg += "    <linearGradient id=\"glass-sweep\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#ffffff\" stop-opacity=\"0.35\" />\n";
+        svg += "      <stop offset=\"45%\" stop-color=\"#ffffff\" stop-opacity=\"0.08\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#ffffff\" stop-opacity=\"0.0\" />\n";
+        svg += "    </linearGradient>\n";
+    } else if (style.material == MATERIAL_BRUSHED_TITANIUM) {
+        svg += "    <linearGradient id=\"titanium-grad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#ffffff\" stop-opacity=\"0.20\" />\n";
+        svg += "      <stop offset=\"28%\" stop-color=\"#000000\" stop-opacity=\"0.12\" />\n";
+        svg += "      <stop offset=\"52%\" stop-color=\"#ffffff\" stop-opacity=\"0.24\" />\n";
+        svg += "      <stop offset=\"78%\" stop-color=\"#000000\" stop-opacity=\"0.14\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#ffffff\" stop-opacity=\"0.10\" />\n";
+        svg += "    </linearGradient>\n";
+    } else if (style.material == MATERIAL_NEUMORPHIC) {
+        svg += "    <linearGradient id=\"neu-grad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#ffffff\" stop-opacity=\"0.30\" />\n";
+        svg += "      <stop offset=\"50%\" stop-color=\"#ffffff\" stop-opacity=\"0.0\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#000000\" stop-opacity=\"0.22\" />\n";
+        svg += "    </linearGradient>\n";
+    } else if (style.material == MATERIAL_PRISM_GLOW) {
+        svg += "    <linearGradient id=\"prism-grad\" x1=\"0%\" y1=\"100%\" x2=\"100%\" y2=\"0%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#F43F5E\" stop-opacity=\"0.25\" />\n";
+        svg += "      <stop offset=\"25%\" stop-color=\"#F59E0B\" stop-opacity=\"0.20\" />\n";
+        svg += "      <stop offset=\"50%\" stop-color=\"#10B981\" stop-opacity=\"0.25\" />\n";
+        svg += "      <stop offset=\"75%\" stop-color=\"#3B82F6\" stop-opacity=\"0.28\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#8B5CF6\" stop-opacity=\"0.25\" />\n";
+        svg += "    </linearGradient>\n";
+    }
+    svg += "  </defs>\n\n";
+
+    svg += "  <!-- Background Adaptive Plate -->\n";
+    svg += "  <g filter=\"url(#modo-shadow)\">\n";
+    if (style.shape == SHAPE_CIRCLE) {
+        svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#bg-grad)\" />\n";
+    } else if (style.shape == SHAPE_SQUIRCLE) {
+        svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#bg-grad)\" />\n";
+    } else if (style.shape == SHAPE_ROUNDED_RECT) {
+        svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#bg-grad)\" />\n";
+    } else if (style.shape == SHAPE_HEXAGON) {
+        svg += "    <polygon points=\"256,20 460,138 460,374 256,492 52,374 52,138\" fill=\"url(#bg-grad)\" />\n";
+    } else { // SHAPE_PEBBLE
+        svg += "    <path d=\"M 256,20 C 400,24 492,116 492,256 C 492,420 370,492 256,492 C 120,492 20,390 20,256 C 20,100 110,20 256,20 Z\" fill=\"url(#bg-grad)\" />\n";
+    }
+
+    if (style.material == MATERIAL_FROSTED_GLASS) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#glass-sweep)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#glass-sweep)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#glass-sweep)\" />\n";
+    } else if (style.material == MATERIAL_BRUSHED_TITANIUM) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#titanium-grad)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#titanium-grad)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#titanium-grad)\" />\n";
+    } else if (style.material == MATERIAL_NEUMORPHIC) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#neu-grad)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#neu-grad)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#neu-grad)\" />\n";
+    } else if (style.material == MATERIAL_PRISM_GLOW) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#prism-grad)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#prism-grad)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#prism-grad)\" />\n";
+    }
+    svg += "  </g>\n\n";
+
+    if (src) {
+        std::string b64 = BitmapToBase64Png(src, pngClsid);
+        if (!b64.empty()) {
+            double iconW = 512.0 * style.scale;
+            double iconH = 512.0 * style.scale;
+            double iconX = 256.0 - iconW * 0.5 + (style.offsetX * 256.0);
+            double iconY = 256.0 - iconH * 0.5 - (style.offsetY * 256.0);
+            char imgTag[256];
+            sprintf_s(imgTag, "  <!-- Centered Icon Artwork -->\n  <image x=\"%.1f\" y=\"%.1f\" width=\"%.1f\" height=\"%.1f\" href=\"data:image/png;base64,", iconX, iconY, iconW, iconH);
+            svg += imgTag;
+            svg += b64;
+            svg += "\" />\n";
+        }
+    }
+
+    svg += "</svg>\n";
+    return WriteUtf8File(svgPath, svg);
+}
+
 } // namespace IconEngine
