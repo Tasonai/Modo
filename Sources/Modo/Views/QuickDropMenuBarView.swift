@@ -50,9 +50,9 @@ struct QuickDropMenuBarView: View {
                             .fill(isTargeted ? Palette.accent.opacity(0.12) : Color.primary.opacity(0.03))
                     )
 
-                VStack(spacing: 6) {
+                VStack(spacing: Space.sm) {
                     if let img = lastStyledImage, let name = lastStyledName {
-                        HStack(spacing: 10) {
+                        HStack(spacing: Space.md) {
                             Image(nsImage: img)
                                 .resizable()
                                 .scaledToFit()
@@ -85,7 +85,7 @@ struct QuickDropMenuBarView: View {
                             .buttonStyle(.plain)
                             .help("Restore Original Icon")
                         }
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, Space.md)
                     } else {
                         Image(systemName: isTargeted ? "arrow.down.circle.fill" : "square.and.arrow.down")
                             .font(.system(size: 26))
@@ -98,7 +98,7 @@ struct QuickDropMenuBarView: View {
                             .padding(.horizontal, 8)
                     }
                 }
-                .padding(.vertical, 14)
+                .padding(.vertical, Space.lg)
             }
             .frame(height: 84)
             .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
@@ -106,7 +106,7 @@ struct QuickDropMenuBarView: View {
             }
 
             // Quick Shape & Background Presets
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Space.sm) {
                 Text("Active Style")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
@@ -119,10 +119,10 @@ struct QuickDropMenuBarView: View {
                         } label: {
                             Text(shape.title)
                                 .font(.system(size: 10, weight: model.style.shape == shape ? .bold : .regular))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, Space.sm)
+                                .padding(.vertical, Space.xs)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                                         .fill(model.style.shape == shape ? Palette.accent : Color.primary.opacity(0.06))
                                 )
                                 .foregroundStyle(model.style.shape == shape ? .white : .primary)
@@ -138,10 +138,10 @@ struct QuickDropMenuBarView: View {
                         } label: {
                             Text(bg.title)
                                 .font(.system(size: 10, weight: model.style.backgroundStyle == bg ? .bold : .regular))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, Space.sm)
+                                .padding(.vertical, Space.xs)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                                         .fill(model.style.backgroundStyle == bg ? Palette.accent.opacity(0.85) : Color.primary.opacity(0.06))
                                 )
                                 .foregroundStyle(model.style.backgroundStyle == bg ? .white : .primary)
@@ -151,17 +151,17 @@ struct QuickDropMenuBarView: View {
                 }
 
                 // Surface Materials
-                HStack(spacing: 3) {
+                HStack(spacing: Space.xs) {
                     ForEach(SurfaceMaterial.allCases) { mat in
                         Button {
                             model.style.surfaceMaterial = mat
                         } label: {
                             Text(mat.title)
                                 .font(.system(size: 9, weight: model.style.surfaceMaterial == mat ? .bold : .regular))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, Space.xs)
+                                .padding(.vertical, Space.xs)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                                         .fill(model.style.surfaceMaterial == mat ? Palette.accent : Color.primary.opacity(0.06))
                                 )
                                 .foregroundStyle(model.style.surfaceMaterial == mat ? .white : .primary)
@@ -182,14 +182,14 @@ struct QuickDropMenuBarView: View {
                             statusMessage = "Synced with Wallpaper"
                         }
                     } label: {
-                        HStack(spacing: 3) {
+                        HStack(spacing: Space.xs) {
                             Image(systemName: "sparkles")
                             Text("Wallpaper")
                         }
                         .font(.system(size: 9, weight: .medium))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
+                        .padding(.horizontal, Space.xs)
+                        .padding(.vertical, Space.xs)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
                     }
                     .buttonStyle(.plain)
 
@@ -200,9 +200,9 @@ struct QuickDropMenuBarView: View {
                         } label: {
                             Text(pack.name)
                                 .font(.system(size: 9, weight: model.activePackId == pack.id ? .bold : .regular))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 3)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(model.activePackId == pack.id ? Palette.accent : Color.primary.opacity(0.06)))
+                                .padding(.horizontal, Space.xs)
+                                .padding(.vertical, Space.xs)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(model.activePackId == pack.id ? Palette.accent : Color.primary.opacity(0.06)))
                                 .foregroundStyle(model.activePackId == pack.id ? .white : .primary)
                         }
                         .buttonStyle(.plain)
@@ -223,7 +223,7 @@ struct QuickDropMenuBarView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Palette.accent.opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Palette.accent.opacity(0.12)))
                     .foregroundStyle(Palette.accentText)
                 }
                 .buttonStyle(.plain)
@@ -251,7 +251,7 @@ struct QuickDropMenuBarView: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding(14)
+        .padding(Space.lg)
         .frame(width: 320)
     }
 

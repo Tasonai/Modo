@@ -187,7 +187,7 @@ struct GlyphLibraryView: View {
                     }
                 }
                 .padding(.horizontal, Space.sm)
-                .padding(.vertical, 5)
+                .padding(.vertical, Space.xs)
                 .background(.background.secondary, in: RoundedRectangle(cornerRadius: Radius.sm))
             }
 
@@ -223,7 +223,7 @@ struct GlyphLibraryView: View {
             Text(name)
                 .font(.caption2.weight(isSel ? .bold : .regular))
                 .padding(.horizontal, Space.sm)
-                .padding(.vertical, 3)
+                .padding(.vertical, Space.xs)
                 .background(isSel ? Palette.accent : Color.primary.opacity(0.06), in: Capsule())
                 .foregroundStyle(isSel ? .white : .primary)
         }
@@ -280,7 +280,7 @@ struct GlyphLibraryView: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Palette.accentText)
                     .padding(.horizontal, Space.sm)
-                    .padding(.vertical, 3)
+                    .padding(.vertical, Space.xs)
                     .background(Palette.accent.opacity(0.14), in: Capsule())
             }
             .buttonStyle(.plain)

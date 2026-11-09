@@ -54,16 +54,16 @@ struct ShowcaseSheetView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(18)
+            .padding(Space.xl)
             .background(Color(nsColor: .windowBackgroundColor))
 
             Divider()
 
             HStack(spacing: 20) {
                 // Controls Column
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Space.lg) {
                     // Theme picker
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Space.sm) {
                         Text("Backdrop Theme")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.secondary)
@@ -77,7 +77,7 @@ struct ShowcaseSheetView: View {
                     }
 
                     // Layout picker
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Space.sm) {
                         Text("Scene Composition")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.secondary)
@@ -91,7 +91,7 @@ struct ShowcaseSheetView: View {
                     }
 
                     // Resolution
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Space.sm) {
                         Text("Dimensions")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.secondary)
@@ -107,7 +107,7 @@ struct ShowcaseSheetView: View {
                     Divider()
 
                     // Title & Subtitle
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Space.sm) {
                         Text("Title")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.secondary)
@@ -140,7 +140,7 @@ struct ShowcaseSheetView: View {
                     .controlSize(.large)
                 }
                 .frame(width: 280)
-                .padding(18)
+                .padding(Space.xl)
 
                 Divider()
 
@@ -168,7 +168,7 @@ struct ShowcaseSheetView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }
-                .padding(18)
+                .padding(Space.xl)
             }
         }
         .frame(width: 820, height: 520)

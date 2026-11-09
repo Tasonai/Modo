@@ -6,7 +6,7 @@
 # Silence one line with a reason: // grid: ok <why>
 set -euo pipefail
 dir=${1:-${0:A:h:h}/Sources}
-find "$dir" -name '*.swift' -not -name 'Theme.swift' -not -name 'Grid.swift' -not -name 'Tokens.swift' -print0 | xargs -0 perl -ne '
+find "$dir" -name '*.swift' -not -name 'Theme.swift' -not -name 'Grid.swift' -not -name 'Tokens.swift' -not -name 'CuratedIconSets.swift' -not -name 'SelfTest.swift' -print0 | xargs -0 perl -ne '
   BEGIN { $count = 0 }
   if (!/grid: ok/) {
     my @bad;

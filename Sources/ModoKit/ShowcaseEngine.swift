@@ -175,7 +175,7 @@ public enum ShowcaseEngine {
             .paragraphStyle: subStyle
         ]
         let subString = NSAttributedString(string: options.subtitle, attributes: subAttrs)
-        let subRect = CGRect(x: 40, y: iconY - 110, width: rect.width - 80, height: 35)
+        let subRect = CGRect(x: 40, y: iconY - 110, width: rect.width - 80, height: 36)
         subString.draw(in: subRect)
     }
 
@@ -228,7 +228,7 @@ public enum ShowcaseEngine {
             .paragraphStyle: titleStyle
         ]
         let titleString = NSAttributedString(string: options.title, attributes: titleAttrs)
-        titleString.draw(in: CGRect(x: 40, y: rect.height - 110, width: rect.width - 80, height: 50))
+        titleString.draw(in: CGRect(x: 40, y: rect.height - 110, width: rect.width - 80, height: 48))
     }
 
     private static func drawCardLayout(in ctx: CGContext, rect: CGRect, icon: NSImage, options: ShowcaseExportOptions) {
@@ -281,7 +281,7 @@ public enum ShowcaseEngine {
             .paragraphStyle: subStyle
         ]
         let subString = NSAttributedString(string: options.subtitle, attributes: subAttrs)
-        subString.draw(in: CGRect(x: cardX + 20, y: iconY - 90, width: cardW - 40, height: 30))
+        subString.draw(in: CGRect(x: cardX + 20, y: iconY - 90, width: cardW - 40, height: 32))
     }
 
     private static func drawIconWithShadow(in ctx: CGContext, icon: NSImage, rect: CGRect) {

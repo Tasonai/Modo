@@ -121,7 +121,7 @@ struct AIGlyphStudioView: View {
                                 Button {
                                     selectedGeometricStyle = style
                                 } label: {
-                                    HStack(spacing: 6) {
+                                    HStack(spacing: Space.sm) {
                                         Image(systemName: style.iconSymbol)
                                         Text(style.title)
                                     }

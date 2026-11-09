@@ -166,7 +166,7 @@ struct SystemThemingWizardView: View {
                         Text("Vector Available")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(Palette.accentText)
-                            .padding(.horizontal, 5)
+                            .padding(.horizontal, Space.xs)
                             .padding(.vertical, 2)
                             .background(Palette.accent.opacity(0.12), in: Capsule())
                     }

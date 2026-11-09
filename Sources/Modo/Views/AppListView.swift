@@ -21,7 +21,7 @@ struct AppListView: View {
                         Text(filter.rawValue)
                             .font(.caption2.weight(model.categoryFilter == filter ? .semibold : .regular))
                             .padding(.horizontal, Space.sm)
-                            .padding(.vertical, 3)
+                            .padding(.vertical, Space.xs)
                             .background(
                                 Capsule()
                                     .fill(model.categoryFilter == filter ? Palette.accent.opacity(0.18) : Color.clear)
@@ -268,7 +268,7 @@ struct AppRowView: View {
         }
         .padding(.vertical, Space.xs)
         .padding(.horizontal, isTargeted ? Space.xs : 0)
-        .background(isTargeted ? Palette.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+        .background(isTargeted ? Palette.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, let data = CustomArtworkHelper.loadArtworkData(from: url) else { return false }
             model.setCustomArtwork(data: data, for: item)
@@ -292,7 +292,7 @@ struct AppGridCellView: View {
 
     var body: some View {
         let cardShape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-        VStack(spacing: 6) {
+        VStack(spacing: Space.sm) {
             ZStack(alignment: .topTrailing) {
                 Image(nsImage: model.roundIcon(for: item))
                     .resizable()
@@ -305,7 +305,7 @@ struct AppGridCellView: View {
                         .font(.system(size: max(size * 0.18, 10)))
                         .foregroundStyle(.yellow)
                         .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
-                        .offset(x: 2, y: -2)
+                        .offset(x: 2, y: -2) // grid: ok badge offset
                 }
             }
 
@@ -316,7 +316,7 @@ struct AppGridCellView: View {
                 .foregroundStyle(isSelected ? .primary : .secondary)
                 .frame(maxWidth: .infinity)
 
-            HStack(spacing: 3) {
+            HStack(spacing: Space.xs) {
                 if item.customImageData != nil {
                     let isSVG = CustomArtworkHelper.isSVGData(item.customImageData!)
                     Text(isSVG ? "SVG" : "Custom")
@@ -331,7 +331,7 @@ struct AppGridCellView: View {
                     Text("Styled")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Palette.accentText)
-                        .padding(.horizontal, 5)
+                        .padding(.horizontal, Space.xs)
                         .padding(.vertical, 1)
                         .background(Palette.accent.opacity(0.16), in: Capsule())
                 }

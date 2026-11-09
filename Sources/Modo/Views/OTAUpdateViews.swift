@@ -69,7 +69,7 @@ struct OTAUpdateSheetView: View {
     private var statusBadge: some View {
         switch ota.status {
         case .checking:
-            HStack(spacing: 6) {
+            HStack(spacing: Space.sm) {
                 ProgressView().controlSize(.small)
                 Text("Checking…").font(.caption).foregroundStyle(.secondary)
             }
@@ -142,7 +142,7 @@ struct OTAUpdateSheetView: View {
             .frame(maxWidth: .infinity, minHeight: 180)
 
         case let .upToDate(version, checkedAt):
-            VStack(spacing: 14) {
+            VStack(spacing: Space.lg) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(.green)
@@ -162,7 +162,7 @@ struct OTAUpdateSheetView: View {
             .frame(maxWidth: .infinity, minHeight: 180)
 
         case let .available(manifest, asset):
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Space.lg) {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(manifest.title)
@@ -186,8 +186,8 @@ struct OTAUpdateSheetView: View {
                     Text("Current: v\(ota.currentVersion)")
                         .font(.caption.monospaced())
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+                        .padding(.vertical, Space.xs)
+                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
 
                     Image(systemName: "arrow.right")
                         .font(.caption2)
@@ -197,8 +197,8 @@ struct OTAUpdateSheetView: View {
                         .font(.caption.bold().monospaced())
                         .foregroundStyle(Palette.accent)
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Palette.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                        .padding(.vertical, Space.xs)
+                        .background(Palette.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                 }
 
                 Text("Release Notes:")
@@ -209,9 +209,9 @@ struct OTAUpdateSheetView: View {
                     Text(manifest.releaseNotes)
                         .font(.system(size: 12, design: .default))
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
+                        .padding(Space.md)
                 }
-                .frame(height: 110)
+                .frame(height: 112)
                 .background(Color(nsColor: .controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
@@ -250,7 +250,7 @@ struct OTAUpdateSheetView: View {
             .frame(maxWidth: .infinity, minHeight: 180)
 
         case let .readyToInstall(_, manifest, _):
-            VStack(spacing: 14) {
+            VStack(spacing: Space.lg) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(.green)
@@ -278,7 +278,7 @@ struct OTAUpdateSheetView: View {
             .frame(maxWidth: .infinity, minHeight: 180)
 
         case let .failed(msg):
-            VStack(spacing: 14) {
+            VStack(spacing: Space.lg) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(.red)
@@ -364,7 +364,7 @@ struct UpdatesSettingsView: View {
     var body: some View {
         Section("Installed Version") {
             HStack {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Space.xs) {
                     Text("Modo \(ota.currentVersion)")
                         .font(.headline)
                     Text("Build \(ota.currentBuild) • Native macOS App by Atoma")

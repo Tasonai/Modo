@@ -81,7 +81,7 @@ struct BatchCreatorSheetView: View {
                     .foregroundStyle(.white)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Space.xs) {
                 Text("Batch Iconset & Pack Creator")
                     .font(.headline)
                 Text("Convert an entire folder of logos & images into styled icon packs in one click.")
@@ -134,7 +134,7 @@ struct BatchCreatorSheetView: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(
                             isDropTargeted ? Palette.accent : Color(nsColor: .separatorColor),
-                            style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                            style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]) // grid: ok stroke dash
                         )
                 )
         )
@@ -156,7 +156,7 @@ struct BatchCreatorSheetView: View {
     // MARK: - Config Section
 
     private var configurationSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Space.lg) {
             Text("Pack Configuration")
                 .font(.subheadline.bold())
 
@@ -193,13 +193,13 @@ struct BatchCreatorSheetView: View {
             .font(.caption)
         }
         .padding(16)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Preview Grid
 
     private var candidatesPreviewGrid: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Space.md) {
             HStack {
                 Text("Discovered Logos & Assets (\(candidates.count))")
                     .font(.subheadline.bold())
@@ -210,9 +210,9 @@ struct BatchCreatorSheetView: View {
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+                HStack(spacing: Space.lg) {
                     ForEach(candidates.prefix(16)) { candidate in
-                        VStack(spacing: 6) {
+                        VStack(spacing: Space.sm) {
                             if let img = NSImage(contentsOf: candidate.fileURL) {
                                 Image(nsImage: IconRenderer.renderRoundIcon(
                                     sourceImage: img,
@@ -224,7 +224,7 @@ struct BatchCreatorSheetView: View {
                                 .frame(width: 52, height: 52)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1.5)
                             } else {
-                                RoundedRectangle(cornerRadius: 10)
+                                RoundedRectangle(cornerRadius: 8)
                                     .fill(Color.secondary.opacity(0.2))
                                     .frame(width: 52, height: 52)
                             }
@@ -247,7 +247,7 @@ struct BatchCreatorSheetView: View {
     private var footerActions: some View {
         HStack {
             if isProcessing {
-                HStack(spacing: 10) {
+                HStack(spacing: Space.md) {
                     ProgressView(value: Double(progressIndex), total: Double(max(1, candidates.count)))
                         .frame(width: 140)
                     Text("\(progressIndex)/\(candidates.count): \(currentItemTitle)")
@@ -256,7 +256,7 @@ struct BatchCreatorSheetView: View {
                         .lineLimit(1)
                 }
             } else if let msg = completionMessage {
-                HStack(spacing: 6) {
+                HStack(spacing: Space.sm) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     Text(msg)
                         .font(.caption.weight(.medium))

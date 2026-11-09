@@ -44,7 +44,7 @@ struct IconSetBrowserView: View {
             .labelsHidden()
 
             if let message {
-                HStack(spacing: 6) {
+                HStack(spacing: Space.sm) {
                     Image(systemName: "info.circle")
                         .foregroundStyle(Palette.accentText)
                     Text(message)
@@ -90,14 +90,14 @@ struct IconSetBrowserView: View {
                         .background(.background.secondary, in: Circle())
 
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: Space.sm) {
                             Text(pack.name)
                                 .font(.headline)
                             if model.activeIconSetID == pack.id {
                                 Text("Active")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(Palette.accentText)
-                                    .padding(.horizontal, 6)
+                                    .padding(.horizontal, Space.sm)
                                     .padding(.vertical, 2)
                                     .background(Palette.accent.opacity(0.12), in: Capsule())
                             }
@@ -129,7 +129,7 @@ struct IconSetBrowserView: View {
                                 }
                             }
                         } label: {
-                            Text("Installed ✓")
+                            Label("Installed", systemImage: "checkmark")
                         }
                         .controlSize(.small)
                     } else {
@@ -226,7 +226,7 @@ struct IconSetBrowserView: View {
                     .padding(.vertical, 2)
                 }
                 .listStyle(.inset(alternatesRowBackgrounds: true))
-                .frame(minHeight: 250)
+                .frame(minHeight: 252)
 
                 if catalog.sets.isEmpty {
                     Text("This catalog has no usable sets.").foregroundStyle(.secondary)

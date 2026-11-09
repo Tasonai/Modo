@@ -270,7 +270,7 @@ struct DetailInspectorView: View {
                 Spacer()
 
                 if isLoadingCDNVariants {
-                    HStack(spacing: 6) {
+                    HStack(spacing: Space.sm) {
                         ProgressView()
                             .controlSize(.small)
                         Text("Поиск в CDN…")
@@ -313,11 +313,11 @@ struct DetailInspectorView: View {
         return Button {
             applyVectorVariant(variant)
         } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: Space.sm) {
                 HStack {
                     Text(variant.badge)
                         .font(.system(size: 8, weight: .bold))
-                        .padding(.horizontal, 5)
+                        .padding(.horizontal, Space.xs)
                         .padding(.vertical, 2)
                         .background(
                             isSelected ? Palette.accent.opacity(0.18) : Color.primary.opacity(0.06),
@@ -338,12 +338,12 @@ struct DetailInspectorView: View {
                 ZStack {
                     Circle()
                         .fill(Color.primary.opacity(0.04))
-                        .frame(width: 46, height: 46)
+                        .frame(width: 48, height: 48)
 
                     variantPreviewImage(variant)
                         .frame(width: 36, height: 36)
                 }
-                .frame(height: 50)
+                .frame(height: 48)
 
                 VStack(spacing: 1) {
                     Text(variant.title)
@@ -361,14 +361,14 @@ struct DetailInspectorView: View {
                     Text("Выбрано")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Palette.accentText)
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, Space.sm)
                         .padding(.vertical, 1)
                         .background(Palette.accent.opacity(0.12), in: Capsule())
                 } else {
                     Text("Применить")
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, Space.sm)
                         .padding(.vertical, 1)
                 }
             }
@@ -399,7 +399,7 @@ struct DetailInspectorView: View {
                     .resizable()
                     .renderingMode(.template)
                     .foregroundStyle(.white)
-                    .padding(5)
+                    .padding(Space.xs)
                     .background(Color.black.opacity(0.85), in: Circle())
             } else {
                 Image(systemName: "sparkles")
@@ -413,7 +413,7 @@ struct DetailInspectorView: View {
                 Image(nsImage: img)
                     .resizable()
                     .scaledToFit()
-                    .padding(5)
+                    .padding(Space.xs)
                     .background(bColor.opacity(0.16), in: Circle())
             } else {
                 Image(systemName: "app.fill")
@@ -437,7 +437,7 @@ struct DetailInspectorView: View {
                 Image(nsImage: img)
                     .resizable()
                     .scaledToFit()
-                    .padding(3)
+                    .padding(2)
             } else {
                 Image(systemName: "sparkle")
                     .font(.title3)
@@ -448,7 +448,7 @@ struct DetailInspectorView: View {
                 Image(nsImage: img)
                     .resizable()
                     .scaledToFit()
-                    .padding(5)
+                    .padding(Space.xs)
                     .background(Palette.accent.opacity(0.12), in: Circle())
             } else {
                 Image(systemName: "arrow.down.circle")
@@ -620,7 +620,7 @@ struct DetailInspectorView: View {
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: Space.md) {
                     ForEach(FolderColorPreset.allCases) { preset in
                         Button {
                             item.brandHex = preset.hex
@@ -631,7 +631,7 @@ struct DetailInspectorView: View {
                                 ZStack {
                                     Circle()
                                         .fill(Color(hex: UInt32(preset.hex)))
-                                        .frame(width: 26, height: 26)
+                                        .frame(width: 24, height: 24)
                                         .shadow(color: Color(hex: UInt32(preset.hex)).opacity(0.3), radius: 2)
 
                                     if item.brandHex == preset.hex {
@@ -815,7 +815,7 @@ struct DetailInspectorView: View {
             Divider()
 
             LabeledContent {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Space.sm) {
                     HStack(spacing: Space.sm) {
                         Slider(value: itemScaleBinding, in: 0.30...2.50)
                             .frame(width: 176)
