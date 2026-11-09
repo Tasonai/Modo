@@ -83,6 +83,9 @@ public enum SurfaceMaterial: String, CaseIterable, Codable, Sendable, Identifiab
     case brushedTitanium = "brushed_titanium"
     case neumorphic = "neumorphic"
     case prismGlow = "prism_glow"
+    case liquidChrome = "liquid_chrome"
+    case matteCeramic = "matte_ceramic"
+    case holographic = "holographic"
 
     public var id: String { rawValue }
 
@@ -93,6 +96,9 @@ public enum SurfaceMaterial: String, CaseIterable, Codable, Sendable, Identifiab
         case .brushedTitanium: "Brushed Titanium"
         case .neumorphic: "Neumorphic Emboss"
         case .prismGlow: "Prism Chromatic"
+        case .liquidChrome: "Liquid Chrome"
+        case .matteCeramic: "Matte Ceramic"
+        case .holographic: "Holographic Foil"
         }
     }
 
@@ -103,7 +109,67 @@ public enum SurfaceMaterial: String, CaseIterable, Codable, Sendable, Identifiab
         case .brushedTitanium: "shield.righthalf.filled"
         case .neumorphic: "circle.bottomhalf.filled"
         case .prismGlow: "rainbow"
+        case .liquidChrome: "drop.fill"
+        case .matteCeramic: "square.fill"
+        case .holographic: "sparkles"
         }
+    }
+}
+
+/// Foreground glyph styling and rendering effect.
+public enum GlyphStyleMode: String, CaseIterable, Codable, Sendable, Identifiable {
+    case original = "original"
+    case silhouette = "silhouette"
+    case embossed = "embossed"
+    case outline = "outline"
+    case duotone = "duotone"
+    case glow = "glow"
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .original: "Original"
+        case .silhouette: "Silhouette"
+        case .embossed: "Embossed 3D"
+        case .outline: "Outline"
+        case .duotone: "Duotone"
+        case .glow: "Neon Glow"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .original: "photo"
+        case .silhouette: "circle.fill"
+        case .embossed: "mountain.2.fill"
+        case .outline: "circle.dashed"
+        case .duotone: "circle.lefthalf.filled"
+        case .glow: "sun.max.fill"
+        }
+    }
+}
+
+/// Structured 5-color palette extracted from original brand artwork.
+public struct BrandPalette: Codable, Hashable, Sendable {
+    public var primary: UInt32
+    public var secondary: UInt32
+    public var backgroundTint: UInt32
+    public var deepTone: UInt32
+    public var highlight: UInt32
+
+    public init(
+        primary: UInt32 = 0x1A73E8,
+        secondary: UInt32 = 0x4285F4,
+        backgroundTint: UInt32 = 0xE8F0FE,
+        deepTone: UInt32 = 0x0D47A1,
+        highlight: UInt32 = 0xFFFFFF
+    ) {
+        self.primary = primary
+        self.secondary = secondary
+        self.backgroundTint = backgroundTint
+        self.deepTone = deepTone
+        self.highlight = highlight
     }
 }
 
@@ -146,11 +212,13 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var tintColorHex: UInt32
     /// Tactile surface finish and shader material.
     public var surfaceMaterial: SurfaceMaterial
+    /// Foreground glyph styling and rendering effect.
+    public var glyphStyle: GlyphStyleMode
 
     enum CodingKeys: String, CodingKey {
         case backgroundStyle, shape, iconScale, offsetX, offsetY
         case shadowIntensity, innerShadow, fullBleedSquares, monochromeTint
-        case autoTrim, customHex, appearanceMode, tintColorHex, surfaceMaterial
+        case autoTrim, customHex, appearanceMode, tintColorHex, surfaceMaterial, glyphStyle
     }
 
     public init(
@@ -167,7 +235,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         customHex: UInt32 = 0xE8F0FE,
         appearanceMode: IconAppearanceMode = .light,
         tintColorHex: UInt32 = 0x007AFF,
-        surfaceMaterial: SurfaceMaterial = .smooth
+        surfaceMaterial: SurfaceMaterial = .smooth,
+        glyphStyle: GlyphStyleMode = .original
     ) {
         self.backgroundStyle = backgroundStyle
         self.shape = shape
@@ -183,6 +252,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.appearanceMode = appearanceMode
         self.tintColorHex = tintColorHex & 0xFFFFFF
         self.surfaceMaterial = surfaceMaterial
+        self.glyphStyle = glyphStyle
     }
 
     public init(from decoder: Decoder) throws {
@@ -205,6 +275,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.appearanceMode = try container.decodeIfPresent(IconAppearanceMode.self, forKey: .appearanceMode) ?? .light
         self.tintColorHex = try container.decodeIfPresent(UInt32.self, forKey: .tintColorHex) ?? 0x007AFF
         self.surfaceMaterial = try container.decodeIfPresent(SurfaceMaterial.self, forKey: .surfaceMaterial) ?? .smooth
+        self.glyphStyle = try container.decodeIfPresent(GlyphStyleMode.self, forKey: .glyphStyle) ?? .original
     }
 
     public mutating func resetPosition() {

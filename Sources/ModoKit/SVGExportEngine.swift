@@ -81,6 +81,39 @@ public enum SVGExportEngine {
                 </linearGradient>
 
             """
+        case .liquidChrome:
+            svg += """
+                <linearGradient id="chrome-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+                  <stop offset="22%" stop-color="#454855" stop-opacity="0.15" />
+                  <stop offset="45%" stop-color="#151825" stop-opacity="0.35" />
+                  <stop offset="65%" stop-color="#e8f0fe" stop-opacity="0.50" />
+                  <stop offset="85%" stop-color="#303340" stop-opacity="0.20" />
+                  <stop offset="100%" stop-color="#ffffff" stop-opacity="0.40" />
+                </linearGradient>
+
+            """
+        case .matteCeramic:
+            svg += """
+                <linearGradient id="ceramic-grad" x1="50%" y1="0%" x2="50%" y2="100%">
+                  <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
+                  <stop offset="35%" stop-color="#fdfbf7" stop-opacity="0.08" />
+                  <stop offset="70%" stop-color="#e2e4e8" stop-opacity="0.0" />
+                  <stop offset="100%" stop-color="#000000" stop-opacity="0.08" />
+                </linearGradient>
+
+            """
+        case .holographic:
+            svg += """
+                <linearGradient id="holo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.28" />
+                  <stop offset="25%" stop-color="#EC4899" stop-opacity="0.30" />
+                  <stop offset="50%" stop-color="#F59E0B" stop-opacity="0.24" />
+                  <stop offset="75%" stop-color="#10B981" stop-opacity="0.28" />
+                  <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.30" />
+                </linearGradient>
+
+            """
         }
 
         svg += """
@@ -121,6 +154,23 @@ public enum SVGExportEngine {
             svg += """
                 <path d="\(shapeD)" fill="url(#prism-grad)" />
                 <path d="\(shapeD)" fill="none" stroke="#8B5CF6" stroke-width="\(max(2.0, size * 0.006))" stroke-opacity="0.35" />
+
+            """
+        case .liquidChrome:
+            svg += """
+                <path d="\(shapeD)" fill="url(#chrome-grad)" />
+                <path d="\(shapeD)" fill="none" stroke="#ffffff" stroke-width="\(max(2.0, size * 0.005))" stroke-opacity="0.40" />
+
+            """
+        case .matteCeramic:
+            svg += """
+                <path d="\(shapeD)" fill="url(#ceramic-grad)" />
+
+            """
+        case .holographic:
+            svg += """
+                <path d="\(shapeD)" fill="url(#holo-grad)" />
+                <path d="\(shapeD)" fill="none" stroke="#EC4899" stroke-width="\(max(2.0, size * 0.005))" stroke-opacity="0.30" />
 
             """
         }

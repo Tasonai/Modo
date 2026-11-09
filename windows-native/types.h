@@ -49,7 +49,27 @@ enum SurfaceMaterial {
     MATERIAL_FROSTED_GLASS = 1,
     MATERIAL_BRUSHED_TITANIUM = 2,
     MATERIAL_NEUMORPHIC = 3,
-    MATERIAL_PRISM_GLOW = 4
+    MATERIAL_PRISM_GLOW = 4,
+    MATERIAL_LIQUID_CHROME = 5,
+    MATERIAL_MATTE_CERAMIC = 6,
+    MATERIAL_HOLOGRAPHIC = 7
+};
+
+enum GlyphStyleMode {
+    GLYPH_ORIGINAL = 0,
+    GLYPH_SILHOUETTE = 1,
+    GLYPH_EMBOSSED = 2,
+    GLYPH_OUTLINE = 3,
+    GLYPH_DUOTONE = 4,
+    GLYPH_GLOW = 5
+};
+
+struct BrandPaletteWin {
+    COLORREF primary;
+    COLORREF secondary;
+    COLORREF backgroundTint;
+    COLORREF deepTone;
+    COLORREF highlight;
 };
 
 enum ShowcaseTheme {
@@ -79,6 +99,7 @@ struct RoundStyle {
     bool monochrome = false;
     COLORREF customColor = RGB(26, 115, 232);
     SurfaceMaterial material = MATERIAL_SMOOTH;
+    GlyphStyleMode glyphStyle = GLYPH_ORIGINAL;
 };
 
 struct AppEntry {
@@ -121,26 +142,27 @@ struct IconPackDef {
     bool monochrome;
     COLORREF customColor;
     SurfaceMaterial material;
+    GlyphStyleMode glyphStyle;
 };
 
 static const IconPackDef kIconPacks[19] = {
-    { L"Pixel Pure",   PRESET_GOOGLE_WHITE,    SHAPE_CIRCLE,   0.68, 0.40, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH },
-    { L"Material You", PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.35, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH },
-    { L"Modo Noir",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.66, 0.50, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH },
-    { L"Atoma Mono",   PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.30, false, true,  RGB(232, 240, 254), MATERIAL_SMOOTH },
-    { L"WhiteSur",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.74, 0.38, true,  false, RGB(0, 122, 255),   MATERIAL_SMOOTH },
-    { L"Tela",         PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.30, false, false, RGB(45, 114, 217),  MATERIAL_SMOOTH },
-    { L"Lawnicons",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.65, 0.35, false, true,  RGB(56, 189, 248),  MATERIAL_SMOOTH },
-    { L"macOSicons",   PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.72, 0.42, true,  false, RGB(243, 244, 246), MATERIAL_SMOOTH },
-    { L"Tabler",       PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.40, false, true,  RGB(24, 24, 27),    MATERIAL_SMOOTH },
-    { L"Simple Icons", PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.65, 0.25, false, true,  RGB(32, 33, 36),    MATERIAL_SMOOTH },
-    { L"Squircle",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.72, 0.35, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH },
-    { L"Paper",        PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.25, false, false, RGB(246, 243, 235), MATERIAL_NEUMORPHIC },
-    { L"Cyber Hex",    PRESET_DARK_MATERIAL,   SHAPE_HEXAGON,  0.65, 0.55, true,  false, RGB(232, 240, 254), MATERIAL_PRISM_GLOW },
-    { L"Catppuccin",   PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.35, false, false, RGB(30, 30, 46),    MATERIAL_SMOOTH },
-    { L"Nordic",       PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.30, false, false, RGB(46, 52, 64),    MATERIAL_FROSTED_GLASS },
-    { L"Tokyo Night",  PRESET_CUSTOM_COLOR,    SHAPE_HEXAGON,  0.66, 0.50, true,  false, RGB(26, 27, 38),    MATERIAL_PRISM_GLOW },
-    { L"Dracula",      PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.40, false, false, RGB(40, 42, 54),    MATERIAL_SMOOTH },
-    { L"Sunset",       PRESET_CUSTOM_COLOR,    SHAPE_PEBBLE,   0.70, 0.35, false, false, RGB(45, 27, 40),    MATERIAL_FROSTED_GLASS },
-    { L"Fluent",       PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.74, 0.45, true,  false, RGB(243, 244, 246), MATERIAL_BRUSHED_TITANIUM }
+    { L"Pixel Pure",   PRESET_GOOGLE_WHITE,    SHAPE_CIRCLE,   0.68, 0.40, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Material You", PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.35, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Modo Noir",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.66, 0.50, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Atoma Mono",   PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.30, false, true,  RGB(232, 240, 254), MATERIAL_SMOOTH, GLYPH_SILHOUETTE },
+    { L"WhiteSur",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.74, 0.38, true,  false, RGB(0, 122, 255),   MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Tela",         PRESET_MATERIAL_PASTEL, SHAPE_CIRCLE,   0.70, 0.30, false, false, RGB(45, 114, 217),  MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Lawnicons",    PRESET_DARK_MATERIAL,   SHAPE_CIRCLE,   0.65, 0.35, false, true,  RGB(56, 189, 248),  MATERIAL_SMOOTH, GLYPH_SILHOUETTE },
+    { L"macOSicons",   PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.72, 0.42, true,  false, RGB(243, 244, 246), MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Tabler",       PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.64, 0.40, false, true,  RGB(24, 24, 27),    MATERIAL_SMOOTH, GLYPH_SILHOUETTE },
+    { L"Simple Icons", PRESET_DARK_MATERIAL,   SHAPE_SQUIRCLE, 0.65, 0.25, false, true,  RGB(32, 33, 36),    MATERIAL_SMOOTH, GLYPH_SILHOUETTE },
+    { L"Squircle",     PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.72, 0.35, true,  false, RGB(232, 240, 254), MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Paper",        PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.25, false, false, RGB(246, 243, 235), MATERIAL_NEUMORPHIC, GLYPH_ORIGINAL },
+    { L"Cyber Hex",    PRESET_DARK_MATERIAL,   SHAPE_HEXAGON,  0.65, 0.55, true,  false, RGB(232, 240, 254), MATERIAL_PRISM_GLOW, GLYPH_GLOW },
+    { L"Catppuccin",   PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.35, false, false, RGB(30, 30, 46),    MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Nordic",       PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.30, false, false, RGB(46, 52, 64),    MATERIAL_FROSTED_GLASS, GLYPH_ORIGINAL },
+    { L"Tokyo Night",  PRESET_CUSTOM_COLOR,    SHAPE_HEXAGON,  0.66, 0.50, true,  false, RGB(26, 27, 38),    MATERIAL_PRISM_GLOW, GLYPH_GLOW },
+    { L"Dracula",      PRESET_CUSTOM_COLOR,    SHAPE_SQUIRCLE, 0.68, 0.40, false, false, RGB(40, 42, 54),    MATERIAL_SMOOTH, GLYPH_ORIGINAL },
+    { L"Sunset",       PRESET_CUSTOM_COLOR,    SHAPE_PEBBLE,   0.70, 0.35, false, false, RGB(45, 27, 40),    MATERIAL_FROSTED_GLASS, GLYPH_ORIGINAL },
+    { L"Fluent",       PRESET_GOOGLE_WHITE,    SHAPE_SQUIRCLE, 0.74, 0.45, true,  false, RGB(243, 244, 246), MATERIAL_BRUSHED_TITANIUM, GLYPH_ORIGINAL }
 };

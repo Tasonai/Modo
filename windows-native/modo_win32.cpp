@@ -136,8 +136,10 @@ enum WidgetID {
     W_INSP_TAB_STYLE,
     W_INSP_TAB_GEOMETRY,
     W_INSP_TAB_OPTIONS,
-    // Surface material pills (5 materials)
-    W_MATERIAL_0, W_MATERIAL_1, W_MATERIAL_2, W_MATERIAL_3, W_MATERIAL_4
+    // Surface material pills (8 materials)
+    W_MATERIAL_0, W_MATERIAL_1, W_MATERIAL_2, W_MATERIAL_3, W_MATERIAL_4, W_MATERIAL_5, W_MATERIAL_6, W_MATERIAL_7,
+    // Glyph artwork style pills (6 modes)
+    W_GLYPH_0, W_GLYPH_1, W_GLYPH_2, W_GLYPH_3, W_GLYPH_4, W_GLYPH_5
 };
 
 struct HitZone {
@@ -399,6 +401,8 @@ static void SaveStyleConfig() {
     WritePrivateProfileStringW(L"Style", L"CustomColor", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", (int)g_style.material);
     WritePrivateProfileStringW(L"Style", L"Material", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)g_style.glyphStyle);
+    WritePrivateProfileStringW(L"Style", L"GlyphStyle", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", g_gridIconSize);
     WritePrivateProfileStringW(L"Style", L"GridIconSize", buf, cfgPath.c_str());
 }
@@ -426,7 +430,8 @@ static void LoadStyleConfig() {
     g_style.fullBleed = GetPrivateProfileIntW(L"Style", L"FullBleed", 0, cfgPath.c_str()) != 0;
     g_style.monochrome = GetPrivateProfileIntW(L"Style", L"Monochrome", 0, cfgPath.c_str()) != 0;
     g_style.customColor = (COLORREF)GetPrivateProfileIntW(L"Style", L"CustomColor", (INT)RGB(26, 115, 232), cfgPath.c_str());
-    g_style.material = (SurfaceMaterial)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Material", 0, cfgPath.c_str()), 0, 4);
+    g_style.material = (SurfaceMaterial)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Material", 0, cfgPath.c_str()), 0, 7);
+    g_style.glyphStyle = (GlyphStyleMode)std::clamp((int)GetPrivateProfileIntW(L"Style", L"GlyphStyle", 0, cfgPath.c_str()), 0, 5);
     g_gridIconSize = std::clamp((int)GetPrivateProfileIntW(L"Style", L"GridIconSize", 56, cfgPath.c_str()), 48, 96);
 }
 
@@ -1343,6 +1348,15 @@ static const wchar_t* GetWidgetTooltip(WidgetID id) {
         case W_MATERIAL_2: return L"Материал: Шлифованный металл с микротекстурой (Brushed Titanium)";
         case W_MATERIAL_3: return L"Материал: Мягкий объёмный рельеф (Neumorphic Emboss)";
         case W_MATERIAL_4: return L"Материал: Голографическая дисперсия света (Prism Chromatic)";
+        case W_MATERIAL_5: return L"Материал: Жидкий хром со сверкающими бликами (Liquid Chrome)";
+        case W_MATERIAL_6: return L"Материал: Матовая керамика с мягкой диффузией (Matte Ceramic)";
+        case W_MATERIAL_7: return L"Материал: Радужная голографическая фольга (Holographic Foil)";
+        case W_GLYPH_0: return L"Рисунок значка: Оригинал (Original Artwork)";
+        case W_GLYPH_1: return L"Рисунок значка: Силуэтная заливка (Silhouette Solid Fill)";
+        case W_GLYPH_2: return L"Рисунок значка: Тактильный 3D рельеф (Embossed 3D)";
+        case W_GLYPH_3: return L"Рисунок значка: Контурная обводка (Outline Contour)";
+        case W_GLYPH_4: return L"Рисунок значка: Гармоничный дуотон (Duotone Harmony)";
+        case W_GLYPH_5: return L"Рисунок значка: Неоновое свечение (Neon Halo Glow)";
         default:
             if (id >= W_PACK_0 && id <= W_PACK_18) {
                 int p = id - W_PACK_0;
@@ -2041,14 +2055,28 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
         SolidBrush wDotBr(theme.isDark ? Color(220, 255, 255, 255) : Color(220, 0, 0, 0));
         g.FillEllipse(&wDotBr, winSr.X + winSr.Width * 0.5f - 1.5f, winSr.Y + winSr.Height * 0.5f - 1.5f, 3.0f, 3.0f);
 
-        // Surface Material Shaders (Frosted Glass, Titanium, Neumorphic, Prism)
-        REAL matY = swRowY + swW + 14.0f;
+        // Surface Material Shaders (8 tactile finishes)
+        REAL matY = swRowY + swW + 12.0f;
         g.DrawString(L"Материал и текстура подложки", -1, &fSmallBold, PointF((REAL)(inspX + 16), matY), NULL, &primBr);
-        const wchar_t* matNames[5] = { L"Гладкий", L"Стекло", L"Титан", L"Эмбосс", L"Призма" };
-        REAL matW = (inspW - 32.0f - 4.0f * 4.0f) / 5.0f;
-        for (int m = 0; m < 5; ++m) {
-            RectF mr((REAL)(inspX + 16) + m * (matW + 4.0f), matY + 18.0f, matW, 26.0f);
+        const wchar_t* matNames[8] = { L"Гладкий", L"Стекло", L"Титан", L"Эмбосс", L"Призма", L"Хром", L"Керамика", L"Фольга" };
+        REAL matW4 = (inspW - 32.0f - 3.0f * 4.0f) / 4.0f;
+        for (int m = 0; m < 8; ++m) {
+            int row = m / 4;
+            int col = m % 4;
+            RectF mr((REAL)(inspX + 16) + col * (matW4 + 4.0f), matY + 16.0f + row * 24.0f, matW4, 20.0f);
             DrawStudioPillButton(g, (WidgetID)(W_MATERIAL_0 + m), mr, matNames[m], fSmallBold, theme, false, (int)g_style.material == m);
+        }
+
+        // Glyph Artwork Style (6 rendering modes)
+        REAL glyphY = matY + 16.0f + 2 * 24.0f + 8.0f;
+        g.DrawString(L"Стиль рисунка значка", -1, &fSmallBold, PointF((REAL)(inspX + 16), glyphY), NULL, &primBr);
+        const wchar_t* glyphNames[6] = { L"Оригинал", L"Силуэт", L"3D Рельеф", L"Контур", L"Дуотон", L"Неон" };
+        REAL glyW3 = (inspW - 32.0f - 2.0f * 4.0f) / 3.0f;
+        for (int gl = 0; gl < 6; ++gl) {
+            int row = gl / 3;
+            int col = gl % 3;
+            RectF gr((REAL)(inspX + 16) + col * (glyW3 + 4.0f), glyphY + 16.0f + row * 24.0f, glyW3, 20.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_GLYPH_0 + gl), gr, glyphNames[gl], fSmallBold, theme, false, (int)g_style.glyphStyle == gl);
         }
 
     } else if (g_inspectorTab == INSP_TAB_GEOMETRY) {
@@ -2581,6 +2609,7 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 g_style.monochrome = pk.monochrome;
                 g_style.customColor = pk.customColor;
                 g_style.material = pk.material;
+                g_style.glyphStyle = pk.glyphStyle;
                 g_style.offsetX = 0.0;
                 g_style.offsetY = 0.0;
                 g_activePack = packIdx;
@@ -2764,8 +2793,18 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 
-        case W_MATERIAL_0: case W_MATERIAL_1: case W_MATERIAL_2: case W_MATERIAL_3: case W_MATERIAL_4:
+        case W_MATERIAL_0: case W_MATERIAL_1: case W_MATERIAL_2: case W_MATERIAL_3:
+        case W_MATERIAL_4: case W_MATERIAL_5: case W_MATERIAL_6: case W_MATERIAL_7:
             g_style.material = (SurfaceMaterial)(id - W_MATERIAL_0);
+            g_activePack = -1;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+
+        case W_GLYPH_0: case W_GLYPH_1: case W_GLYPH_2:
+        case W_GLYPH_3: case W_GLYPH_4: case W_GLYPH_5:
+            g_style.glyphStyle = (GlyphStyleMode)(id - W_GLYPH_0);
             g_activePack = -1;
             SaveStyleConfig();
             InvalidateAllThumbs();
@@ -2789,6 +2828,7 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
                 g_style.monochrome = pk.monochrome;
                 g_style.customColor = pk.customColor;
                 g_style.material = pk.material;
+                g_style.glyphStyle = pk.glyphStyle;
                 g_style.offsetX = 0.0;
                 g_style.offsetY = 0.0;
                 g_activePack = idx;

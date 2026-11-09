@@ -758,6 +758,61 @@ struct DetailInspectorView: View {
                 .frame(width: 240)
             }
 
+            LabeledContent("Glyph Artwork Style") {
+                Picker("Glyph Style", selection: $model.style.glyphStyle) {
+                    ForEach(GlyphStyleMode.allCases) { mode in
+                        Label(mode.title, systemImage: mode.symbol).tag(mode)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 240)
+            }
+
+            let brandPalette = IconRenderer.extractBrandPalette(from: model.sourceIcon(for: item, canvasSize: 128), fallbackHex: UInt32(clamping: item.brandHex))
+
+            LabeledContent("Brand Color Harmony") {
+                HStack(spacing: Space.sm) {
+                    HStack(spacing: Space.xs) {
+                        ForEach([
+                            ("Primary", brandPalette.primary),
+                            ("Secondary", brandPalette.secondary),
+                            ("Pastel Tint", brandPalette.backgroundTint),
+                            ("Deep Ink", brandPalette.deepTone),
+                            ("Highlight", brandPalette.highlight)
+                        ], id: \.0) { name, hex in
+                            Button {
+                                model.style.customHex = hex
+                                model.style.backgroundStyle = .customColor
+                            } label: {
+                                Circle()
+                                    .fill(Color(
+                                        red: Double((hex >> 16) & 0xFF) / 255.0,
+                                        green: Double((hex >> 8) & 0xFF) / 255.0,
+                                        blue: Double(hex & 0xFF) / 255.0
+                                    ))
+                                    .frame(width: 20, height: 20)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(.primary.opacity(model.style.customHex == hex ? 0.85 : 0.20), lineWidth: model.style.customHex == hex ? 2 : 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("\(name): \(MaterialRGB(hex: hex).hexString)")
+                        }
+                    }
+
+                    Button {
+                        model.style.customHex = brandPalette.backgroundTint
+                        model.style.backgroundStyle = .customColor
+                        model.style.glyphStyle = .duotone
+                    } label: {
+                        Label("Apply Duotone", systemImage: "sparkles")
+                    }
+                    .controlSize(.small)
+                    .help("Set pastel tint substrate and duotone glyph style")
+                }
+            }
+
             LabeledContent("Color & Eyedropper") {
                 HStack(spacing: Space.sm) {
                     Button {

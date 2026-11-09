@@ -233,7 +233,16 @@ enum IconRenderer {
             ctx.fill(glyphRect)
             ctx.endTransparencyLayer()
         } else {
-            ctx.draw(trimmedCG, in: glyphRect)
+            drawGlyph(
+                in: ctx,
+                image: trimmedCG,
+                rect: glyphRect,
+                canvasDim: dim,
+                style: style.glyphStyle,
+                palette: dominant.palette,
+                dominantRGB: dominant.dominant,
+                isSquareLike: dominant.isSquareLike
+            )
         }
         ctx.restoreGState()
         ctx.restoreGState() // End circle clip
@@ -708,6 +717,68 @@ enum IconRenderer {
                     options: []
                 )
             }
+
+        case .liquidChrome:
+            // High dynamic range liquid metal specular reflection
+            let chromeColors = [
+                CGColor(srgbRed: 0.95, green: 0.97, blue: 1.0, alpha: 0.40),
+                CGColor(srgbRed: 0.45, green: 0.48, blue: 0.55, alpha: 0.15),
+                CGColor(srgbRed: 0.15, green: 0.18, blue: 0.25, alpha: 0.35),
+                CGColor(srgbRed: 0.90, green: 0.94, blue: 1.0, alpha: 0.50),
+                CGColor(srgbRed: 0.30, green: 0.33, blue: 0.40, alpha: 0.20),
+                CGColor(srgbRed: 0.98, green: 0.99, blue: 1.0, alpha: 0.35)
+            ] as CFArray
+            if let chromeGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: chromeColors, locations: [0.0, 0.22, 0.45, 0.65, 0.85, 1.0]) {
+                ctx.drawLinearGradient(
+                    chromeGrad,
+                    start: CGPoint(x: rect.minX, y: rect.maxY),
+                    end: CGPoint(x: rect.maxX, y: rect.minY),
+                    options: []
+                )
+            }
+            // Curved specular liquid highlight arc
+            let chromeArc = CGMutablePath()
+            chromeArc.move(to: CGPoint(x: rect.minX, y: rect.midY))
+            chromeArc.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.midY + rect.height * 0.15), control: CGPoint(x: rect.midX, y: rect.maxY * 0.95))
+            ctx.setStrokeColor(CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.30))
+            ctx.setLineWidth(max(1.5, rect.width * 0.008))
+            ctx.addPath(chromeArc)
+            ctx.strokePath()
+
+        case .matteCeramic:
+            // Soft diffuse subsurface lighting + velvety matte sheen
+            let ceramicSheen = [
+                CGColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.22),
+                CGColor(srgbRed: 1.0, green: 0.98, blue: 0.95, alpha: 0.08),
+                CGColor(srgbRed: 0.90, green: 0.90, blue: 0.92, alpha: 0.0),
+                CGColor(srgbRed: 0.0, green: 0.0, blue: 0.0, alpha: 0.08)
+            ] as CFArray
+            if let ceramicGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: ceramicSheen, locations: [0.0, 0.35, 0.70, 1.0]) {
+                ctx.drawLinearGradient(
+                    ceramicGrad,
+                    start: CGPoint(x: rect.midX, y: rect.maxY),
+                    end: CGPoint(x: rect.midX, y: rect.minY),
+                    options: []
+                )
+            }
+
+        case .holographic:
+            // Multi-angle iridescent rainbow prism foil
+            let holoColors = [
+                CGColor(srgbRed: 0.35, green: 0.85, blue: 1.0, alpha: 0.25),
+                CGColor(srgbRed: 0.95, green: 0.40, blue: 0.85, alpha: 0.28),
+                CGColor(srgbRed: 1.0, green: 0.85, blue: 0.35, alpha: 0.22),
+                CGColor(srgbRed: 0.40, green: 0.95, blue: 0.65, alpha: 0.25),
+                CGColor(srgbRed: 0.65, green: 0.45, blue: 1.0, alpha: 0.28)
+            ] as CFArray
+            if let holoGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: holoColors, locations: [0.0, 0.25, 0.50, 0.75, 1.0]) {
+                ctx.drawLinearGradient(
+                    holoGrad,
+                    start: CGPoint(x: rect.minX, y: rect.minY),
+                    end: CGPoint(x: rect.maxX, y: rect.maxY),
+                    options: []
+                )
+            }
         }
 
         ctx.restoreGState()
@@ -805,7 +876,7 @@ enum IconRenderer {
     private static func extractColors(
         from cgImage: CGImage,
         fallbackHex: UInt32
-    ) -> (dominant: MaterialRGB, edge: MaterialRGB, isSquareLike: Bool, opticalRadiusNorm: CGFloat) {
+    ) -> (dominant: MaterialRGB, edge: MaterialRGB, isSquareLike: Bool, opticalRadiusNorm: CGFloat, palette: BrandPalette) {
         let sampleSize = 64
         var pixels = [UInt8](repeating: 0, count: sampleSize * sampleSize * 4)
         guard let ctx = CGContext(
@@ -818,7 +889,7 @@ enum IconRenderer {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
             let fb = MaterialRGB(hex: fallbackHex)
-            return (fb, fb, false, 0.50)
+            return (fb, fb, false, 0.50, ColorPaletteEngine.defaultPalette(fallbackHex: fallbackHex))
         }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize)) // grid: ok sample rect
 
@@ -835,12 +906,21 @@ enum IconRenderer {
         var opaqueCount = 0
         var radii: [CGFloat] = []
         radii.reserveCapacity(sampleSize * sampleSize)
+        var sampleRGBAs: [ColorPaletteEngine.RGBA] = []
+        sampleRGBAs.reserveCapacity(sampleSize * sampleSize)
         let center = CGFloat(sampleSize - 1) * 0.5
 
         for y in 0..<sampleSize {
             for x in 0..<sampleSize {
                 let idx = (y * sampleSize + x) * 4
                 let a = pixels[idx + 3]
+                let r = pixels[idx]
+                let g = pixels[idx + 1]
+                let b = pixels[idx + 2]
+                if a > 30 {
+                    sampleRGBAs.append(ColorPaletteEngine.RGBA(r: r, g: g, b: b, a: a))
+                }
+
                 guard a > 96 else { continue }
                 opaqueCount += 1
 
@@ -848,23 +928,19 @@ enum IconRenderer {
                 let dy = (CGFloat(y) - center) / CGFloat(sampleSize)
                 radii.append(hypot(dx, dy))
 
-                let r = Double(pixels[idx])
-                let g = Double(pixels[idx + 1])
-                let b = Double(pixels[idx + 2])
-
-                let maxC = max(r, g, b)
-                let minC = min(r, g, b)
+                let maxC = max(Double(r), Double(g), Double(b))
+                let minC = min(Double(r), Double(g), Double(b))
                 let saturation = maxC > 0 ? (maxC - minC) / maxC : 0
                 let weight = 0.25 + saturation * 2.5
-                totalR += r * weight
-                totalG += g * weight
-                totalB += b * weight
+                totalR += Double(r) * weight
+                totalG += Double(g) * weight
+                totalB += Double(b) * weight
                 totalWeight += weight
 
                 if x < 6 || x >= sampleSize - 6 || y < 6 || y >= sampleSize - 6 {
-                    edgeR += r
-                    edgeG += g
-                    edgeB += b
+                    edgeR += Double(r)
+                    edgeG += Double(g)
+                    edgeB += Double(b)
                     edgeCount += 1.0
                 }
             }
@@ -900,6 +976,153 @@ enum IconRenderer {
         }
 
         let fillRatio = Double(opaqueCount) / Double(sampleSize * sampleSize)
-        return (dominant, edge, fillRatio > 0.72, opticalRadius)
+        let brandPalette = ColorPaletteEngine.extractPalette(from: sampleRGBAs, fallbackHex: fallbackHex)
+        return (dominant, edge, fillRatio > 0.72, opticalRadius, brandPalette)
+    }
+
+    /// Renders the foreground glyph according to the selected artistic GlyphStyleMode.
+    private static func drawGlyph(
+        in ctx: CGContext,
+        image: CGImage,
+        rect: CGRect,
+        canvasDim: CGFloat,
+        style: GlyphStyleMode,
+        palette: BrandPalette,
+        dominantRGB: MaterialRGB,
+        isSquareLike: Bool
+    ) {
+        switch style {
+        case .original:
+            ctx.draw(image, in: rect)
+
+        case .silhouette:
+            if isSquareLike {
+                ctx.draw(desaturated(image), in: rect)
+            } else {
+                let col = NSColor(
+                    srgbRed: CGFloat(dominantRGB.r) / 255.0,
+                    green: CGFloat(dominantRGB.g) / 255.0,
+                    blue: CGFloat(dominantRGB.b) / 255.0,
+                    alpha: 1.0
+                )
+                ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+                ctx.clip(to: rect, mask: image)
+                ctx.setFillColor(col.cgColor)
+                ctx.fill(rect)
+                ctx.endTransparencyLayer()
+            }
+
+        case .embossed:
+            let offsetDist = max(1.5, canvasDim * 0.005)
+            // 1. Lower-right shadow bevel
+            ctx.saveGState()
+            ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+            ctx.clip(to: rect.offsetBy(dx: 0, dy: -offsetDist), mask: image)
+            ctx.setFillColor(CGColor(gray: 0.0, alpha: 0.35))
+            ctx.fill(rect.offsetBy(dx: 0, dy: -offsetDist))
+            ctx.endTransparencyLayer()
+            ctx.restoreGState()
+
+            // 2. Upper-left highlight bevel
+            ctx.saveGState()
+            ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+            ctx.clip(to: rect.offsetBy(dx: 0, dy: offsetDist), mask: image)
+            ctx.setFillColor(CGColor(gray: 1.0, alpha: 0.45))
+            ctx.fill(rect.offsetBy(dx: 0, dy: offsetDist))
+            ctx.endTransparencyLayer()
+            ctx.restoreGState()
+
+            // 3. Central glyph
+            ctx.draw(image, in: rect)
+
+        case .outline:
+            let strokeDist = max(1.5, canvasDim * 0.004)
+            let strokeCol = NSColor(
+                srgbRed: CGFloat((palette.highlight >> 16) & 0xFF) / 255.0,
+                green: CGFloat((palette.highlight >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(palette.highlight & 0xFF) / 255.0,
+                alpha: 0.85
+            )
+            ctx.saveGState()
+            let offsets: [(CGFloat, CGFloat)] = [
+                (-strokeDist, 0), (strokeDist, 0), (0, -strokeDist), (0, strokeDist),
+                (-strokeDist * 0.7, -strokeDist * 0.7), (strokeDist * 0.7, strokeDist * 0.7),
+                (-strokeDist * 0.7, strokeDist * 0.7), (strokeDist * 0.7, -strokeDist * 0.7)
+            ]
+            for (ox, oy) in offsets {
+                ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+                ctx.clip(to: rect.offsetBy(dx: ox, dy: oy), mask: image)
+                ctx.setFillColor(strokeCol.cgColor)
+                ctx.fill(rect.offsetBy(dx: ox, dy: oy))
+                ctx.endTransparencyLayer()
+            }
+            ctx.restoreGState()
+            ctx.draw(image, in: rect)
+
+        case .duotone:
+            let deep = NSColor(
+                srgbRed: CGFloat((palette.deepTone >> 16) & 0xFF) / 255.0,
+                green: CGFloat((palette.deepTone >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(palette.deepTone & 0xFF) / 255.0,
+                alpha: 1.0
+            )
+            let light = NSColor(
+                srgbRed: CGFloat((palette.primary >> 16) & 0xFF) / 255.0,
+                green: CGFloat((palette.primary >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(palette.primary & 0xFF) / 255.0,
+                alpha: 1.0
+            )
+            if let duotoneCG = createDuotoneImage(from: image, color0: deep, color1: light) {
+                ctx.draw(duotoneCG, in: rect)
+            } else {
+                ctx.draw(image, in: rect)
+            }
+
+        case .glow:
+            let glowCol = NSColor(
+                srgbRed: CGFloat((palette.primary >> 16) & 0xFF) / 255.0,
+                green: CGFloat((palette.primary >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(palette.primary & 0xFF) / 255.0,
+                alpha: 0.65
+            )
+            ctx.saveGState()
+            ctx.setShadow(
+                offset: .zero,
+                blur: canvasDim * 0.035,
+                color: glowCol.cgColor
+            )
+            ctx.draw(image, in: rect)
+            ctx.restoreGState()
+            ctx.draw(image, in: rect)
+        }
+    }
+
+    private static func createDuotoneImage(from image: CGImage, color0: NSColor, color1: NSColor) -> CGImage? {
+        let ciImg = CIImage(cgImage: image)
+        guard let falseColor = CIFilter(name: "CIFalseColor") else { return nil }
+        falseColor.setValue(ciImg, forKey: kCIInputImageKey)
+        falseColor.setValue(CIColor(color: color0), forKey: "inputColor0")
+        falseColor.setValue(CIColor(color: color1), forKey: "inputColor1")
+        guard let output = falseColor.outputImage else { return nil }
+
+        guard let maskFilter = CIFilter(name: "CIBlendWithAlphaMask") else {
+            return ciContext.createCGImage(output, from: ciImg.extent)
+        }
+        maskFilter.setValue(output, forKey: kCIInputImageKey)
+        maskFilter.setValue(CIImage.empty(), forKey: kCIInputBackgroundImageKey)
+        maskFilter.setValue(ciImg, forKey: kCIInputMaskImageKey)
+        if let maskedOutput = maskFilter.outputImage,
+           let cg = ciContext.createCGImage(maskedOutput, from: ciImg.extent) {
+            return cg
+        }
+        return ciContext.createCGImage(output, from: ciImg.extent)
+    }
+
+    /// Extracts a 5-color structured BrandPalette (primary, secondary, tint, deep, highlight) from any icon image.
+    public static func extractBrandPalette(from image: NSImage, fallbackHex: UInt32 = 0x1A73E8) -> BrandPalette {
+        guard let cg = cgImage(from: image, targetSize: 128) else {
+            return ColorPaletteEngine.defaultPalette(fallbackHex: fallbackHex)
+        }
+        return extractColors(from: cg, fallbackHex: fallbackHex).palette
     }
 }

@@ -58,7 +58,8 @@ static void PrintHelp() {
         L"                           --shape <squircle|circle|roundedRect|pebble|hexagon>\n"
         L"                           --bg <pastel|dark|white|clear|custom>\n"
         L"                           --scale <0.4..1.8>\n"
-        L"                           --material <smooth|glass|titanium|neumorphic|prism>\n"
+        L"                           --material <smooth|glass|titanium|neumorphic|prism|chrome|ceramic|holo>\n"
+        L"                           --glyph <original|silhouette|embossed|outline|duotone|glow>\n"
         L"  restore <path>         Restore original system icon for an app or folder\n"
         L"  folder <folder_path>   Style a folder using desktop.ini & custom palette\n"
         L"                           --color <appleBlue|graphite|purple|teal|sunsetOrange|emerald|coralRed|amberGold|obsidian>\n"
@@ -159,6 +160,17 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
             else if (val == L"titanium" || val == L"metal") style.material = MATERIAL_BRUSHED_TITANIUM;
             else if (val == L"neumorphic") style.material = MATERIAL_NEUMORPHIC;
             else if (val == L"prism" || val == L"cyber") style.material = MATERIAL_PRISM_GLOW;
+            else if (val == L"chrome" || val == L"liquid") style.material = MATERIAL_LIQUID_CHROME;
+            else if (val == L"ceramic" || val == L"matte") style.material = MATERIAL_MATTE_CERAMIC;
+            else if (val == L"holo" || val == L"holographic") style.material = MATERIAL_HOLOGRAPHIC;
+        } else if (opt == L"--glyph" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"original") style.glyphStyle = GLYPH_ORIGINAL;
+            else if (val == L"silhouette") style.glyphStyle = GLYPH_SILHOUETTE;
+            else if (val == L"embossed" || val == L"3d") style.glyphStyle = GLYPH_EMBOSSED;
+            else if (val == L"outline" || val == L"stroke") style.glyphStyle = GLYPH_OUTLINE;
+            else if (val == L"duotone") style.glyphStyle = GLYPH_DUOTONE;
+            else if (val == L"glow" || val == L"neon") style.glyphStyle = GLYPH_GLOW;
         } else if (opt == L"--color" && i + 1 < argc) {
             style.customColor = ParseColorPreset(argv[++i]);
             style.preset = PRESET_CUSTOM_COLOR;

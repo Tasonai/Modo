@@ -195,6 +195,7 @@ struct ExtractedColors {
     bool isAlreadyCircular;
     double opticalRadiusNorm;
     double minRadialCover;
+    BrandPaletteWin palette;
 };
 
 static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
@@ -204,7 +205,8 @@ static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
         false,
         false,
         0.50,
-        0.50
+        0.50,
+        { RGB(26, 115, 232), RGB(66, 133, 244), RGB(232, 240, 254), RGB(13, 71, 161), RGB(255, 255, 255) }
     };
     if (!src) return res;
 
@@ -317,6 +319,20 @@ static ExtractedColors AnalyzeBitmapColors(Bitmap* src) {
     res.isAlreadyCircular = (innerFill > 0.86 && cornerOpaque <= 4 && minDirR >= 0.42 && minDirR <= 0.54);
     res.isSquareLike = (innerFill > 0.84 && totalFill > 0.68);
     res.minRadialCover = std::clamp(minDirR, 0.36, 0.70);
+
+    res.palette.primary = RGB(res.dominant.GetR(), res.dominant.GetG(), res.dominant.GetB());
+    res.palette.secondary = RGB(res.edge.GetR(), res.edge.GetG(), res.edge.GetB());
+    res.palette.backgroundTint = RGB(
+        (BYTE)std::clamp((int)std::round(res.dominant.GetR() * 0.14 + 255.0 * 0.86), 0, 255),
+        (BYTE)std::clamp((int)std::round(res.dominant.GetG() * 0.14 + 255.0 * 0.86), 0, 255),
+        (BYTE)std::clamp((int)std::round(res.dominant.GetB() * 0.14 + 255.0 * 0.86), 0, 255)
+    );
+    res.palette.deepTone = RGB(
+        (BYTE)std::clamp((int)std::round(res.dominant.GetR() * 0.22), 0, 255),
+        (BYTE)std::clamp((int)std::round(res.dominant.GetG() * 0.22), 0, 255),
+        (BYTE)std::clamp((int)std::round(res.dominant.GetB() * 0.22), 0, 255)
+    );
+    res.palette.highlight = RGB(255, 255, 255);
     return res;
 }
 
@@ -455,6 +471,58 @@ static void ApplySurfaceMaterialShader(Graphics& g, SurfaceMaterial mat, RectF r
             break;
         }
 
+        case MATERIAL_LIQUID_CHROME: {
+            LinearGradientBrush chrome(startPt, endPt, Color(102, 255, 255, 255), Color(89, 255, 255, 255));
+            Color chromeCols[6] = {
+                Color(102, 255, 255, 255),
+                Color(38, 115, 122, 140),
+                Color(89, 38, 46, 64),
+                Color(128, 230, 240, 255),
+                Color(51, 76, 84, 102),
+                Color(89, 255, 255, 255)
+            };
+            REAL chromePos[6] = { 0.0f, 0.22f, 0.45f, 0.65f, 0.85f, 1.0f };
+            chrome.SetInterpolationColors(chromeCols, chromePos, 6);
+            g.FillRectangle(&chrome, rect);
+
+            Pen arcPen(Color(76, 255, 255, 255), std::max(1.5f, rect.Width * 0.008f));
+            g.DrawArc(&arcPen, rect.X, rect.Y + rect.Height * 0.2f, rect.Width, rect.Height * 0.6f, 190.0f, 160.0f);
+            break;
+        }
+
+        case MATERIAL_MATTE_CERAMIC: {
+            PointF top(rect.X + rect.Width * 0.5f, rect.Y);
+            PointF bot(rect.X + rect.Width * 0.5f, rect.GetBottom());
+            LinearGradientBrush ceramic(top, bot, Color(56, 255, 255, 255), Color(20, 0, 0, 0));
+            Color ceramicCols[4] = {
+                Color(56, 255, 255, 255),
+                Color(20, 255, 250, 242),
+                Color(0, 230, 230, 235),
+                Color(20, 0, 0, 0)
+            };
+            REAL ceramicPos[4] = { 0.0f, 0.35f, 0.70f, 1.0f };
+            ceramic.SetInterpolationColors(ceramicCols, ceramicPos, 4);
+            g.FillRectangle(&ceramic, rect);
+            break;
+        }
+
+        case MATERIAL_HOLOGRAPHIC: {
+            PointF nw(rect.X, rect.Y);
+            PointF se(rect.GetRight(), rect.GetBottom());
+            LinearGradientBrush holo(nw, se, Color(71, 6, 182, 212), Color(76, 139, 92, 246));
+            Color holoCols[5] = {
+                Color(71, 6, 182, 212),
+                Color(76, 236, 72, 153),
+                Color(61, 245, 158, 11),
+                Color(71, 16, 185, 129),
+                Color(76, 139, 92, 246)
+            };
+            REAL holoPos[5] = { 0.0f, 0.25f, 0.50f, 0.75f, 1.0f };
+            holo.SetInterpolationColors(holoCols, holoPos, 5);
+            g.FillRectangle(&holo, rect);
+            break;
+        }
+
         default:
             break;
     }
@@ -588,7 +656,122 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
         g.DrawImage(trimmed, shRect, 0, 0, srcW, srcH, UnitPixel, &shadowAttr);
     }
 
-    if (style.monochrome && colors.isSquareLike) {
+    if (style.glyphStyle == GLYPH_SILHOUETTE) {
+        Color tint = (style.preset == PRESET_DARK_MATERIAL)
+            ? Color(255, 230, 230, 232)
+            : colors.dominant;
+        REAL tr = tint.GetR() / 255.0f;
+        REAL tg = tint.GetG() / 255.0f;
+        REAL tb = tint.GetB() / 255.0f;
+        ColorMatrix monoMat = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+            tr,   tg,   tb,   0.0f, 1.0f
+        };
+        ImageAttributes monoAttr;
+        monoAttr.SetColorMatrix(&monoMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel, &monoAttr);
+    } else if (style.glyphStyle == GLYPH_EMBOSSED) {
+        REAL offsetDist = std::max(1.5f, dim * 0.005f);
+        // Shadow bevel bottom-right
+        ColorMatrix shMat = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.35f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        };
+        ImageAttributes shAttr;
+        shAttr.SetColorMatrix(&shMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        RectF shR(glyphRect.X, glyphRect.Y + offsetDist, glyphRect.Width, glyphRect.Height);
+        g.DrawImage(trimmed, shR, 0, 0, srcW, srcH, UnitPixel, &shAttr);
+
+        // Highlight bevel top-left
+        ColorMatrix hiMat = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.45f, 0.0f,
+            1.0f, 1.0f, 1.0f, 0.0f, 1.0f
+        };
+        ImageAttributes hiAttr;
+        hiAttr.SetColorMatrix(&hiMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        RectF hiR(glyphRect.X, glyphRect.Y - offsetDist, glyphRect.Width, glyphRect.Height);
+        g.DrawImage(trimmed, hiR, 0, 0, srcW, srcH, UnitPixel, &hiAttr);
+
+        // Central artwork
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel);
+    } else if (style.glyphStyle == GLYPH_OUTLINE) {
+        REAL strokeDist = std::max(1.5f, dim * 0.004f);
+        ColorMatrix outMat = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.85f, 0.0f,
+            1.0f, 1.0f, 1.0f, 0.0f, 1.0f
+        };
+        ImageAttributes outAttr;
+        outAttr.SetColorMatrix(&outMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        REAL offsets[8][2] = {
+            {-strokeDist, 0}, {strokeDist, 0}, {0, -strokeDist}, {0, strokeDist},
+            {-strokeDist * 0.7f, -strokeDist * 0.7f}, {strokeDist * 0.7f, strokeDist * 0.7f},
+            {-strokeDist * 0.7f, strokeDist * 0.7f}, {strokeDist * 0.7f, -strokeDist * 0.7f}
+        };
+        for (int i = 0; i < 8; ++i) {
+            RectF oR(glyphRect.X + offsets[i][0], glyphRect.Y + offsets[i][1], glyphRect.Width, glyphRect.Height);
+            g.DrawImage(trimmed, oR, 0, 0, srcW, srcH, UnitPixel, &outAttr);
+        }
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel);
+    } else if (style.glyphStyle == GLYPH_DUOTONE) {
+        REAL dr = GetRValue(colors.palette.deepTone) / 255.0f;
+        REAL dg = GetGValue(colors.palette.deepTone) / 255.0f;
+        REAL db = GetBValue(colors.palette.deepTone) / 255.0f;
+        REAL lr = GetRValue(colors.palette.primary) / 255.0f;
+        REAL lg = GetGValue(colors.palette.primary) / 255.0f;
+        REAL lb = GetBValue(colors.palette.primary) / 255.0f;
+        REAL scaleR = lr - dr;
+        REAL scaleG = lg - dg;
+        REAL scaleB = lb - db;
+
+        ColorMatrix duoMat = {
+            0.299f * scaleR, 0.299f * scaleG, 0.299f * scaleB, 0.0f, 0.0f,
+            0.587f * scaleR, 0.587f * scaleG, 0.587f * scaleB, 0.0f, 0.0f,
+            0.114f * scaleR, 0.114f * scaleG, 0.114f * scaleB, 0.0f, 0.0f,
+            0.0f,            0.0f,            0.0f,            1.0f, 0.0f,
+            dr,              dg,              db,              0.0f, 1.0f
+        };
+        ImageAttributes duoAttr;
+        duoAttr.SetColorMatrix(&duoMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel, &duoAttr);
+    } else if (style.glyphStyle == GLYPH_GLOW) {
+        Color glowCol = colors.dominant;
+        REAL gr = glowCol.GetR() / 255.0f;
+        REAL gg = glowCol.GetG() / 255.0f;
+        REAL gb = glowCol.GetB() / 255.0f;
+        REAL glowDist = std::max(2.0f, dim * 0.015f);
+
+        ColorMatrix glowMat = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.25f, 0.0f,
+            gr,   gg,   gb,   0.0f, 1.0f
+        };
+        ImageAttributes glowAttr;
+        glowAttr.SetColorMatrix(&glowMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        REAL offsets[8][2] = {
+            {-glowDist, 0}, {glowDist, 0}, {0, -glowDist}, {0, glowDist},
+            {-glowDist * 0.7f, -glowDist * 0.7f}, {glowDist * 0.7f, glowDist * 0.7f},
+            {-glowDist * 0.7f, glowDist * 0.7f}, {glowDist * 0.7f, -glowDist * 0.7f}
+        };
+        for (int i = 0; i < 8; ++i) {
+            RectF gR(glyphRect.X + offsets[i][0], glyphRect.Y + offsets[i][1], glyphRect.Width, glyphRect.Height);
+            g.DrawImage(trimmed, gR, 0, 0, srcW, srcH, UnitPixel, &glowAttr);
+        }
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel);
+    } else if (style.monochrome && colors.isSquareLike) {
         // Full-bleed artwork has no transparent glyph to silhouette; a flat tint would paint a
         // solid block. Desaturate instead so the artwork keeps its detail.
         ColorMatrix grayMat = {
@@ -1443,6 +1626,30 @@ bool ExportSvgVector(Bitmap* src, const RoundStyle& style, const std::wstring& a
         svg += "      <stop offset=\"75%\" stop-color=\"#3B82F6\" stop-opacity=\"0.28\" />\n";
         svg += "      <stop offset=\"100%\" stop-color=\"#8B5CF6\" stop-opacity=\"0.25\" />\n";
         svg += "    </linearGradient>\n";
+    } else if (style.material == MATERIAL_LIQUID_CHROME) {
+        svg += "    <linearGradient id=\"chrome-grad\" x1=\"0%\" y1=\"100%\" x2=\"100%\" y2=\"0%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#ffffff\" stop-opacity=\"0.45\" />\n";
+        svg += "      <stop offset=\"22%\" stop-color=\"#454855\" stop-opacity=\"0.15\" />\n";
+        svg += "      <stop offset=\"45%\" stop-color=\"#151825\" stop-opacity=\"0.35\" />\n";
+        svg += "      <stop offset=\"65%\" stop-color=\"#e8f0fe\" stop-opacity=\"0.50\" />\n";
+        svg += "      <stop offset=\"85%\" stop-color=\"#303340\" stop-opacity=\"0.20\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#ffffff\" stop-opacity=\"0.40\" />\n";
+        svg += "    </linearGradient>\n";
+    } else if (style.material == MATERIAL_MATTE_CERAMIC) {
+        svg += "    <linearGradient id=\"ceramic-grad\" x1=\"50%\" y1=\"0%\" x2=\"50%\" y2=\"100%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#ffffff\" stop-opacity=\"0.22\" />\n";
+        svg += "      <stop offset=\"35%\" stop-color=\"#fdfbf7\" stop-opacity=\"0.08\" />\n";
+        svg += "      <stop offset=\"70%\" stop-color=\"#e2e4e8\" stop-opacity=\"0.0\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#000000\" stop-opacity=\"0.08\" />\n";
+        svg += "    </linearGradient>\n";
+    } else if (style.material == MATERIAL_HOLOGRAPHIC) {
+        svg += "    <linearGradient id=\"holo-grad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n";
+        svg += "      <stop offset=\"0%\" stop-color=\"#06B6D4\" stop-opacity=\"0.28\" />\n";
+        svg += "      <stop offset=\"25%\" stop-color=\"#EC4899\" stop-opacity=\"0.30\" />\n";
+        svg += "      <stop offset=\"50%\" stop-color=\"#F59E0B\" stop-opacity=\"0.24\" />\n";
+        svg += "      <stop offset=\"75%\" stop-color=\"#10B981\" stop-opacity=\"0.28\" />\n";
+        svg += "      <stop offset=\"100%\" stop-color=\"#8B5CF6\" stop-opacity=\"0.30\" />\n";
+        svg += "    </linearGradient>\n";
     }
     svg += "  </defs>\n\n";
 
@@ -1476,6 +1683,18 @@ bool ExportSvgVector(Bitmap* src, const RoundStyle& style, const std::wstring& a
         if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#prism-grad)\" />\n";
         else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#prism-grad)\" />\n";
         else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#prism-grad)\" />\n";
+    } else if (style.material == MATERIAL_LIQUID_CHROME) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#chrome-grad)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#chrome-grad)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#chrome-grad)\" />\n";
+    } else if (style.material == MATERIAL_MATTE_CERAMIC) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#ceramic-grad)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#ceramic-grad)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#ceramic-grad)\" />\n";
+    } else if (style.material == MATERIAL_HOLOGRAPHIC) {
+        if (style.shape == SHAPE_CIRCLE) svg += "    <circle cx=\"256\" cy=\"256\" r=\"236\" fill=\"url(#holo-grad)\" />\n";
+        else if (style.shape == SHAPE_ROUNDED_RECT) svg += "    <rect x=\"20\" y=\"20\" width=\"472\" height=\"472\" rx=\"92\" ry=\"92\" fill=\"url(#holo-grad)\" />\n";
+        else svg += "    <path d=\"M 256,20 C 370,20 492,142 492,256 C 492,370 370,492 256,492 C 142,492 20,370 20,256 C 20,142 142,20 256,20 Z\" fill=\"url(#holo-grad)\" />\n";
     }
     svg += "  </g>\n\n";
 
