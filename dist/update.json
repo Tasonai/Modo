@@ -30,8 +30,8 @@
       "platform": "windows",
       "format": "exe",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-Portable.exe",
-      "sha256": "2d418a2584bd4763e8e2553ce83bcb1ca919085e4dabd38730e6ff513b026fea",
-      "sizeBytes": 583680,
+      "sha256": "90dba3932495a3f7751373236c8a77650d50fea1294654f61924e5eafc50979c",
+      "sizeBytes": 588800,
       "isPrimary": false
     },
     {
@@ -39,8 +39,8 @@
       "platform": "windows",
       "format": "exe",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-Setup.exe",
-      "sha256": "2d418a2584bd4763e8e2553ce83bcb1ca919085e4dabd38730e6ff513b026fea",
-      "sizeBytes": 583680,
+      "sha256": "90dba3932495a3f7751373236c8a77650d50fea1294654f61924e5eafc50979c",
+      "sizeBytes": 588800,
       "isPrimary": true
     },
     {
@@ -48,8 +48,8 @@
       "platform": "windows",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-x64.zip",
-      "sha256": "d0b5eb000ff3171d7ceb09f0fa51840e8944056ed3d594765fed263fd40c4127",
-      "sizeBytes": 275664,
+      "sha256": "a0ae0948520d53b9b2153d985b8028fa617609bad3669bcb102d2ffd00da82b5",
+      "sizeBytes": 277774,
       "isPrimary": false
     },
     {
