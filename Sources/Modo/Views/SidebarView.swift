@@ -101,13 +101,24 @@ struct SidebarView: View {
                     } label: {
                         Label("Auto-match Brand Vectors for All Apps", systemImage: "sparkles")
                     }
+                    Button {
+                        model.autoAssignMonograms(items: items, overwriteExisting: false)
+                    } label: {
+                        Label("Assign Monograms to Remaining Apps", systemImage: "character.textbox")
+                    }
+                    Button {
+                        model.autoAssignGeometricMarks(items: items, overwriteExisting: false)
+                    } label: {
+                        Label("Assign Geometric Marks to Remaining Apps", systemImage: "geometricshape")
+                    }
+                    Divider()
                     Button(role: .destructive) {
                         model.resetAllToOriginalArtwork(items: items)
                     } label: {
                         Label("Reset All to Original App Icons", systemImage: "arrow.counterclockwise")
                     }
                 } label: {
-                    Label("Vector Options…", systemImage: "sparkles")
+                    Label("Artwork & Glyphs…", systemImage: "paintbrush.pointed")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -121,13 +132,13 @@ struct SidebarView: View {
                     HStack(spacing: Space.sm) {
                         Image(systemName: "sparkles.square.filled.on.square")
                             .foregroundStyle(Palette.accentText)
-                        Text("Simple Icons & Glyphs…")
+                        Text("Vector Glyphs & Artwork Studio…")
                             .foregroundStyle(.primary)
                         Spacer()
                     }
                 }
                 .buttonStyle(.plain)
-                .help("Browse official Simple Icons brand logos & Apple SF Symbols")
+                .help("Browse official brand vector logos, Apple SF Symbols, typographic monograms, and geometric marks")
 
                 Button {
                     model.activeIconSetID = nil

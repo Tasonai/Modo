@@ -284,6 +284,57 @@ final class AppModel {
         return count
     }
 
+    /// Auto-generates and assigns custom typographic monogram SVGs to items.
+    @discardableResult
+    func autoAssignMonograms(items: [Item], frameStyle: MonogramFrameStyle = .circularRing, fontStyle: MonogramFontStyle = .modernSans, overwriteExisting: Bool = false) -> Int {
+        var count = 0
+        for item in items {
+            if overwriteExisting || item.customImageData == nil {
+                let initials = ProceduralGlyphGenerator.extractInitials(from: item.title)
+                let pHex: UInt32 = item.brandHex != 0 ? UInt32(item.brandHex) : 0x0A84FF
+                let sHex: UInt32 = (pHex ^ 0x204020) & 0xFFFFFF
+                let svg = ProceduralGlyphGenerator.generateCustomMonogramSVG(
+                    text: initials,
+                    fontStyle: fontStyle,
+                    frameStyle: frameStyle,
+                    primaryHex: pHex,
+                    secondaryHex: sHex
+                )
+                if let data = svg.data(using: .utf8) {
+                    setCustomArtwork(data: data, for: item)
+                    count += 1
+                }
+            }
+        }
+        statusMessage = "Assigned monograms to \(count) apps"
+        return count
+    }
+
+    /// Auto-generates and assigns algorithmic geometric vector marks to items.
+    @discardableResult
+    func autoAssignGeometricMarks(items: [Item], style: GeometricGlyphStyle = .sparkle, overwriteExisting: Bool = false) -> Int {
+        var count = 0
+        for item in items {
+            if overwriteExisting || item.customImageData == nil {
+                let pHex: UInt32 = item.brandHex != 0 ? UInt32(item.brandHex) : 0x0A84FF
+                let sHex: UInt32 = (pHex ^ 0x204020) & 0xFFFFFF
+                let opts = ProceduralGlyphOptions(
+                    title: item.title,
+                    style: style,
+                    primaryHex: pHex,
+                    secondaryHex: sHex
+                )
+                let svg = ProceduralGlyphGenerator.generateSVG(options: opts)
+                if let data = svg.data(using: .utf8) {
+                    setCustomArtwork(data: data, for: item)
+                    count += 1
+                }
+            }
+        }
+        statusMessage = "Assigned geometric marks to \(count) apps"
+        return count
+    }
+
     /// Resets all items to their original system macOS icons by clearing custom vector artwork.
     @discardableResult
     func resetAllToOriginalArtwork(items: [Item]) -> Int {
