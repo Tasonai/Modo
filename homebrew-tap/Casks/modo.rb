@@ -1,6 +1,6 @@
 cask "modo" do
   version "1.7.0"
-  sha256 "588eff16e4d618e6f3fff9f997f8f331d28d6d4412de7dc1c740d345c1545786"
+  sha256 "eaa8ccad41b18272d479945a30e493b03c891de5b13502349a27c68a7959e444"
 
   url "https://github.com/Tasonai/Modo/releases/download/v#{version}/Modo-macOS.dmg"
   name "Modo"

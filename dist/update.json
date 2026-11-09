@@ -1,9 +1,9 @@
 {
   "version": "1.7.0",
-  "build": "202611081130",
-  "releaseDate": "2026-11-08",
-  "title": "Modo 1.7.0 — Native Setup Wizard, OTA Updates, Curated Icon Packs, and Developer Studio",
-  "releaseNotes": "• Windows Native Setup Wizard: Dedicated user installer with customizable shortcuts, Explorer context menu, and Add/Remove Programs registration.\n• In-App OTA Updates: Automatic background checks and one-click in-app update installation on Windows and macOS.\n• Canonical macOS HIG Menu Hierarchy: Standard File, Edit, View, Style, and Tools menus with system keyboard shortcuts.\n• Curated Community Icon Packs: Added WhiteSur macOS, Tela Minimal, Lawnicons Themed, macOSicons Hub, Mac Icons Pro, macOS Folders, and Tabler & Lucide Vector.\n• Developer Export Suite: One-click Xcode Asset Catalogs (AppIcon.appiconset) and Web Favicon bundles (.ico, PNGs, manifest).\n• Pure Scalable Vector Export (.svg): Vector engine with XML filter shaders for glass, titanium, and glow.\n• Interactive 3D Parallax Tilt: Apple TV-style perspective physics and specular reflections in inspector.",
+  "build": "202611090435",
+  "releaseDate": "2026-11-09",
+  "title": "Modo 1.7.0 — Developer Studio, SVG Export, 3D Parallax & System Presets",
+  "releaseNotes": "• Developer Export Suite: Xcode Asset Catalog (AppIcon.appiconset) & Web Favicon Kit (.ico, manifest, HTML snippet)\n• Scalable Vector Export: Pure SVG vector generator with materials & filter shaders\n• Interactive 3D Parallax Tilt: Apple TV-style perspective physics and dynamic specular glare\n• One-Click System Theming & Presets: VisionOS Glass, iOS 18 Tinted, Obsidian Titanium, Prism Cyber\n• Enhanced MenuBar Companion: Fast status bar access with material switcher & wallpaper matcher\n• Official Homebrew Tap: brew install --cask tasonai/tap/modo",
   "minOSVersion": "14.0",
   "isMandatory": false,
   "assets": [
@@ -48,7 +48,7 @@
       "platform": "windows",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-Windows-x64.zip",
-      "sha256": "a0ae0948520d53b9b2153d985b8028fa617609bad3669bcb102d2ffd00da82b5",
+      "sha256": "1f4a44bba4967c6585f0b31b8970f7c32d26b659ca6d93d57fd38130c1fa13c4",
       "sizeBytes": 277774,
       "isPrimary": false
     },
@@ -57,8 +57,8 @@
       "platform": "macos",
       "format": "pkg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS-Installer.pkg",
-      "sha256": "e040a88755d4b58d5eb537d4bcfce9f1b4915bb73ab23f33647d044f7ad24346",
-      "sizeBytes": 3584546,
+      "sha256": "73aee1151b32099a3020ff80aa3edf6c2634dd9c9f441c32ed1f5dc5a16486df",
+      "sizeBytes": 3584582,
       "isPrimary": false
     },
     {
@@ -66,8 +66,8 @@
       "platform": "macos",
       "format": "dmg",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.dmg",
-      "sha256": "588eff16e4d618e6f3fff9f997f8f331d28d6d4412de7dc1c740d345c1545786",
-      "sizeBytes": 4092827,
+      "sha256": "eaa8ccad41b18272d479945a30e493b03c891de5b13502349a27c68a7959e444",
+      "sizeBytes": 4092537,
       "isPrimary": false
     },
     {
@@ -75,8 +75,8 @@
       "platform": "macos",
       "format": "zip",
       "downloadURL": "https://github.com/Tasonai/Modo/releases/download/v1.7.0/Modo-macOS.zip",
-      "sha256": "f0db83ad687929b7e07f472b0891848fc00aa227f69777e5f66b1ff5ca60f2c3",
-      "sizeBytes": 3584177,
+      "sha256": "3a48c8c536bef5620b6435842fdf9c1d1fe9514a2d8a5963125528e00dfa3231",
+      "sizeBytes": 3584173,
       "isPrimary": true
     }
   ]
