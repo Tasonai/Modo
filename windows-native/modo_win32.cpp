@@ -2306,7 +2306,32 @@ enum MenuCommandID {
     IDM_TOOLS_SHORTCUTS,
     IDM_TOOLS_RESTART_EXPLORER,
     IDM_TOOLS_SYSTEM_THEMING,
-    IDM_TOOLS_SHORTCUTS_INFO
+    IDM_TOOLS_SHORTCUTS_INFO,
+    IDM_TOOLS_LUCIDE_BASE = 10400
+};
+
+static const struct { const wchar_t* id; const wchar_t* label; } kLucideMenuIcons[] = {
+    { L"terminal", L"Терминал (Terminal)" },
+    { L"code", L"Исходный код (Code)" },
+    { L"git", L"Ветка Git (Branch)" },
+    { L"database", L"База данных (Database)" },
+    { L"server", L"Сервер (Server)" },
+    { L"cpu", L"Процессор (CPU)" },
+    { L"sparkles", L"Искусственный интеллект (AI Sparkles)" },
+    { L"shield", L"Защита и безопасность (Shield)" },
+    { L"music", L"Музыка (Music)" },
+    { L"camera", L"Фотокамера (Camera)" },
+    { L"video", L"Видеокамера (Video)" },
+    { L"mail", L"Почта (Mail)" },
+    { L"chat", L"Диалог и чат (Chat)" },
+    { L"search", L"Поиск (Search)" },
+    { L"settings", L"Настройки (Settings)" },
+    { L"rocket", L"Ракета (Rocket)" },
+    { L"zap", L"Молния (Speed Zap)" },
+    { L"folder", L"Папка (Folder)" },
+    { L"globe", L"Интернет и веб (Globe)" },
+    { L"lock", L"Замок (Lock)" },
+    { L"key", L"Ключ доступа (Key)" }
 };
 
 static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt);
@@ -2422,6 +2447,14 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     // 5. Tools Menu
     HMENU hToolsMenu = CreatePopupMenu();
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_CREATE_MONOGRAM, L"Создать типографическую монограмму…\tCtrl+Shift+M");
+
+    HMENU hLucideSub = CreatePopupMenu();
+    int lucideCount = (int)(sizeof(kLucideMenuIcons) / sizeof(kLucideMenuIcons[0]));
+    for (int i = 0; i < lucideCount; ++i) {
+        AppendMenuW(hLucideSub, MF_STRING, IDM_TOOLS_LUCIDE_BASE + i, kLucideMenuIcons[i].label);
+    }
+    AppendMenuW(hToolsMenu, MF_POPUP, (UINT_PTR)hLucideSub, L"Заменить рисунок на Lucide Вектор…");
+
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SURPRISE_ARTWORK, L"Мне повезёт (Случайный стиль рисунка)\tCtrl+Shift+R");
     AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_BATCH_CONVERT, L"Пакетная конвертация изображений в иконки…\tCtrl+Shift+B");
@@ -2776,6 +2809,22 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 SaveStyleConfig();
                 InvalidateAllThumbs();
                 InvalidateRect(hwnd, NULL, FALSE);
+            }
+            if (cmd >= IDM_TOOLS_LUCIDE_BASE && cmd < IDM_TOOLS_LUCIDE_BASE + (int)(sizeof(kLucideMenuIcons)/sizeof(kLucideMenuIcons[0]))) {
+                int idx = cmd - IDM_TOOLS_LUCIDE_BASE;
+                if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                    auto& app = g_allApps[g_selectedAppIndex];
+                    Color strokeCol(255, 255, 255, 255);
+                    if (app.origBitmap) delete app.origBitmap;
+                    app.origBitmap = IconEngine::RenderLucideVectorBitmap(kLucideMenuIcons[idx].id, strokeCol, 256);
+                    InvalidateAllThumbs();
+                    wchar_t buf[128];
+                    wsprintfW(buf, L"Применен вектор Lucide: %ls", kLucideMenuIcons[idx].label);
+                    g_statusText = buf;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                } else {
+                    MessageBoxW(hwnd, L"Пожалуйста, выберите приложение в списке для замены рисунка.", L"Вектор Lucide", MB_OK | MB_ICONINFORMATION);
+                }
             }
             break;
         }

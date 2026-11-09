@@ -19,6 +19,7 @@ struct VectorVariantTests {
         #expect(variants.contains { $0.kind == .brandMono })
         #expect(variants.contains { $0.kind == .brandColor })
         #expect(variants.contains { $0.kind == .sfSymbol })
+        #expect(variants.contains { $0.kind == .lucide })
         #expect(variants.contains { $0.kind == .monogram })
         #expect(variants.contains { $0.kind == .geometric })
 
@@ -173,5 +174,39 @@ struct VectorVariantTests {
                 #expect(svg.contains("#1A73E8"))
             }
         }
+    }
+
+    @Test("Lucide vector catalog validation and smart selection")
+    func lucideCatalogValidation() {
+        #expect(!LucideIconCatalog.all.isEmpty)
+        #expect(LucideIconCatalog.all.count >= 30)
+
+        // Exact match
+        let term = LucideIconCatalog.match(query: "terminal")
+        #expect(term != nil)
+        #expect(term?.name == "terminal")
+        #expect(term?.category == .developer)
+        let svg = term?.svgString(strokeColorHex: 0x10B981, strokeWidth: 2.0)
+        #expect(svg?.contains("<svg") == true)
+        #expect(svg?.contains("10B981") == true)
+        #expect(svg?.contains("stroke-width=\"2.0\"") == true)
+
+        // Fuzzy / tag match
+        let bash = LucideIconCatalog.match(query: "bash")
+        #expect(bash?.name == "terminal")
+
+        let devLucide = VectorVariantEngine.smartLucideIcon(
+            forTitle: "Terminal.app",
+            bundleIdentifier: "com.apple.Terminal",
+            categoryName: "Developer Tools"
+        )
+        #expect(devLucide?.name == "terminal")
+
+        let chatLucide = VectorVariantEngine.smartLucideIcon(
+            forTitle: "Discord",
+            bundleIdentifier: "com.discord.app",
+            categoryName: "Communication"
+        )
+        #expect(chatLucide?.name == "message-square")
     }
 }

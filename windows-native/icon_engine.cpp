@@ -1875,4 +1875,139 @@ Bitmap* RenderMonogramBitmap(const std::wstring& letters, Color primaryColor, Co
     return bmp;
 }
 
+Bitmap* RenderLucideVectorBitmap(const std::wstring& iconName, Color strokeColor, int size) {
+    Bitmap* bmp = new Bitmap(size, size, PixelFormat32bppARGB);
+    Graphics g(bmp);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.Clear(Color(0, 0, 0, 0));
+
+    REAL s = (REAL)size / 24.0f;
+    Pen pen(strokeColor, std::max(2.0f, s * 1.8f));
+    pen.SetStartCap(LineCapRound);
+    pen.SetEndCap(LineCapRound);
+    pen.SetLineJoin(LineJoinRound);
+
+    std::wstring name = iconName;
+    std::transform(name.begin(), name.end(), name.begin(), ::towlower);
+
+    if (name == L"terminal" || name == L"cli" || name == L"console") {
+        PointF p[3] = { {4.0f*s, 17.0f*s}, {10.0f*s, 11.0f*s}, {4.0f*s, 5.0f*s} };
+        g.DrawLines(&pen, p, 3);
+        g.DrawLine(&pen, 12.0f*s, 19.0f*s, 20.0f*s, 19.0f*s);
+    } else if (name == L"code" || name == L"dev") {
+        PointF p1[3] = { {16.0f*s, 18.0f*s}, {22.0f*s, 12.0f*s}, {16.0f*s, 6.0f*s} };
+        PointF p2[3] = { {8.0f*s, 6.0f*s}, {2.0f*s, 12.0f*s}, {8.0f*s, 18.0f*s} };
+        g.DrawLines(&pen, p1, 3);
+        g.DrawLines(&pen, p2, 3);
+    } else if (name == L"git" || name == L"git-branch") {
+        g.DrawLine(&pen, 6.0f*s, 3.0f*s, 6.0f*s, 15.0f*s);
+        g.DrawEllipse(&pen, 15.0f*s, 3.0f*s, 6.0f*s, 6.0f*s);
+        g.DrawEllipse(&pen, 3.0f*s, 15.0f*s, 6.0f*s, 6.0f*s);
+        g.DrawArc(&pen, 0.0f, 9.0f*s, 18.0f*s, 18.0f*s, 270.0f, 90.0f);
+    } else if (name == L"database" || name == L"sql") {
+        g.DrawEllipse(&pen, 3.0f*s, 2.0f*s, 18.0f*s, 6.0f*s);
+        g.DrawLine(&pen, 3.0f*s, 5.0f*s, 3.0f*s, 19.0f*s);
+        g.DrawLine(&pen, 21.0f*s, 5.0f*s, 21.0f*s, 19.0f*s);
+        g.DrawArc(&pen, 3.0f*s, 9.0f*s, 18.0f*s, 6.0f*s, 0.0f, 180.0f);
+        g.DrawArc(&pen, 3.0f*s, 16.0f*s, 18.0f*s, 6.0f*s, 0.0f, 180.0f);
+    } else if (name == L"cpu" || name == L"chip") {
+        g.DrawRectangle(&pen, 4.0f*s, 4.0f*s, 16.0f*s, 16.0f*s);
+        g.DrawRectangle(&pen, 9.0f*s, 9.0f*s, 6.0f*s, 6.0f*s);
+        g.DrawLine(&pen, 9.0f*s, 2.0f*s, 9.0f*s, 4.0f*s);
+        g.DrawLine(&pen, 15.0f*s, 2.0f*s, 15.0f*s, 4.0f*s);
+        g.DrawLine(&pen, 9.0f*s, 20.0f*s, 9.0f*s, 22.0f*s);
+        g.DrawLine(&pen, 15.0f*s, 20.0f*s, 15.0f*s, 22.0f*s);
+        g.DrawLine(&pen, 2.0f*s, 9.0f*s, 4.0f*s, 9.0f*s);
+        g.DrawLine(&pen, 2.0f*s, 15.0f*s, 4.0f*s, 15.0f*s);
+        g.DrawLine(&pen, 20.0f*s, 9.0f*s, 22.0f*s, 9.0f*s);
+        g.DrawLine(&pen, 20.0f*s, 15.0f*s, 22.0f*s, 15.0f*s);
+    } else if (name == L"shield" || name == L"security") {
+        GraphicsPath sp;
+        sp.AddLine(12.0f*s, 2.0f*s, 20.0f*s, 5.0f*s);
+        sp.AddLine(20.0f*s, 5.0f*s, 20.0f*s, 13.0f*s);
+        sp.AddBezier(20.0f*s, 13.0f*s, 17.0f*s, 18.0f*s, 14.0f*s, 21.0f*s, 12.0f*s, 22.0f*s);
+        sp.AddBezier(12.0f*s, 22.0f*s, 10.0f*s, 21.0f*s, 7.0f*s, 18.0f*s, 4.0f*s, 13.0f*s);
+        sp.AddLine(4.0f*s, 13.0f*s, 4.0f*s, 5.0f*s);
+        sp.CloseFigure();
+        g.DrawPath(&pen, &sp);
+    } else if (name == L"music") {
+        g.DrawLine(&pen, 9.0f*s, 18.0f*s, 9.0f*s, 5.0f*s);
+        g.DrawLine(&pen, 9.0f*s, 5.0f*s, 21.0f*s, 3.0f*s);
+        g.DrawLine(&pen, 21.0f*s, 3.0f*s, 21.0f*s, 16.0f*s);
+        SolidBrush sb(strokeColor);
+        g.FillEllipse(&sb, 3.0f*s, 15.0f*s, 6.0f*s, 6.0f*s);
+        g.FillEllipse(&sb, 15.0f*s, 13.0f*s, 6.0f*s, 6.0f*s);
+    } else if (name == L"camera") {
+        g.DrawRectangle(&pen, 2.0f*s, 7.0f*s, 20.0f*s, 14.0f*s);
+        g.DrawEllipse(&pen, 8.5f*s, 10.5f*s, 7.0f*s, 7.0f*s);
+        g.DrawLine(&pen, 7.0f*s, 7.0f*s, 9.0f*s, 4.0f*s);
+        g.DrawLine(&pen, 9.0f*s, 4.0f*s, 15.0f*s, 4.0f*s);
+        g.DrawLine(&pen, 15.0f*s, 4.0f*s, 17.0f*s, 7.0f*s);
+    } else if (name == L"video") {
+        g.DrawRectangle(&pen, 2.0f*s, 6.0f*s, 14.0f*s, 12.0f*s);
+        PointF lens[3] = { {16.0f*s, 12.0f*s}, {22.0f*s, 8.0f*s}, {22.0f*s, 16.0f*s} };
+        g.DrawPolygon(&pen, lens, 3);
+    } else if (name == L"mail") {
+        g.DrawRectangle(&pen, 2.0f*s, 4.0f*s, 20.0f*s, 16.0f*s);
+        PointF env[3] = { {2.0f*s, 7.0f*s}, {12.0f*s, 13.0f*s}, {22.0f*s, 7.0f*s} };
+        g.DrawLines(&pen, env, 3);
+    } else if (name == L"chat" || name == L"message") {
+        GraphicsPath cp;
+        cp.AddLine(21.0f*s, 15.0f*s, 21.0f*s, 3.0f*s);
+        cp.AddLine(21.0f*s, 3.0f*s, 3.0f*s, 3.0f*s);
+        cp.AddLine(3.0f*s, 3.0f*s, 3.0f*s, 17.0f*s);
+        cp.AddLine(3.0f*s, 17.0f*s, 7.0f*s, 17.0f*s);
+        cp.AddLine(7.0f*s, 17.0f*s, 3.0f*s, 21.0f*s);
+        cp.AddLine(3.0f*s, 21.0f*s, 11.0f*s, 17.0f*s);
+        cp.AddLine(11.0f*s, 17.0f*s, 19.0f*s, 17.0f*s);
+        cp.CloseFigure();
+        g.DrawPath(&pen, &cp);
+    } else if (name == L"search") {
+        g.DrawEllipse(&pen, 3.0f*s, 3.0f*s, 14.0f*s, 14.0f*s);
+        g.DrawLine(&pen, 15.0f*s, 15.0f*s, 21.0f*s, 21.0f*s);
+    } else if (name == L"rocket") {
+        PointF rkp[5] = { {12.0f*s, 2.0f*s}, {18.0f*s, 9.0f*s}, {15.0f*s, 18.0f*s}, {9.0f*s, 18.0f*s}, {6.0f*s, 9.0f*s} };
+        g.DrawPolygon(&pen, rkp, 5);
+        g.DrawLine(&pen, 6.0f*s, 14.0f*s, 3.0f*s, 18.0f*s);
+        g.DrawLine(&pen, 18.0f*s, 14.0f*s, 21.0f*s, 18.0f*s);
+    } else if (name == L"zap" || name == L"bolt") {
+        PointF zp[6] = { {13.0f*s, 2.0f*s}, {5.0f*s, 13.0f*s}, {11.0f*s, 13.0f*s}, {10.0f*s, 22.0f*s}, {19.0f*s, 10.0f*s}, {13.0f*s, 10.0f*s} };
+        g.DrawPolygon(&pen, zp, 6);
+    } else if (name == L"folder") {
+        GraphicsPath fld;
+        fld.AddLine(2.0f*s, 4.0f*s, 9.0f*s, 4.0f*s);
+        fld.AddLine(9.0f*s, 4.0f*s, 11.0f*s, 7.0f*s);
+        fld.AddLine(11.0f*s, 7.0f*s, 22.0f*s, 7.0f*s);
+        fld.AddLine(22.0f*s, 7.0f*s, 22.0f*s, 20.0f*s);
+        fld.AddLine(22.0f*s, 20.0f*s, 2.0f*s, 20.0f*s);
+        fld.CloseFigure();
+        g.DrawPath(&pen, &fld);
+    } else if (name == L"globe" || name == L"web") {
+        g.DrawEllipse(&pen, 2.0f*s, 2.0f*s, 20.0f*s, 20.0f*s);
+        g.DrawLine(&pen, 2.0f*s, 12.0f*s, 22.0f*s, 12.0f*s);
+        g.DrawEllipse(&pen, 6.5f*s, 2.0f*s, 11.0f*s, 20.0f*s);
+    } else if (name == L"lock") {
+        g.DrawRectangle(&pen, 3.0f*s, 11.0f*s, 18.0f*s, 11.0f*s);
+        g.DrawArc(&pen, 7.0f*s, 3.0f*s, 10.0f*s, 16.0f*s, 180.0f, 180.0f);
+    } else if (name == L"key") {
+        g.DrawEllipse(&pen, 2.0f*s, 9.5f*s, 10.0f*s, 10.0f*s);
+        g.DrawLine(&pen, 9.0f*s, 14.5f*s, 22.0f*s, 3.0f*s);
+        g.DrawLine(&pen, 18.0f*s, 5.0f*s, 20.0f*s, 7.0f*s);
+        g.DrawLine(&pen, 15.0f*s, 8.0f*s, 17.0f*s, 10.0f*s);
+    } else { // sparkles / ai (default)
+        PointF st[9] = {
+            {12.0f*s, 3.0f*s}, {10.0f*s, 9.0f*s}, {3.0f*s, 12.0f*s}, {10.0f*s, 15.0f*s},
+            {12.0f*s, 21.0f*s}, {14.0f*s, 15.0f*s}, {21.0f*s, 12.0f*s}, {14.0f*s, 9.0f*s},
+            {12.0f*s, 3.0f*s}
+        };
+        g.DrawLines(&pen, st, 9);
+        g.DrawLine(&pen, 5.0f*s, 3.0f*s, 5.0f*s, 7.0f*s);
+        g.DrawLine(&pen, 3.0f*s, 5.0f*s, 7.0f*s, 5.0f*s);
+        g.DrawLine(&pen, 19.0f*s, 17.0f*s, 19.0f*s, 21.0f*s);
+        g.DrawLine(&pen, 17.0f*s, 19.0f*s, 21.0f*s, 19.0f*s);
+    }
+
+    return bmp;
+}
+
 } // namespace IconEngine

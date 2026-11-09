@@ -445,6 +445,18 @@ struct DetailInspectorView: View {
                     .font(.title3)
             }
 
+        case .lucide:
+            if let data = variant.applicationData, let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(Space.xs)
+                    .background(Palette.accent.opacity(0.12), in: Circle())
+            } else {
+                Image(systemName: "sparkles")
+                    .font(.title3)
+            }
+
         case .remoteCDN, .lawnicons, .whiteSur:
             if let data = variant.applicationData, let img = NSImage(data: data) {
                 Image(nsImage: img)
@@ -465,7 +477,7 @@ struct DetailInspectorView: View {
         switch variant.kind {
         case .original:
             model.clearCustomArtwork(for: item)
-        case .brandMono, .brandColor, .remoteCDN, .lawnicons, .whiteSur:
+        case .brandMono, .brandColor, .remoteCDN, .lawnicons, .whiteSur, .lucide:
             if let data = variant.applicationData {
                 model.setCustomArtwork(data: data, for: item)
             }

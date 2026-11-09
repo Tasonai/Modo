@@ -68,6 +68,10 @@ static void PrintHelp() {
         L"                           --frame <ring|squircle|hex|minimal>\n"
         L"                           --shape <squircle|circle|roundedRect|pebble|hexagon>\n"
         L"                           --bg <pastel|dark|white|clear|custom>\n"
+        L"  lucide <app_path>      Apply open-source Lucide vector icon artwork\n"
+        L"                           --icon <terminal|code|database|server|cpu|shield|sparkles|music|camera|video|mail|chat|search|settings|rocket|zap|folder|globe|lock|key>\n"
+        L"                           --shape <squircle|circle|roundedRect|pebble|hexagon>\n"
+        L"                           --bg <pastel|dark|white|clear|custom>\n"
         L"  restore <path>         Restore original system icon for an app or folder\n"
         L"  folder <folder_path>   Style a folder using desktop.ini & custom palette\n"
         L"                           --color <appleBlue|graphite|purple|teal|sunsetOrange|emerald|coralRed|amberGold|obsidian>\n"
@@ -336,6 +340,90 @@ static int HandleMonogram(int argc, wchar_t* argv[], const CLSID* pngClsid) {
         return 0;
     } else {
         wprintf(L"[-] Failed to apply monogram to %ls. %ls\n", targetPath.c_str(),
+                needsAdmin ? L"Administrator elevation required for this shortcut." : L"Ensure you have write permissions.");
+        return 1;
+    }
+}
+
+static int HandleLucide(int argc, wchar_t* argv[], const CLSID* pngClsid) {
+    if (argc < 1 || argv[0][0] == L'-') {
+        wprintf(L"Error: Missing target path. Usage: modo lucide <app_or_shortcut_path> --icon <name> [options]\n");
+        return 1;
+    }
+    std::wstring targetPath = argv[0];
+    DWORD attr = GetFileAttributesW(targetPath.c_str());
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+        wprintf(L"Error: Target path does not exist: %ls\n", targetPath.c_str());
+        return 1;
+    }
+
+    RoundStyle style;
+    std::wstring iconName = L"terminal";
+    COLORREF strokeColorRef = RGB(255, 255, 255);
+
+    for (int i = 1; i < argc; ++i) {
+        std::wstring opt = ToLower(argv[i]);
+        if (opt == L"--icon" && i + 1 < argc) {
+            iconName = ToLower(argv[++i]);
+        } else if (opt == L"--shape" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"circle") style.shape = SHAPE_CIRCLE;
+            else if (val == L"squircle") style.shape = SHAPE_SQUIRCLE;
+            else if (val == L"roundedrect" || val == L"rect") style.shape = SHAPE_ROUNDED_RECT;
+            else if (val == L"pebble") style.shape = SHAPE_PEBBLE;
+            else if (val == L"hexagon" || val == L"hex") style.shape = SHAPE_HEXAGON;
+        } else if (opt == L"--bg" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"pastel") style.preset = PRESET_MATERIAL_PASTEL;
+            else if (val == L"dark") style.preset = PRESET_DARK_MATERIAL;
+            else if (val == L"clear" || val == L"adaptive") style.preset = PRESET_ADAPTIVE_EDGE;
+            else if (val == L"custom") style.preset = PRESET_CUSTOM_COLOR;
+        } else if (opt == L"--color" && i + 1 < argc) {
+            style.customColor = ParseColorPreset(argv[++i]);
+            style.preset = PRESET_CUSTOM_COLOR;
+        } else if (opt == L"--stroke" && i + 1 < argc) {
+            strokeColorRef = ParseColorPreset(argv[++i]);
+        } else if (opt == L"--glyph-color" && i + 1 < argc) {
+            style.glyphColor = ParseColorPreset(argv[++i]);
+        } else if (opt == L"--glyph-gradient" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"gold" || val == L"liquidgold") style.glyphGrad = GLYPH_GRAD_GOLD;
+            else if (val == L"cyber" || val == L"cyberneon") style.glyphGrad = GLYPH_GRAD_CYBER;
+            else if (val == L"sunset" || val == L"sunsetglow") style.glyphGrad = GLYPH_GRAD_SUNSET;
+            else if (val == L"emerald" || val == L"emeraldchrome") style.glyphGrad = GLYPH_GRAD_EMERALD;
+            else if (val == L"titanium" || val == L"titaniumice") style.glyphGrad = GLYPH_GRAD_TITANIUM;
+            else if (val == L"purple" || val == L"purplehaze") style.glyphGrad = GLYPH_GRAD_PURPLE_HAZE;
+        } else if (opt == L"--rotate" && i + 1 < argc) {
+            style.rotation = _wtof(argv[++i]);
+        } else if (opt == L"--fliph") {
+            style.flipH = true;
+        } else if (opt == L"--flipv") {
+            style.flipV = true;
+        }
+    }
+
+    AppEntry app;
+    std::wstring fname = PathFindFileNameW(targetPath.c_str());
+    size_t dot = fname.find_last_of(L'.');
+    app.name = (dot != std::wstring::npos) ? fname.substr(0, dot) : fname;
+    app.targetPath = targetPath;
+    if (_wcsicmp(PathFindExtensionW(targetPath.c_str()), L".lnk") == 0) {
+        app.lnkPath = targetPath;
+        app.allLnkPaths.push_back(targetPath);
+    }
+    app.category = L"Приложения";
+
+    Color stroke(255, GetRValue(strokeColorRef), GetGValue(strokeColorRef), GetBValue(strokeColorRef));
+    app.origBitmap = IconEngine::RenderLucideVectorBitmap(iconName, stroke, 256);
+
+    uint32_t rev = (uint32_t)(GetTickCount() & 0xFFFF);
+    bool needsAdmin = false;
+    if (ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin)) {
+        ShellIntegration::RefreshWindowsExplorerIconCache(true);
+        wprintf(L"[+] Successfully applied Lucide vector '%ls' to %ls\n", iconName.c_str(), app.name.c_str());
+        return 0;
+    } else {
+        wprintf(L"[-] Failed to apply icon. %ls\n",
                 needsAdmin ? L"Administrator elevation required for this shortcut." : L"Ensure you have write permissions.");
         return 1;
     }
@@ -867,6 +955,12 @@ bool TryDispatchCLI(int argc, wchar_t* argv[], int& outExitCode, const CLSID* pn
 
     if (cmd == L"monogram") {
         outExitCode = HandleMonogram(argc - 2, argv + 2, pngClsid);
+        ReleaseConsoleOutput();
+        return true;
+    }
+
+    if (cmd == L"lucide") {
+        outExitCode = HandleLucide(argc - 2, argv + 2, pngClsid);
         ReleaseConsoleOutput();
         return true;
     }

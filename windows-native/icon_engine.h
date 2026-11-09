@@ -16,6 +16,7 @@ Bitmap* ExtractDirectPeOrIco256(const std::wstring& filePath, int iconIndex = 0)
 Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fallbackPath, const std::wstring& safeAppName = L"", const CLSID* pngClsid = nullptr);
 Bitmap* TrimTransparentEdges(Bitmap* src);
 Bitmap* RenderMonogramBitmap(const std::wstring& letters, Color primaryColor, Color secondaryColor, int size = 256, int frameStyle = 0);
+Bitmap* RenderLucideVectorBitmap(const std::wstring& iconName, Color strokeColor, int size = 256);
 
 // Google Pixel & Material You Round Icon Generator
 Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int canvasSize = 256);

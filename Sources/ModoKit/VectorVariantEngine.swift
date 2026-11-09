@@ -9,6 +9,7 @@ public enum VectorVariantKind: String, Codable, Sendable, CaseIterable {
     case brandMono = "Brand Monochrome"
     case brandColor = "Brand Color"
     case sfSymbol = "SF Symbol"
+    case lucide = "Lucide Vector"
     case monogram = "Monogram"
     case geometric = "Geometric"
     case remoteCDN = "CDN Brand"
@@ -62,7 +63,7 @@ public struct VectorVariant: Identifiable, Sendable, Hashable {
         switch kind {
         case .original:
             return customImageData == nil
-        case .brandMono, .brandColor, .remoteCDN, .lawnicons, .whiteSur:
+        case .brandMono, .brandColor, .remoteCDN, .lawnicons, .whiteSur, .lucide:
             guard let activeData = customImageData, let selfData = applicationData else { return false }
             if activeData == selfData { return true }
             if let activeStr = String(data: activeData, encoding: .utf8),
@@ -212,6 +213,58 @@ public enum VectorVariantEngine {
         ]
     }
 
+    /// Selects a matching cross-platform Lucide vector icon based on application context.
+    public static func smartLucideIcon(
+        forTitle title: String,
+        bundleIdentifier: String,
+        categoryName: String
+    ) -> LucideIcon? {
+        let combined = " \(title) \(bundleIdentifier) \(categoryName) ".lowercased()
+        if combined.contains("term") || combined.contains("bash") || combined.contains("zsh") || combined.contains("iterm") || combined.contains("warp") {
+            return LucideIconCatalog.match(query: "terminal")
+        }
+        if combined.contains("code") || combined.contains("dev") || combined.contains("xcode") || combined.contains("cursor") {
+            return LucideIconCatalog.match(query: "code")
+        }
+        if combined.contains("git") {
+            return LucideIconCatalog.match(query: "git-branch")
+        }
+        if combined.contains("mail") || combined.contains("post") {
+            return LucideIconCatalog.match(query: "mail")
+        }
+        if combined.contains("chat") || combined.contains("messag") || combined.contains("slack") || combined.contains("telegram") || combined.contains("discord") {
+            return LucideIconCatalog.match(query: "message-square")
+        }
+        if combined.contains("music") || combined.contains("audio") || combined.contains("spotify") {
+            return LucideIconCatalog.match(query: "music")
+        }
+        if combined.contains("camera") || combined.contains("photo") {
+            return LucideIconCatalog.match(query: "camera")
+        }
+        if combined.contains("video") || combined.contains("film") || combined.contains("movie") || combined.contains("vlc") {
+            return LucideIconCatalog.match(query: "video")
+        }
+        if combined.contains("design") || combined.contains("figma") || combined.contains("sketch") || combined.contains("paint") || combined.contains("art") {
+            return LucideIconCatalog.match(query: "palette")
+        }
+        if combined.contains("secur") || combined.contains("protect") || combined.contains("guard") || combined.contains("antivirus") {
+            return LucideIconCatalog.match(query: "shield-check")
+        }
+        if combined.contains("data") || combined.contains("sql") || combined.contains("base") {
+            return LucideIconCatalog.match(query: "database")
+        }
+        if combined.contains("cloud") || combined.contains("sync") || combined.contains("drive") || combined.contains("dropbox") {
+            return LucideIconCatalog.match(query: "cloud")
+        }
+        if combined.contains("setting") || combined.contains("pref") || combined.contains("config") {
+            return LucideIconCatalog.match(query: "settings")
+        }
+        if combined.contains("browser") || combined.contains("web") || combined.contains("safari") || combined.contains("chrome") || combined.contains("firefox") {
+            return LucideIconCatalog.match(query: "globe")
+        }
+        return LucideIconCatalog.match(query: "sparkles")
+    }
+
     /// Automatically resolves all available local vector variants for an application.
     public static func resolveLocalVariants(
         title: String,
@@ -288,7 +341,25 @@ public enum VectorVariantEngine {
             )
         }
 
-        // 4. Procedural Algorithmic Vector Glyphs
+        // 4. Cross-platform Lucide Vector Icon
+        if let lucide = smartLucideIcon(forTitle: title, bundleIdentifier: bundleIdentifier, categoryName: categoryName) {
+            let svgStr = lucide.svgString(strokeColorHex: 0xFFFFFF, strokeWidth: 2.0)
+            variants.append(
+                VectorVariant(
+                    id: "lucide-\(lucide.name)",
+                    title: lucide.title,
+                    subtitle: "Lucide: \(lucide.category.rawValue)",
+                    badge: "Lucide",
+                    kind: .lucide,
+                    brandHex: brandHex,
+                    symbolName: nil,
+                    svgMarkup: svgStr,
+                    rawData: svgStr.data(using: .utf8)
+                )
+            )
+        }
+
+        // 5. Procedural Algorithmic Vector Glyphs
         let primaryColor = UInt32(clamping: brandHex)
         let monogramSVG = ProceduralGlyphGenerator.generateSVG(
             options: ProceduralGlyphOptions(title: title, style: .monogram, primaryHex: primaryColor, secondaryHex: 0xFFFFFF)

@@ -34,6 +34,7 @@ struct GlyphLibraryView: View {
 
     enum LibraryTab: String, CaseIterable, Identifiable {
         case simpleIcons = "Brand Logos"
+        case lucide = "Lucide Vectors"
         case sfSymbols = "System Glyphs"
         case monogram = "Monogram Studio"
         case procedural = "Geometric Marks"
@@ -73,6 +74,20 @@ struct GlyphLibraryView: View {
         }
         return base.filter {
             $0.title.lowercased().contains(q) || $0.slug.contains(q)
+        }
+    }
+
+    private var filteredLucideIcons: [LucideIcon] {
+        let base = LucideIconCatalog.all
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty {
+            if selectedCategory == "All" { return base }
+            return base.filter { $0.category.rawValue == selectedCategory }
+        }
+        return base.filter {
+            $0.name.lowercased().contains(q) ||
+            $0.category.rawValue.lowercased().contains(q) ||
+            $0.tags.contains(where: { $0.lowercased().contains(q) })
         }
     }
 
@@ -140,6 +155,8 @@ struct GlyphLibraryView: View {
                     switch selectedTab {
                     case .simpleIcons:
                         simpleIconsGrid
+                    case .lucide:
+                        lucideIconsGrid
                     case .sfSymbols:
                         sfSymbolsGrid
                     case .monogram:
@@ -213,15 +230,22 @@ struct GlyphLibraryView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 480)
+                .frame(maxWidth: 560)
 
                 Spacer()
 
-                if selectedTab == .simpleIcons || selectedTab == .sfSymbols {
+                if selectedTab == .simpleIcons || selectedTab == .sfSymbols || selectedTab == .lucide {
                     HStack(spacing: Space.xs) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(.secondary)
-                        TextField(selectedTab == .simpleIcons ? "Search brand (Cursor, Slack, Figma)…" : "Search SF Symbol…", text: $search)
+                        let placeholder: String = if selectedTab == .simpleIcons {
+                            "Search brand (Cursor, Slack, Figma)…"
+                        } else if selectedTab == .lucide {
+                            "Search vector (terminal, code, shield)…"
+                        } else {
+                            "Search SF Symbol…"
+                        }
+                        TextField(placeholder, text: $search)
                             .textFieldStyle(.plain)
                         if !search.isEmpty {
                             Button { search = "" } label: {
@@ -238,23 +262,29 @@ struct GlyphLibraryView: View {
                 }
             }
 
-            if selectedTab == .simpleIcons || selectedTab == .sfSymbols {
-                HStack(spacing: Space.xs) {
-                    categoryPill("All")
-                    if selectedTab == .simpleIcons {
-                        categoryPill("Developer")
-                        categoryPill("Creative")
-                        categoryPill("Social & Chat")
-                        categoryPill("Productivity")
-                    } else {
-                        categoryPill("Developer")
-                        categoryPill("Media")
-                        categoryPill("Communication")
-                        categoryPill("Productivity")
-                        categoryPill("System")
-                        categoryPill("Creative")
+            if selectedTab == .simpleIcons || selectedTab == .sfSymbols || selectedTab == .lucide {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Space.xs) {
+                        categoryPill("All")
+                        if selectedTab == .lucide {
+                            ForEach(LucideCategory.allCases.filter { $0 != .all }) { cat in
+                                categoryPill(cat.rawValue)
+                            }
+                        } else if selectedTab == .simpleIcons {
+                            categoryPill("Developer")
+                            categoryPill("Creative")
+                            categoryPill("Social & Chat")
+                            categoryPill("Productivity")
+                        } else {
+                            categoryPill("Developer")
+                            categoryPill("Media")
+                            categoryPill("Communication")
+                            categoryPill("Productivity")
+                            categoryPill("System")
+                            categoryPill("Creative")
+                        }
+                        Spacer()
                     }
-                    Spacer()
                 }
             }
         }
@@ -368,6 +398,55 @@ struct GlyphLibraryView: View {
         .padding(Space.xl)
         .background(.background.secondary, in: cardShape)
         .overlay(cardShape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
+    }
+
+    // MARK: - Lucide Icons Grid
+    private var lucideIconsGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140, maximum: 190), spacing: Space.md)], spacing: Space.md) {
+            ForEach(filteredLucideIcons) { icon in
+                lucideIconCard(icon)
+            }
+        }
+    }
+
+    private func lucideIconCard(_ icon: LucideIcon) -> some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        let strokeColor = Color(hex: targetPrimaryHex)
+
+        return VStack(spacing: Space.xs) {
+            if let img = NSImage(data: icon.svgData(strokeColorHex: targetPrimaryHex, strokeWidth: 2.0)) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .padding(Space.sm)
+                    .background(strokeColor.opacity(0.12), in: Circle())
+            }
+
+            Text(icon.title)
+                .font(.callout.weight(.medium))
+                .lineLimit(1)
+
+            Text(icon.category.rawValue)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            Button {
+                applyLucideIcon(icon)
+            } label: {
+                Text(currentTargetItem != nil ? "Apply to App" : "Apply")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Space.sm)
+                    .padding(.vertical, 4)
+                    .background(Palette.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
     }
 
     // MARK: - SF Symbols Grid
@@ -612,6 +691,8 @@ struct GlyphLibraryView: View {
             let infoText: String = switch selectedTab {
             case .simpleIcons:
                 "\(filteredSimpleIcons.count) brand vector logos"
+            case .lucide:
+                "\(filteredLucideIcons.count) open-source Lucide vector glyphs"
             case .sfSymbols:
                 "\(filteredSFSymbols.count) system glyphs"
             case .monogram:
@@ -629,6 +710,14 @@ struct GlyphLibraryView: View {
     }
 
     // MARK: - Actions
+    private func applyLucideIcon(_ icon: LucideIcon) {
+        guard let item = currentTargetItem else { return }
+        let data = icon.svgData(strokeColorHex: targetPrimaryHex, strokeWidth: 2.0)
+        model.setCustomArtwork(data: data, for: item)
+        try? context.save()
+        dismiss()
+    }
+
     private func applySimpleIcon(_ icon: SimpleIcon) {
         guard let item = currentTargetItem else { return }
         model.setCustomArtwork(data: icon.svgData(), for: item)
