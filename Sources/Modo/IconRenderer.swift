@@ -183,6 +183,21 @@ enum IconRenderer {
         )
 
         ctx.saveGState()
+        // Apply glyph transformations (rotation and mirroring) around glyph center
+        let centerX = glyphRect.midX
+        let centerY = glyphRect.midY
+        ctx.translateBy(x: centerX, y: centerY)
+        if style.glyphRotation != 0.0 {
+            let rad = CGFloat(style.glyphRotation * .pi / 180.0)
+            ctx.rotate(by: rad)
+        }
+        let scaleX: CGFloat = style.glyphFlipHorizontal ? -1.0 : 1.0
+        let scaleY: CGFloat = style.glyphFlipVertical ? -1.0 : 1.0
+        if scaleX != 1.0 || scaleY != 1.0 {
+            ctx.scaleBy(x: scaleX, y: scaleY)
+        }
+        ctx.translateBy(x: -centerX, y: -centerY)
+
         if style.innerShadow && !(style.fullBleedSquares && dominant.isSquareLike) {
             ctx.setShadow(
                 offset: CGSize(width: 0, height: -dim * 0.008), // grid: ok shadow

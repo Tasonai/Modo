@@ -179,6 +179,12 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
         } else if (opt == L"--color" && i + 1 < argc) {
             style.customColor = ParseColorPreset(argv[++i]);
             style.preset = PRESET_CUSTOM_COLOR;
+        } else if (opt == L"--rotate" && i + 1 < argc) {
+            style.rotation = _wtof(argv[++i]);
+        } else if (opt == L"--fliph") {
+            style.flipH = true;
+        } else if (opt == L"--flipv") {
+            style.flipV = true;
         }
     }
 
@@ -267,6 +273,12 @@ static int HandleMonogram(int argc, wchar_t* argv[], const CLSID* pngClsid) {
             else if (val == L"custom") style.preset = PRESET_CUSTOM_COLOR;
         } else if (opt == L"--color" && i + 1 < argc) {
             primaryColorRef = ParseColorPreset(argv[++i]);
+        } else if (opt == L"--rotate" && i + 1 < argc) {
+            style.rotation = _wtof(argv[++i]);
+        } else if (opt == L"--fliph") {
+            style.flipH = true;
+        } else if (opt == L"--flipv") {
+            style.flipV = true;
         }
     }
 

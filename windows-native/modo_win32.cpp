@@ -2282,6 +2282,10 @@ enum MenuCommandID {
     IDM_STYLE_GLYPH_OUTLINE,
     IDM_STYLE_GLYPH_DUOTONE,
     IDM_STYLE_GLYPH_GLOW,
+    IDM_STYLE_GLYPH_ROTATE_90,
+    IDM_STYLE_GLYPH_FLIP_H,
+    IDM_STYLE_GLYPH_FLIP_V,
+    IDM_STYLE_GLYPH_RESET_TRANSFORM,
     IDM_STYLE_EYEDROPPER,
     IDM_STYLE_WINDOWS_ACCENT,
     IDM_STYLE_RESET_DEFAULT,
@@ -2375,6 +2379,11 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_OUTLINE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_OUTLINE, L"Контурный штрих (Outline)");
     AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_DUOTONE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_DUOTONE, L"Дуотон пастель (Duotone)");
     AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_GLOW ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GLOW, L"Неоновое свечение (Neon Glow)");
+    AppendMenuW(hGlyphSub, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hGlyphSub, MF_STRING, IDM_STYLE_GLYPH_ROTATE_90, L"Повернуть рисунок на +90°\tCtrl+R");
+    AppendMenuW(hGlyphSub, (g_style.flipH ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_FLIP_H, L"Отразить по горизонтали (Flip H)");
+    AppendMenuW(hGlyphSub, (g_style.flipV ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_FLIP_V, L"Отразить по вертикали (Flip V)");
+    AppendMenuW(hGlyphSub, MF_STRING, IDM_STYLE_GLYPH_RESET_TRANSFORM, L"Сбросить трансформации рисунка");
     AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hGlyphSub, L"Оформление рисунка (Glyph Style)");
 
     HMENU hPackSub = CreatePopupMenu();
@@ -2548,6 +2557,39 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             g_style.glyphStyle = (GlyphStyleMode)(cmd - IDM_STYLE_GLYPH_ORIGINAL);
             SaveStyleConfig();
             InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_ROTATE_90: {
+            g_style.rotation = fmod(g_style.rotation + 90.0, 360.0);
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            wchar_t buf[128];
+            wsprintfW(buf, L"Поворот рисунка: %d°", (int)g_style.rotation);
+            g_statusText = buf;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
+        case IDM_STYLE_GLYPH_FLIP_H:
+            g_style.flipH = !g_style.flipH;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = g_style.flipH ? L"Отражение по горизонтали включено" : L"Отражение по горизонтали выключено";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_FLIP_V:
+            g_style.flipV = !g_style.flipV;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = g_style.flipV ? L"Отражение по вертикали включено" : L"Отражение по вертикали выключено";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_RESET_TRANSFORM:
+            g_style.rotation = 0.0;
+            g_style.flipH = false;
+            g_style.flipV = false;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Трансформации рисунка сброшены";
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case IDM_TOOLS_CREATE_MONOGRAM: {

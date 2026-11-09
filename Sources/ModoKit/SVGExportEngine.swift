@@ -186,6 +186,21 @@ public enum SVGExportEngine {
         let glyphX = (size - glyphSpan) / 2.0 + (style.offsetX * innerDim * 0.5)
         let glyphY = (size - glyphSpan) / 2.0 - (style.offsetY * innerDim * 0.5)
 
+        let centerX = glyphX + glyphSpan / 2.0
+        let centerY = glyphY + glyphSpan / 2.0
+        var transformAttrs: [String] = []
+        if style.glyphRotation != 0.0 {
+            transformAttrs.append("rotate(\(style.glyphRotation) \(centerX) \(centerY))")
+        }
+        let sx = style.glyphFlipHorizontal ? -1.0 : 1.0
+        let sy = style.glyphFlipVertical ? -1.0 : 1.0
+        if sx != 1.0 || sy != 1.0 {
+            transformAttrs.append("translate(\(centerX) \(centerY)) scale(\(sx) \(sy)) translate(\(-centerX) \(-centerY))")
+        }
+        let wrapOpen = transformAttrs.isEmpty ? "" : "  <g transform=\"\(transformAttrs.joined(separator: " "))\">\n"
+        let wrapClose = transformAttrs.isEmpty ? "" : "  </g>\n"
+
+        svg += wrapOpen
         if let svgPath = glyphSVGPath, !svgPath.isEmpty {
             let fillHex = style.monochromeTint ? "#FFFFFF" : String(format: "#%06X", dominantHex)
             svg += """
@@ -209,6 +224,7 @@ public enum SVGExportEngine {
 
             """
         }
+        svg += wrapClose
 
         svg += "</svg>\n"
         return svg

@@ -571,6 +571,59 @@ struct DetailInspectorView: View {
                 .controlSize(.small)
             }
 
+            // Artwork Transformations Bar (Rotation & Mirroring)
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text("Трансформации рисунка (Поворот и Отражение)")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: Space.sm) {
+                    Button {
+                        rotateArtwork(by: -90)
+                    } label: {
+                        Label("-90°", systemImage: "rotate.left")
+                    }
+                    .controlSize(.small)
+                    .help("Повернуть рисунок на 90° против часовой стрелки")
+
+                    Button {
+                        rotateArtwork(by: 90)
+                    } label: {
+                        Label("+90°", systemImage: "rotate.right")
+                    }
+                    .controlSize(.small)
+                    .help("Повернуть рисунок на 90° по часовой стрелке")
+
+                    Button {
+                        toggleFlipHorizontal()
+                    } label: {
+                        Label("Flip H", systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right")
+                    }
+                    .controlSize(.small)
+                    .background(isFlippedH ? Palette.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: Radius.sm))
+                    .help("Отразить рисунок по горизонтали")
+
+                    Button {
+                        toggleFlipVertical()
+                    } label: {
+                        Label("Flip V", systemImage: "arrow.up.and.down.righttriangle.up.righttriangle.down")
+                    }
+                    .controlSize(.small)
+                    .background(isFlippedV ? Palette.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: Radius.sm))
+                    .help("Отразить рисунок по вертикали")
+
+                    if hasActiveTransformations {
+                        Button {
+                            resetArtworkTransformations()
+                        } label: {
+                            Label("Сброс", systemImage: "arrow.counterclockwise")
+                        }
+                        .controlSize(.small)
+                        .help("Сбросить поворот и отражения рисунка")
+                    }
+                }
+            }
+
             // File & Clipboard Actions
             HStack(spacing: Space.sm) {
                 Button {
@@ -673,6 +726,50 @@ struct DetailInspectorView: View {
                 try? context.save()
             }
         }
+    }
+
+    private var currentRotation: Double {
+        item.customRotation ?? model.style.glyphRotation
+    }
+
+    private var isFlippedH: Bool {
+        item.isFlippedHorizontally ?? model.style.glyphFlipHorizontal
+    }
+
+    private var isFlippedV: Bool {
+        item.isFlippedVertically ?? model.style.glyphFlipVertical
+    }
+
+    private var hasActiveTransformations: Bool {
+        currentRotation != 0.0 || isFlippedH || isFlippedV
+    }
+
+    private func rotateArtwork(by degrees: Double) {
+        var rot = (currentRotation + degrees).truncatingRemainder(dividingBy: 360.0)
+        if rot < 0 { rot += 360.0 }
+        item.customRotation = rot
+        model.invalidateCache(for: item)
+        try? context.save()
+    }
+
+    private func toggleFlipHorizontal() {
+        item.isFlippedHorizontally = !isFlippedH
+        model.invalidateCache(for: item)
+        try? context.save()
+    }
+
+    private func toggleFlipVertical() {
+        item.isFlippedVertically = !isFlippedV
+        model.invalidateCache(for: item)
+        try? context.save()
+    }
+
+    private func resetArtworkTransformations() {
+        item.customRotation = 0.0
+        item.isFlippedHorizontally = false
+        item.isFlippedVertically = false
+        model.invalidateCache(for: item)
+        try? context.save()
     }
 
     private func invertColorsInSVG(_ svg: String) -> String {

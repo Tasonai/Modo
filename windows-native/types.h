@@ -100,6 +100,9 @@ struct RoundStyle {
     COLORREF customColor = RGB(26, 115, 232);
     SurfaceMaterial material = MATERIAL_SMOOTH;
     GlyphStyleMode glyphStyle = GLYPH_ORIGINAL;
+    double rotation = 0.0;     // degrees: 0, 90, 180, 270
+    bool flipH = false;        // horizontal flip
+    bool flipV = false;        // vertical flip
 };
 
 struct AppEntry {
@@ -116,6 +119,9 @@ struct AppEntry {
     bool isFolder = false;
     bool isSystemPinnedTop = false;
     bool isApplied = false;
+    double customRotation = 0.0;
+    bool isFlippedH = false;
+    bool isFlippedV = false;
     Bitmap* origBitmap = nullptr;
     Bitmap* cachedThumb = nullptr; // 64x64 cached circular preview for the list
 };

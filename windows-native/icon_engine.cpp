@@ -642,6 +642,20 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
     REAL cy = circleRect.Y + circleRect.Height * 0.5f + shiftY;
     RectF glyphRect(cx - drawW * 0.5f, cy - drawH * 0.5f, drawW, drawH);
 
+    GraphicsState gTransformState = g.Save();
+    if (style.rotation != 0.0 || style.flipH || style.flipV) {
+        g.TranslateTransform(cx, cy);
+        if (style.rotation != 0.0) {
+            g.RotateTransform((REAL)style.rotation);
+        }
+        REAL sx = style.flipH ? -1.0f : 1.0f;
+        REAL sy = style.flipV ? -1.0f : 1.0f;
+        if (sx != 1.0f || sy != 1.0f) {
+            g.ScaleTransform(sx, sy);
+        }
+        g.TranslateTransform(-cx, -cy);
+    }
+
     if (style.innerShadow && !(style.fullBleed && (colors.isSquareLike || colors.isAlreadyCircular))) {
         ColorMatrix shadowMat = {
             0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -805,6 +819,7 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
         g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel);
     }
 
+    g.Restore(gTransformState);
     g.Restore(state);
 
     REAL penW = std::max(1.0f, dim * 0.004f);

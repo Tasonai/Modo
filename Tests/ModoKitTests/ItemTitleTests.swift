@@ -56,6 +56,21 @@ func styleClamping() {
     #expect(tintedStyle.appearanceMode == .tinted)
     #expect(tintedStyle.tintColorHex == 0x34C759)
 
+    // Transformations: rotation and mirroring
+    let transformedStyle = RoundIconStyle(glyphRotation: 90.0, glyphFlipHorizontal: true, glyphFlipVertical: false)
+    #expect(transformedStyle.glyphRotation == 90.0)
+    #expect(transformedStyle.glyphFlipHorizontal == true)
+    #expect(transformedStyle.glyphFlipVertical == false)
+
+    if let encTrans = try? JSONEncoder().encode(transformedStyle),
+       let decTrans = try? JSONDecoder().decode(RoundIconStyle.self, from: encTrans) {
+        #expect(decTrans.glyphRotation == 90.0)
+        #expect(decTrans.glyphFlipHorizontal == true)
+        #expect(decTrans.glyphFlipVertical == false)
+    } else {
+        #expect(Bool(false), "Failed to encode/decode transformed RoundIconStyle")
+    }
+
     // Round-trip encoding
     if let encoded = try? JSONEncoder().encode(tintedStyle),
        let decoded = try? JSONDecoder().decode(RoundIconStyle.self, from: encoded) {

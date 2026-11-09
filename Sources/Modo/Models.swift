@@ -20,6 +20,9 @@ final class Item {
     var customScale: Double?
     var customOffsetX: Double?
     var customOffsetY: Double?
+    var customRotation: Double?
+    var isFlippedHorizontally: Bool?
+    var isFlippedVertically: Bool?
     @Attribute(.externalStorage) var customImageData: Data?
 
     init(
@@ -34,6 +37,9 @@ final class Item {
         customScale: Double? = nil,
         customOffsetX: Double? = nil,
         customOffsetY: Double? = nil,
+        customRotation: Double? = nil,
+        isFlippedHorizontally: Bool? = nil,
+        isFlippedVertically: Bool? = nil,
         customImageData: Data? = nil
     ) {
         self.id = UUID()
@@ -49,6 +55,9 @@ final class Item {
         self.customScale = customScale
         self.customOffsetX = customOffsetX
         self.customOffsetY = customOffsetY
+        self.customRotation = customRotation
+        self.isFlippedHorizontally = isFlippedHorizontally
+        self.isFlippedVertically = isFlippedVertically
         self.customImageData = customImageData
     }
 
@@ -506,12 +515,15 @@ final class AppModel {
         return img
     }
 
-    /// The effective style for `item`: blends global studio style with any item-specific scale/offset overrides.
+    /// The effective style for `item`: blends global studio style with any item-specific scale/offset/rotation/flip overrides.
     func effectiveStyle(for item: Item) -> RoundIconStyle {
         var s = style
         if let scale = item.customScale { s.iconScale = scale }
         if let ox = item.customOffsetX { s.offsetX = ox }
         if let oy = item.customOffsetY { s.offsetY = oy }
+        if let rot = item.customRotation { s.glyphRotation = rot }
+        if let fh = item.isFlippedHorizontally { s.glyphFlipHorizontal = fh }
+        if let fv = item.isFlippedVertically { s.glyphFlipVertical = fv }
         return s
     }
 

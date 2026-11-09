@@ -214,11 +214,18 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var surfaceMaterial: SurfaceMaterial
     /// Foreground glyph styling and rendering effect.
     public var glyphStyle: GlyphStyleMode
+    /// Foreground glyph rotation in degrees (0, 90, 180, 270 or arbitrary).
+    public var glyphRotation: Double
+    /// Whether the foreground glyph is mirrored horizontally.
+    public var glyphFlipHorizontal: Bool
+    /// Whether the foreground glyph is mirrored vertically.
+    public var glyphFlipVertical: Bool
 
     enum CodingKeys: String, CodingKey {
         case backgroundStyle, shape, iconScale, offsetX, offsetY
         case shadowIntensity, innerShadow, fullBleedSquares, monochromeTint
         case autoTrim, customHex, appearanceMode, tintColorHex, surfaceMaterial, glyphStyle
+        case glyphRotation, glyphFlipHorizontal, glyphFlipVertical
     }
 
     public init(
@@ -236,7 +243,10 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         appearanceMode: IconAppearanceMode = .light,
         tintColorHex: UInt32 = 0x007AFF,
         surfaceMaterial: SurfaceMaterial = .smooth,
-        glyphStyle: GlyphStyleMode = .original
+        glyphStyle: GlyphStyleMode = .original,
+        glyphRotation: Double = 0.0,
+        glyphFlipHorizontal: Bool = false,
+        glyphFlipVertical: Bool = false
     ) {
         self.backgroundStyle = backgroundStyle
         self.shape = shape
@@ -253,6 +263,9 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.tintColorHex = tintColorHex & 0xFFFFFF
         self.surfaceMaterial = surfaceMaterial
         self.glyphStyle = glyphStyle
+        self.glyphRotation = glyphRotation
+        self.glyphFlipHorizontal = glyphFlipHorizontal
+        self.glyphFlipVertical = glyphFlipVertical
     }
 
     public init(from decoder: Decoder) throws {
@@ -276,11 +289,17 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.tintColorHex = try container.decodeIfPresent(UInt32.self, forKey: .tintColorHex) ?? 0x007AFF
         self.surfaceMaterial = try container.decodeIfPresent(SurfaceMaterial.self, forKey: .surfaceMaterial) ?? .smooth
         self.glyphStyle = try container.decodeIfPresent(GlyphStyleMode.self, forKey: .glyphStyle) ?? .original
+        self.glyphRotation = try container.decodeIfPresent(Double.self, forKey: .glyphRotation) ?? 0.0
+        self.glyphFlipHorizontal = try container.decodeIfPresent(Bool.self, forKey: .glyphFlipHorizontal) ?? false
+        self.glyphFlipVertical = try container.decodeIfPresent(Bool.self, forKey: .glyphFlipVertical) ?? false
     }
 
     public mutating func resetPosition() {
         offsetX = 0.0
         offsetY = 0.0
+        glyphRotation = 0.0
+        glyphFlipHorizontal = false
+        glyphFlipVertical = false
     }
 }
 
