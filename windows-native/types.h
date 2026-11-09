@@ -64,6 +64,16 @@ enum GlyphStyleMode {
     GLYPH_GLOW = 5
 };
 
+enum GlyphGradientPreset {
+    GLYPH_GRAD_NONE = 0,
+    GLYPH_GRAD_GOLD = 1,
+    GLYPH_GRAD_CYBER = 2,
+    GLYPH_GRAD_SUNSET = 3,
+    GLYPH_GRAD_EMERALD = 4,
+    GLYPH_GRAD_TITANIUM = 5,
+    GLYPH_GRAD_PURPLE_HAZE = 6
+};
+
 struct BrandPaletteWin {
     COLORREF primary;
     COLORREF secondary;
@@ -103,6 +113,8 @@ struct RoundStyle {
     double rotation = 0.0;     // degrees: 0, 90, 180, 270
     bool flipH = false;        // horizontal flip
     bool flipV = false;        // vertical flip
+    COLORREF glyphColor = 0;   // 0 = none / original, otherwise RGB(...)
+    GlyphGradientPreset glyphGrad = GLYPH_GRAD_NONE;
 };
 
 struct AppEntry {
@@ -122,6 +134,8 @@ struct AppEntry {
     double customRotation = 0.0;
     bool isFlippedH = false;
     bool isFlippedV = false;
+    COLORREF customGlyphColor = 0;
+    GlyphGradientPreset customGlyphGrad = GLYPH_GRAD_NONE;
     Bitmap* origBitmap = nullptr;
     Bitmap* cachedThumb = nullptr; // 64x64 cached circular preview for the list
 };

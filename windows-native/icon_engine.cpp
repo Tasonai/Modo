@@ -670,7 +670,92 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
         g.DrawImage(trimmed, shRect, 0, 0, srcW, srcH, UnitPixel, &shadowAttr);
     }
 
-    if (style.glyphStyle == GLYPH_SILHOUETTE) {
+    if (style.glyphGrad != GLYPH_GRAD_NONE) {
+        Color c1(255, 255, 255, 255);
+        Color c2(255, 255, 255, 255);
+        switch (style.glyphGrad) {
+            case GLYPH_GRAD_GOLD:
+                c1 = Color(255, 0xF5, 0x9E, 0x0B);
+                c2 = Color(255, 0xD9, 0x77, 0x06);
+                break;
+            case GLYPH_GRAD_CYBER:
+                c1 = Color(255, 0x06, 0xB6, 0xD4);
+                c2 = Color(255, 0xEC, 0x48, 0x99);
+                break;
+            case GLYPH_GRAD_SUNSET:
+                c1 = Color(255, 0xFF, 0x51, 0x2F);
+                c2 = Color(255, 0xDD, 0x24, 0x76);
+                break;
+            case GLYPH_GRAD_EMERALD:
+                c1 = Color(255, 0x10, 0xB9, 0x81);
+                c2 = Color(255, 0x05, 0x96, 0x69);
+                break;
+            case GLYPH_GRAD_TITANIUM:
+                c1 = Color(255, 0xE2, 0xE8, 0xF0);
+                c2 = Color(255, 0x94, 0xA3, 0xB8);
+                break;
+            case GLYPH_GRAD_PURPLE_HAZE:
+                c1 = Color(255, 0x8B, 0x5C, 0xF6);
+                c2 = Color(255, 0x3B, 0x82, 0xF6);
+                break;
+            default:
+                break;
+        }
+
+        int gw = (int)std::max(1.0f, std::round(glyphRect.Width));
+        int gh = (int)std::max(1.0f, std::round(glyphRect.Height));
+        Bitmap gradBmp(gw, gh, PixelFormat32bppARGB);
+        {
+            Graphics gGrad(&gradBmp);
+            LinearGradientBrush gradBrush(
+                PointF(0, (REAL)gh),
+                PointF((REAL)gw, 0),
+                c1,
+                c2
+            );
+            gGrad.FillRectangle(&gradBrush, 0, 0, gw, gh);
+        }
+
+        Bitmap alphaBmp(gw, gh, PixelFormat32bppARGB);
+        {
+            Graphics gAlpha(&alphaBmp);
+            gAlpha.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+            gAlpha.DrawImage(trimmed, RectF(0, 0, (REAL)gw, (REAL)gh), 0, 0, srcW, srcH, UnitPixel);
+        }
+
+        BitmapData bdGrad, bdAlpha;
+        Rect rc(0, 0, gw, gh);
+        if (gradBmp.LockBits(&rc, ImageLockModeRead | ImageLockModeWrite, PixelFormat32bppARGB, &bdGrad) == Ok) {
+            if (alphaBmp.LockBits(&rc, ImageLockModeRead, PixelFormat32bppARGB, &bdAlpha) == Ok) {
+                for (int y = 0; y < gh; ++y) {
+                    uint8_t* pG = (uint8_t*)bdGrad.Scan0 + y * bdGrad.Stride;
+                    const uint8_t* pA = (const uint8_t*)bdAlpha.Scan0 + y * bdAlpha.Stride;
+                    for (int x = 0; x < gw; ++x) {
+                        uint8_t a = pA[x * 4 + 3];
+                        pG[x * 4 + 3] = (uint8_t)((pG[x * 4 + 3] * a) / 255);
+                    }
+                }
+                alphaBmp.UnlockBits(&bdAlpha);
+            }
+            gradBmp.UnlockBits(&bdGrad);
+        }
+
+        g.DrawImage(&gradBmp, glyphRect.X, glyphRect.Y, glyphRect.Width, glyphRect.Height);
+    } else if (style.glyphColor != 0) {
+        REAL tr = GetRValue(style.glyphColor) / 255.0f;
+        REAL tg = GetGValue(style.glyphColor) / 255.0f;
+        REAL tb = GetBValue(style.glyphColor) / 255.0f;
+        ColorMatrix customMat = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+            tr,   tg,   tb,   0.0f, 1.0f
+        };
+        ImageAttributes customAttr;
+        customAttr.SetColorMatrix(&customMat, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        g.DrawImage(trimmed, glyphRect, 0, 0, srcW, srcH, UnitPixel, &customAttr);
+    } else if (style.glyphStyle == GLYPH_SILHOUETTE) {
         Color tint = (style.preset == PRESET_DARK_MATERIAL)
             ? Color(255, 230, 230, 232)
             : colors.dominant;

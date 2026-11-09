@@ -2286,6 +2286,13 @@ enum MenuCommandID {
     IDM_STYLE_GLYPH_FLIP_H,
     IDM_STYLE_GLYPH_FLIP_V,
     IDM_STYLE_GLYPH_RESET_TRANSFORM,
+    IDM_STYLE_GLYPH_GRAD_NONE,
+    IDM_STYLE_GLYPH_GRAD_GOLD,
+    IDM_STYLE_GLYPH_GRAD_CYBER,
+    IDM_STYLE_GLYPH_GRAD_SUNSET,
+    IDM_STYLE_GLYPH_GRAD_EMERALD,
+    IDM_STYLE_GLYPH_GRAD_TITANIUM,
+    IDM_STYLE_GLYPH_GRAD_PURPLE,
     IDM_STYLE_EYEDROPPER,
     IDM_STYLE_WINDOWS_ACCENT,
     IDM_STYLE_RESET_DEFAULT,
@@ -2384,6 +2391,18 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hGlyphSub, (g_style.flipH ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_FLIP_H, L"Отразить по горизонтали (Flip H)");
     AppendMenuW(hGlyphSub, (g_style.flipV ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_FLIP_V, L"Отразить по вертикали (Flip V)");
     AppendMenuW(hGlyphSub, MF_STRING, IDM_STYLE_GLYPH_RESET_TRANSFORM, L"Сбросить трансформации рисунка");
+    AppendMenuW(hGlyphSub, MF_SEPARATOR, 0, NULL);
+
+    HMENU hTintSub = CreatePopupMenu();
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_NONE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_NONE, L"Оригинал (без градиента)");
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_GOLD ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_GOLD, L"Liquid Gold");
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_CYBER ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_CYBER, L"Cyber Neon");
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_SUNSET ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_SUNSET, L"Sunset Glow");
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_EMERALD ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_EMERALD, L"Emerald Chrome");
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_TITANIUM ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_TITANIUM, L"Titanium Ice");
+    AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_PURPLE_HAZE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_PURPLE, L"Purple Haze");
+    AppendMenuW(hGlyphSub, MF_POPUP, (UINT_PTR)hTintSub, L"Градиентная заливка рисунка (Gradient Mask)");
+
     AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hGlyphSub, L"Оформление рисунка (Glyph Style)");
 
     HMENU hPackSub = CreatePopupMenu();
@@ -2587,9 +2606,30 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             g_style.rotation = 0.0;
             g_style.flipH = false;
             g_style.flipV = false;
+            g_style.glyphColor = 0;
+            g_style.glyphGrad = GLYPH_GRAD_NONE;
             SaveStyleConfig();
             InvalidateAllThumbs();
             g_statusText = L"Трансформации рисунка сброшены";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_GRAD_NONE:
+            g_style.glyphGrad = GLYPH_GRAD_NONE;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Градиент рисунка выключен";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_GRAD_GOLD:
+        case IDM_STYLE_GLYPH_GRAD_CYBER:
+        case IDM_STYLE_GLYPH_GRAD_SUNSET:
+        case IDM_STYLE_GLYPH_GRAD_EMERALD:
+        case IDM_STYLE_GLYPH_GRAD_TITANIUM:
+        case IDM_STYLE_GLYPH_GRAD_PURPLE:
+            g_style.glyphGrad = (GlyphGradientPreset)(cmd - IDM_STYLE_GLYPH_GRAD_NONE);
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Применен градиент рисунка";
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case IDM_TOOLS_CREATE_MONOGRAM: {

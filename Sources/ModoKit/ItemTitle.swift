@@ -183,6 +183,29 @@ public enum IconAppearanceMode: String, CaseIterable, Identifiable, Codable, Sen
     public var id: String { rawValue }
 }
 
+/// Preset dual-color gradient masks for styling the foreground glyph.
+public enum GlyphTintGradientPreset: String, CaseIterable, Identifiable, Codable, Sendable {
+    case gold = "Liquid Gold"
+    case cyber = "Cyber Neon"
+    case sunset = "Sunset Glow"
+    case emerald = "Emerald Chrome"
+    case titanium = "Titanium Ice"
+    case purpleHaze = "Purple Haze"
+
+    public var id: String { rawValue }
+
+    public var colors: (start: UInt32, end: UInt32) {
+        switch self {
+        case .gold: return (0xF59E0B, 0xD97706)
+        case .cyber: return (0x06B6D4, 0xEC4899)
+        case .sunset: return (0xFF512F, 0xDD2476)
+        case .emerald: return (0x10B981, 0x059669)
+        case .titanium: return (0xE2E8F0, 0x94A3B8)
+        case .purpleHaze: return (0x8B5CF6, 0x3B82F6)
+        }
+    }
+}
+
 /// Value type holding all parameters for rendering a Modo adaptive icon.
 public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var backgroundStyle: RoundBackgroundStyle
@@ -220,12 +243,17 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var glyphFlipHorizontal: Bool
     /// Whether the foreground glyph is mirrored vertically.
     public var glyphFlipVertical: Bool
+    /// Custom flat color override for the foreground glyph (0xRRGGBB, or nil if using original/default).
+    public var glyphCustomColorHex: UInt32?
+    /// Gradient preset mask for styling the foreground glyph (nil if using flat/original).
+    public var glyphGradientPreset: GlyphTintGradientPreset?
 
     enum CodingKeys: String, CodingKey {
         case backgroundStyle, shape, iconScale, offsetX, offsetY
         case shadowIntensity, innerShadow, fullBleedSquares, monochromeTint
         case autoTrim, customHex, appearanceMode, tintColorHex, surfaceMaterial, glyphStyle
         case glyphRotation, glyphFlipHorizontal, glyphFlipVertical
+        case glyphCustomColorHex, glyphGradientPreset
     }
 
     public init(
@@ -246,7 +274,9 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         glyphStyle: GlyphStyleMode = .original,
         glyphRotation: Double = 0.0,
         glyphFlipHorizontal: Bool = false,
-        glyphFlipVertical: Bool = false
+        glyphFlipVertical: Bool = false,
+        glyphCustomColorHex: UInt32? = nil,
+        glyphGradientPreset: GlyphTintGradientPreset? = nil
     ) {
         self.backgroundStyle = backgroundStyle
         self.shape = shape
@@ -266,6 +296,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.glyphRotation = glyphRotation
         self.glyphFlipHorizontal = glyphFlipHorizontal
         self.glyphFlipVertical = glyphFlipVertical
+        self.glyphCustomColorHex = glyphCustomColorHex.map { $0 & 0xFFFFFF }
+        self.glyphGradientPreset = glyphGradientPreset
     }
 
     public init(from decoder: Decoder) throws {
@@ -292,6 +324,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.glyphRotation = try container.decodeIfPresent(Double.self, forKey: .glyphRotation) ?? 0.0
         self.glyphFlipHorizontal = try container.decodeIfPresent(Bool.self, forKey: .glyphFlipHorizontal) ?? false
         self.glyphFlipVertical = try container.decodeIfPresent(Bool.self, forKey: .glyphFlipVertical) ?? false
+        self.glyphCustomColorHex = try container.decodeIfPresent(UInt32.self, forKey: .glyphCustomColorHex)
+        self.glyphGradientPreset = try container.decodeIfPresent(GlyphTintGradientPreset.self, forKey: .glyphGradientPreset)
     }
 
     public mutating func resetPosition() {
@@ -300,6 +334,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         glyphRotation = 0.0
         glyphFlipHorizontal = false
         glyphFlipVertical = false
+        glyphCustomColorHex = nil
+        glyphGradientPreset = nil
     }
 }
 

@@ -71,6 +71,22 @@ func styleClamping() {
         #expect(Bool(false), "Failed to encode/decode transformed RoundIconStyle")
     }
 
+    // Artwork coloring: Custom Color Tint and Dual Gradient Mask
+    let tintedArtStyle = RoundIconStyle(glyphCustomColorHex: 0xFF007F, glyphGradientPreset: .cyber)
+    #expect(tintedArtStyle.glyphCustomColorHex == 0xFF007F)
+    #expect(tintedArtStyle.glyphGradientPreset == .cyber)
+    let (c1, c2) = GlyphTintGradientPreset.cyber.colors
+    #expect(c1 == 0x06B6D4)
+    #expect(c2 == 0xEC4899)
+
+    if let encArt = try? JSONEncoder().encode(tintedArtStyle),
+       let decArt = try? JSONDecoder().decode(RoundIconStyle.self, from: encArt) {
+        #expect(decArt.glyphCustomColorHex == 0xFF007F)
+        #expect(decArt.glyphGradientPreset == .cyber)
+    } else {
+        #expect(Bool(false), "Failed to encode/decode tinted artwork RoundIconStyle")
+    }
+
     // Round-trip encoding
     if let encoded = try? JSONEncoder().encode(tintedStyle),
        let decoded = try? JSONDecoder().decode(RoundIconStyle.self, from: encoded) {

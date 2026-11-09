@@ -208,7 +208,47 @@ enum IconRenderer {
 
         let effMode = effectiveAppearanceMode(for: style)
 
-        if effMode == .tinted {
+        if let grad = style.glyphGradientPreset {
+            // Dual-color gradient mask across the foreground glyph
+            let (startHex, endHex) = grad.colors
+            let startCol = NSColor(
+                srgbRed: CGFloat((startHex >> 16) & 0xFF) / 255.0,
+                green: CGFloat((startHex >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(startHex & 0xFF) / 255.0,
+                alpha: 1.0
+            )
+            let endCol = NSColor(
+                srgbRed: CGFloat((endHex >> 16) & 0xFF) / 255.0,
+                green: CGFloat((endHex >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(endHex & 0xFF) / 255.0,
+                alpha: 1.0
+            )
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let cgColors = [startCol.cgColor, endCol.cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: colorSpace, colors: cgColors, locations: [0.0, 1.0]) {
+                ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+                ctx.clip(to: glyphRect, mask: trimmedCG)
+                let p1 = CGPoint(x: glyphRect.minX, y: glyphRect.maxY)
+                let p2 = CGPoint(x: glyphRect.maxX, y: glyphRect.minY)
+                ctx.drawLinearGradient(gradient, start: p1, end: p2, options: [])
+                ctx.endTransparencyLayer()
+            } else {
+                ctx.draw(trimmedCG, in: glyphRect)
+            }
+        } else if let customColor = style.glyphCustomColorHex {
+            // Flat custom color tint across the foreground glyph
+            let tintCol = NSColor(
+                srgbRed: CGFloat((customColor >> 16) & 0xFF) / 255.0,
+                green: CGFloat((customColor >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(customColor & 0xFF) / 255.0,
+                alpha: 1.0
+            )
+            ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+            ctx.clip(to: glyphRect, mask: trimmedCG)
+            ctx.setFillColor(tintCol.cgColor)
+            ctx.fill(glyphRect)
+            ctx.endTransparencyLayer()
+        } else if effMode == .tinted {
             // macOS Sequoia / iOS 18 Tinted Silhouette
             let tintColor = NSColor(
                 srgbRed: CGFloat((style.tintColorHex >> 16) & 0xFF) / 255.0,

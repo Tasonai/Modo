@@ -116,6 +116,19 @@ public enum SVGExportEngine {
             """
         }
 
+        if let grad = style.glyphGradientPreset {
+            let (startHex, endHex) = grad.colors
+            let sCol = String(format: "#%06X", startHex)
+            let eCol = String(format: "#%06X", endHex)
+            svg += """
+                <linearGradient id="glyph-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="\(sCol)" />
+                  <stop offset="100%" stop-color="\(eCol)" />
+                </linearGradient>
+
+            """
+        }
+
         svg += """
           </defs>
 
@@ -202,7 +215,15 @@ public enum SVGExportEngine {
 
         svg += wrapOpen
         if let svgPath = glyphSVGPath, !svgPath.isEmpty {
-            let fillHex = style.monochromeTint ? "#FFFFFF" : String(format: "#%06X", dominantHex)
+            let fillHex: String = if style.glyphGradientPreset != nil {
+                "url(#glyph-grad)"
+            } else if let customColor = style.glyphCustomColorHex {
+                String(format: "#%06X", customColor)
+            } else if style.monochromeTint {
+                "#FFFFFF"
+            } else {
+                String(format: "#%06X", dominantHex)
+            }
             svg += """
               <g transform="translate(\(glyphX), \(glyphY)) scale(\(glyphSpan / 24.0))">
                 <path d="\(svgPath)" fill="\(fillHex)" />

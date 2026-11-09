@@ -60,6 +60,9 @@ static void PrintHelp() {
         L"                           --scale <0.4..1.8>\n"
         L"                           --material <smooth|glass|titanium|neumorphic|prism|chrome|ceramic|holo>\n"
         L"                           --glyph <original|silhouette|embossed|outline|duotone|glow>\n"
+        L"                           --glyph-color <hex|name> (custom flat artwork color)\n"
+        L"                           --glyph-gradient <gold|cyber|sunset|emerald|titanium|purple>\n"
+        L"                           --rotate <degrees> --fliph --flipv\n"
         L"  monogram <app_path>    Apply custom typographic monogram lettermark\n"
         L"                           --text <letters>\n"
         L"                           --frame <ring|squircle|hex|minimal>\n"
@@ -179,6 +182,16 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
         } else if (opt == L"--color" && i + 1 < argc) {
             style.customColor = ParseColorPreset(argv[++i]);
             style.preset = PRESET_CUSTOM_COLOR;
+        } else if (opt == L"--glyph-color" && i + 1 < argc) {
+            style.glyphColor = ParseColorPreset(argv[++i]);
+        } else if (opt == L"--glyph-gradient" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"gold" || val == L"liquidgold") style.glyphGrad = GLYPH_GRAD_GOLD;
+            else if (val == L"cyber" || val == L"cyberneon") style.glyphGrad = GLYPH_GRAD_CYBER;
+            else if (val == L"sunset" || val == L"sunsetglow") style.glyphGrad = GLYPH_GRAD_SUNSET;
+            else if (val == L"emerald" || val == L"emeraldchrome") style.glyphGrad = GLYPH_GRAD_EMERALD;
+            else if (val == L"titanium" || val == L"titaniumice") style.glyphGrad = GLYPH_GRAD_TITANIUM;
+            else if (val == L"purple" || val == L"purplehaze") style.glyphGrad = GLYPH_GRAD_PURPLE_HAZE;
         } else if (opt == L"--rotate" && i + 1 < argc) {
             style.rotation = _wtof(argv[++i]);
         } else if (opt == L"--fliph") {

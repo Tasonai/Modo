@@ -23,6 +23,8 @@ final class Item {
     var customRotation: Double?
     var isFlippedHorizontally: Bool?
     var isFlippedVertically: Bool?
+    var customGlyphColorHex: Int?
+    var customGlyphGradient: String?
     @Attribute(.externalStorage) var customImageData: Data?
 
     init(
@@ -40,6 +42,8 @@ final class Item {
         customRotation: Double? = nil,
         isFlippedHorizontally: Bool? = nil,
         isFlippedVertically: Bool? = nil,
+        customGlyphColorHex: Int? = nil,
+        customGlyphGradient: String? = nil,
         customImageData: Data? = nil
     ) {
         self.id = UUID()
@@ -58,6 +62,8 @@ final class Item {
         self.customRotation = customRotation
         self.isFlippedHorizontally = isFlippedHorizontally
         self.isFlippedVertically = isFlippedVertically
+        self.customGlyphColorHex = customGlyphColorHex
+        self.customGlyphGradient = customGlyphGradient
         self.customImageData = customImageData
     }
 
@@ -524,6 +530,10 @@ final class AppModel {
         if let rot = item.customRotation { s.glyphRotation = rot }
         if let fh = item.isFlippedHorizontally { s.glyphFlipHorizontal = fh }
         if let fv = item.isFlippedVertically { s.glyphFlipVertical = fv }
+        if let colorHex = item.customGlyphColorHex { s.glyphCustomColorHex = UInt32(colorHex & 0xFFFFFF) }
+        if let gradName = item.customGlyphGradient, let grad = GlyphTintGradientPreset(rawValue: gradName) {
+            s.glyphGradientPreset = grad
+        }
         return s
     }
 

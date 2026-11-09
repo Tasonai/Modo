@@ -624,6 +624,76 @@ struct DetailInspectorView: View {
                 }
             }
 
+            // Artwork Color & Gradient Tint Bar
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text("Заливка рисунка (Цвет и Градиент)")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Space.xs) {
+                        // Original
+                        let isOrig = (item.customGlyphColorHex == nil && item.customGlyphGradient == nil)
+                        Button {
+                            setGlyphTint(color: nil, gradient: nil)
+                        } label: {
+                            Text("Оригинал")
+                                .font(.caption2.weight(isOrig ? .bold : .regular))
+                                .padding(.horizontal, Space.sm)
+                                .padding(.vertical, 4)
+                                .background(isOrig ? Palette.accent : Color.primary.opacity(0.06), in: Capsule())
+                                .foregroundStyle(isOrig ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Brand color
+                        if item.brandHex != 0 {
+                            let isBrand = (item.customGlyphColorHex == item.brandHex && item.customGlyphGradient == nil)
+                            let bColor = Color(hex: UInt32(item.brandHex))
+                            Button {
+                                setGlyphTint(color: item.brandHex, gradient: nil)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Circle().fill(bColor).frame(width: 8, height: 8)
+                                    Text("Бренд")
+                                        .font(.caption2.weight(isBrand ? .bold : .regular))
+                                }
+                                .padding(.horizontal, Space.sm)
+                                .padding(.vertical, 4)
+                                .background(isBrand ? Palette.accent : Color.primary.opacity(0.06), in: Capsule())
+                                .foregroundStyle(isBrand ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        // Gradient Presets
+                        ForEach(GlyphTintGradientPreset.allCases) { grad in
+                            let isSel = (item.customGlyphGradient == grad.rawValue)
+                            let (c1, c2) = grad.colors
+                            let gStart = Color(hex: c1)
+                            let gEnd = Color(hex: c2)
+                            Button {
+                                setGlyphTint(color: nil, gradient: grad.rawValue)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(LinearGradient(colors: [gStart, gEnd], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                        .frame(width: 8, height: 8)
+                                    Text(grad.rawValue)
+                                        .font(.caption2.weight(isSel ? .bold : .regular))
+                                }
+                                .padding(.horizontal, Space.sm)
+                                .padding(.vertical, 4)
+                                .background(isSel ? Palette.accent : Color.primary.opacity(0.06), in: Capsule())
+                                .foregroundStyle(isSel ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+
             // File & Clipboard Actions
             HStack(spacing: Space.sm) {
                 Button {
@@ -741,7 +811,14 @@ struct DetailInspectorView: View {
     }
 
     private var hasActiveTransformations: Bool {
-        currentRotation != 0.0 || isFlippedH || isFlippedV
+        currentRotation != 0.0 || isFlippedH || isFlippedV || item.customGlyphColorHex != nil || item.customGlyphGradient != nil
+    }
+
+    private func setGlyphTint(color: Int?, gradient: String?) {
+        item.customGlyphColorHex = color
+        item.customGlyphGradient = gradient
+        model.invalidateCache(for: item)
+        try? context.save()
     }
 
     private func rotateArtwork(by degrees: Double) {
@@ -768,6 +845,8 @@ struct DetailInspectorView: View {
         item.customRotation = 0.0
         item.isFlippedHorizontally = false
         item.isFlippedVertically = false
+        item.customGlyphColorHex = nil
+        item.customGlyphGradient = nil
         model.invalidateCache(for: item)
         try? context.save()
     }
