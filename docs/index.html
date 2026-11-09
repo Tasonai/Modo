@@ -39,7 +39,7 @@
     header { padding: 28px 0; border-bottom: 1px solid var(--card-border); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 100; }
     .nav { display: flex; justify-content: space-between; align-items: center; }
     .logo { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
-    .logo-badge { background: linear-gradient(135deg, #2A82E4, #8B5CF6); width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; box-shadow: 0 4px 14px var(--accent-glow); }
+    .logo-badge { background: linear-gradient(135deg, #2A82E4, #8B5CF6); width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; box-shadow: 0 4px 14px var(--accent-glow); font-size: 14px; font-weight: 700; color: #fff; }
     .nav-links { display: flex; gap: 24px; font-size: 14px; font-weight: 500; color: var(--text-muted); }
     .nav-links a:hover { color: #fff; }
     .btn-github { background: rgba(255, 255, 255, 0.08); padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid var(--card-border); transition: 0.2s; }
@@ -96,7 +96,8 @@
     .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 90px; }
     .feature-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 28px; transition: 0.2s; }
     .feature-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.18); }
-    .feature-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(42, 130, 228, 0.15); display: grid; place-items: center; font-size: 20px; margin-bottom: 18px; color: #60A5FA; }
+    .feature-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(42, 130, 228, 0.15); display: grid; place-items: center; margin-bottom: 18px; color: #60A5FA; }
+    .feature-icon svg { width: 22px; height: 22px; fill: currentColor; }
     .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
     .feature-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
 
@@ -122,14 +123,14 @@
   <header>
     <div class="container nav">
       <div class="logo">
-        <div class="logo-badge">✦</div>
+        <div class="logo-badge">M</div>
         Modo
       </div>
       <div class="nav-links">
         <a href="#features">Features</a>
         <a href="#playground">Playground</a>
         <a href="#cli">CLI</a>
-        <a href="https://github.com/Tasonai/Modo" target="_blank" class="btn-github">★ Star on GitHub</a>
+        <a href="https://github.com/Tasonai/Modo" target="_blank" class="btn-github">Star on GitHub</a>
       </div>
     </div>
   </header>
@@ -137,7 +138,7 @@
   <main class="container">
     <!-- Hero Section -->
     <section class="hero">
-      <div class="badge-pill">✨ Modo 1.6.0 Released with MenuBar & Folder Styler</div>
+      <div class="badge-pill">Modo 1.7.0 Released with Full Cross-Platform Parity and CLI</div>
       <h1>Adaptive Icon Studio for<br /><span>macOS & Windows</span></h1>
       <p>Harmonize your Dock, Desktop, and Finder with unified Pixel, Squircle, and Material You adaptive icons. 1-click styling, zero fuss.</p>
       
@@ -194,34 +195,46 @@
 
       <div class="features-grid">
         <div class="feature-card">
-          <div class="feature-icon">📁</div>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+          </div>
           <h3>Folder Icon Styler</h3>
-          <p>Customize macOS Finder and Windows Explorer directories with 9 gradient palettes and engraved embossed badges.</p>
+          <p>Customize macOS Finder and Windows Explorer directories with 9 gradient palettes, desktop.ini integration, and embossed badges.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">📦</div>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
           <h3>Batch Pack Creator</h3>
-          <p>Drop a folder of images or vectors to batch generate complete iconsets in multi-size .icns, .ico, and .png.</p>
+          <p>Drop a folder of images or vectors to batch generate complete multi-size iconsets in .icns, .ico, and 1024px .png.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">🚀</div>
-          <h3>MenuBar Quick Drop</h3>
-          <p>Instant drag-and-drop icon styling directly from the macOS status bar without opening the main window.</p>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <h3>3D Parallax & Glare</h3>
+          <p>Real-time 3D perspective tilt and dynamic specular light sweeping responding to cursor position with spring return.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">⚡</div>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+          </div>
           <h3>Command Line Tool</h3>
-          <p>Automate your developer workflow from terminal with <code>modo style</code>, <code>modo folder</code>, and <code>modo batch</code>.</p>
+          <p>Automate your developer workflow from terminal with unified CLI subcommands on both macOS and Windows.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">🎨</div>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M21 3H3C2 3 1 4 1 5v14c0 1 1 2 2 2h18c1 0 2-1 2-2V5c0-1-1-2-2-2zm0 16H3V5h18v14zm-10-7h9v6h-9z"/></svg>
+          </div>
           <h3>Showcase Studio</h3>
-          <p>Generate high-res 1920×1080 App Store & GitHub README hero banners with realistic lighting and contact shadows.</p>
+          <p>Generate high-res 1920x1080 App Store, portfolio, and GitHub README presentation banners with realistic lighting.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">🛡️</div>
-          <h3>1-Click Restore & Backups</h3>
-          <p>Full snapshot recovery points: preview changes risk-free and revert back to system defaults with one tap.</p>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          </div>
+          <h3>Developer Export Suite</h3>
+          <p>Export Xcode Asset Catalogs (AppIcon.appiconset), Web Favicon Kits, pure vector SVG with XML drop shadows, and ZIP packages.</p>
         </div>
       </div>
     </section>
@@ -236,7 +249,8 @@
         <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo style /Applications/Slack.app --shape squircle --bg pastel</span></div>
         <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo folder ~/Projects/Client --color sunsetOrange</span></div>
         <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo batch ~/Design/Icons --out ~/Desktop/Export</span></div>
-        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo showcase /Applications/Safari.app --out ./safari-banner.png --theme mesh</span></div>
+        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo showcase /Applications/Safari.app --out ./safari-banner.png</span></div>
+        <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">modo export /Applications/Slack.app --type xcode --out ~/Desktop</span></div>
       </div>
     </section>
   </main>

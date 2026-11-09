@@ -19,7 +19,17 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 WIN_DIR = ROOT_DIR / "windows-native"
 DIST_DIR = ROOT_DIR / "dist"
-ZIG_BIN = Path("/tmp/zig-compiler/zig")
+
+def resolve_zig_binary() -> Path:
+    tmp_zig = Path("/tmp/zig-compiler/zig")
+    if tmp_zig.is_file():
+        return tmp_zig
+    found = shutil.which("zig")
+    if found:
+        return Path(found)
+    return tmp_zig
+
+ZIG_BIN = resolve_zig_binary()
 
 
 def compute_pe_checksum(data: bytes, checksum_offset: int) -> int:
