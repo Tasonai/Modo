@@ -112,6 +112,10 @@ python3 windows-native/build_windows_installers.py
 ## Доступные установщики (`dist/`)
 
 ### macOS
+- **Homebrew Cask**:
+  ```bash
+  brew install --cask tasonai/tap/modo
+  ```
 - **`Modo-macOS.dmg`** — классический образ диска с Drag-and-Drop в `/Applications`.
 - **`Modo-macOS-Installer.pkg`** — стандартный системный мастер установки macOS.
 - **`Modo-macOS.zip`** — готовый архив с подписанным `Modo.app`.
@@ -154,6 +158,17 @@ modo export "Visual Studio Code" xcode "C:\Assets\Export"
 
 ---
 
+## Интеграции с лаунчерами и оболочками
+
+В каталоге `integrations/` доступны расширения и скрипты для популярных лаунчеров:
+
+- **Raycast (macOS)**: расширение для быстрого поиска и стилизации иконок установленных приложений (`integrations/raycast-modo`).
+- **Alfred (macOS)**: рабочий процесс (workflow) для вызова стилизации по ключевому слову `modo` (`integrations/alfred`).
+- **PowerShell (Windows)**: модуль `Modo.psm1` с командлетами `Set-ModoStyle`, `Set-ModoFolder`, `New-ModoBatch`, `New-ModoShowcase`, `Export-ModoIcon` и полной поддержкой автодополнения по клавише Tab (`integrations/powershell`).
+- **Microsoft PowerToys Run (Windows)**: вызов команд стилизации через шорткат `Alt+Space` и команду `> modo` (`integrations/powertoys-run`).
+
+---
+
 ## Архитектура репозитория
 
 ```
@@ -179,6 +194,11 @@ Modo/
 │   ├── modo.cmd                  # Пакетный скрипт вызова CLI в командной строке
 │   ├── modo.rc                   # Ресурсы, VERSIONINFO, UAC Manifest
 │   └── build_windows_installers.py # Скрипт сборки PE32+ бинарников
+├── integrations/                 # Расширения для внешних лаунчеров и оболочек
+│   ├── raycast-modo/             # Расширение для Raycast (macOS)
+│   ├── alfred/                   # Workflow для Alfred (macOS)
+│   ├── powershell/               # Модуль Modo.psm1 и автодополнение (Windows)
+│   └── powertoys-run/            # Инструкция и интеграция с Microsoft PowerToys Run
 ├── tools/                        # Утилиты верификации и упаковки
 │   ├── package_macos.py          # Генератор DMG, PKG и ZIP для macOS
 │   ├── snap.sh                   # Headless-снятие снэпшотов интерфейса
