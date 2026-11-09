@@ -1717,4 +1717,62 @@ bool ExportSvgVector(Bitmap* src, const RoundStyle& style, const std::wstring& a
     return WriteUtf8File(svgPath, svg);
 }
 
+Bitmap* RenderMonogramBitmap(const std::wstring& letters, Color primaryColor, Color secondaryColor, int size, int frameStyle) {
+    Bitmap* bmp = new Bitmap(size, size, PixelFormat32bppARGB);
+    Graphics g(bmp);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
+    g.Clear(Color(0, 0, 0, 0));
+
+    RectF r(16.0f, 16.0f, (REAL)size - 32.0f, (REAL)size - 32.0f);
+
+    switch (frameStyle) {
+    case 1: { // Squircle Solid
+        GraphicsPath path;
+        AddShapePath(path, SHAPE_SQUIRCLE, r);
+        SolidBrush fill(primaryColor);
+        g.FillPath(&fill, &path);
+        Pen outline(secondaryColor, 4.0f);
+        g.DrawPath(&outline, &path);
+        break;
+    }
+    case 2: { // Hexagon Frame
+        GraphicsPath path;
+        AddShapePath(path, SHAPE_HEXAGON, r);
+        Pen pen(primaryColor, 8.0f);
+        g.DrawPath(&pen, &path);
+        break;
+    }
+    case 3: // Minimal (no frame)
+        break;
+    default: { // Circle Ring (case 0)
+        Pen pen(primaryColor, 8.0f);
+        g.DrawEllipse(&pen, r);
+        SolidBrush dot(secondaryColor);
+        g.FillEllipse(&dot, r.X + r.Width * 0.75f, r.Y + r.Height * 0.15f, 16.0f, 16.0f);
+        break;
+    }
+    }
+
+    // Text rendering
+    std::wstring displayText = letters.empty() ? L"M" : letters.substr(0, 4);
+    REAL fontSize = (displayText.length() == 1) ? ((REAL)size * 0.44f) :
+                    (displayText.length() == 2) ? ((REAL)size * 0.34f) :
+                    ((REAL)size * 0.24f);
+
+    FontFamily ff(L"Segoe UI");
+    Font font(&ff, fontSize, FontStyleBold, UnitPixel);
+
+    StringFormat sf;
+    sf.SetAlignment(StringAlignmentCenter);
+    sf.SetLineAlignment(StringAlignmentCenter);
+
+    Color textColor = (frameStyle == 1) ? Color(255, 255, 255, 255) : primaryColor;
+    SolidBrush textBrush(textColor);
+    RectF textRect(0.0f, 0.0f, (REAL)size, (REAL)size);
+    g.DrawString(displayText.c_str(), (INT)displayText.length(), &font, textRect, &sf, &textBrush);
+
+    return bmp;
+}
+
 } // namespace IconEngine

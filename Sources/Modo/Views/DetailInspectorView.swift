@@ -1,4 +1,6 @@
 import AppKit
+import CoreImage
+import Foundation
 import ModoKit
 import SwiftData
 import SwiftUI
@@ -524,13 +526,13 @@ struct DetailInspectorView: View {
         let hasCustom = (item.customImageData != nil)
         let isSVG = hasCustom && CustomArtworkHelper.isSVGData(item.customImageData!)
 
-        return VStack(alignment: .leading, spacing: Space.sm) {
+        return VStack(alignment: .leading, spacing: Space.md) {
             HStack {
-                Label("Custom Glyph & SVG", systemImage: isSVG ? "sparkles" : "photo.on.rectangle.angled")
+                Label("Смена рисунка иконки (Artwork & Glyph Studio)", systemImage: isSVG ? "sparkles" : "paintbrush.pointed.fill")
                     .font(.headline)
                 Spacer()
                 if hasCustom {
-                    Text(isSVG ? "Vector SVG Active" : "Custom Artwork Active")
+                    Text(isSVG ? "Векторный SVG" : "Пользовательский рисунок")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Palette.accentText)
                         .padding(.horizontal, Space.sm)
@@ -539,33 +541,45 @@ struct DetailInspectorView: View {
                 }
             }
 
-            Text("Drop an SVG vector or image directly onto this card, or choose a file:")
+            Text("Замените рисунок иконки на фирменный логотип бренда, монограмму, системный символ или загрузите свой SVG/PNG.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            // Primary Artwork Tools
             HStack(spacing: Space.sm) {
+                Button {
+                    showSimpleIconsSheet = true
+                } label: {
+                    Label("Библиотека значков…", systemImage: "sparkles.rectangle.stack.fill")
+                }
+                .controlSize(.small)
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    surpriseMeWithArtwork()
+                } label: {
+                    Label("Мне повезёт", systemImage: "dice.fill")
+                }
+                .controlSize(.small)
+                .help("Случайно применить фирменный векторный вариант или геометрический знак")
+
                 Button {
                     showAIGlyphStudio = true
                 } label: {
                     Label("AI Studio…", systemImage: "wand.and.stars")
                 }
                 .controlSize(.small)
-                .buttonStyle(.borderedProminent)
+            }
 
-                Button {
-                    showSimpleIconsSheet = true
-                } label: {
-                    Label("Simple Icons…", systemImage: "sparkles.rectangle.stack")
-                }
-                .controlSize(.small)
-
+            // File & Clipboard Actions
+            HStack(spacing: Space.sm) {
                 Button {
                     if let data = CustomArtworkHelper.promptUserForArtwork() {
                         model.setCustomArtwork(data: data, for: item)
                         try? context.save()
                     }
                 } label: {
-                    Label("Choose File…", systemImage: "photo.badge.plus")
+                    Label("Выбрать файл…", systemImage: "photo.badge.plus")
                 }
                 .controlSize(.small)
 
@@ -574,18 +588,27 @@ struct DetailInspectorView: View {
                         try? context.save()
                     }
                 } label: {
-                    Label("Paste Image", systemImage: "doc.on.clipboard")
+                    Label("Вставить из буфера", systemImage: "doc.on.clipboard")
                 }
                 .controlSize(.small)
                 .disabled(!CustomArtworkHelper.canPasteArtwork())
 
                 if hasCustom {
+                    Button {
+                        invertArtworkColors()
+                    } label: {
+                        Label("Инвертировать цвета", systemImage: "circle.righthalf.filled")
+                    }
+                    .controlSize(.small)
+                    .help("Инвертировать цвета векторного рисунка")
+
                     Spacer()
+
                     Button(role: .destructive) {
                         model.clearCustomArtwork(for: item)
                         try? context.save()
                     } label: {
-                        Label("Reset to Default", systemImage: "arrow.uturn.backward")
+                        Label("Сбросить оригинал", systemImage: "arrow.uturn.backward")
                     }
                     .controlSize(.small)
                 }
@@ -602,6 +625,85 @@ struct DetailInspectorView: View {
         } isTargeted: { targeted in
             isDropTargeted = targeted
         }
+    }
+
+    private func surpriseMeWithArtwork() {
+        let nonActiveVariants = vectorVariants.filter {
+            !$0.isActive(
+                customImageData: item.customImageData,
+                currentSymbolName: item.symbolName,
+                currentBrandHex: item.brandHex
+            )
+        }
+        if let pick = nonActiveVariants.randomElement() {
+            applyVectorVariant(pick)
+        } else {
+            let randomStyle = GeometricGlyphStyle.allCases.randomElement() ?? .sparkle
+            let randomVariant = Int.random(in: 0...3)
+            let pColor = item.brandHex != 0 ? UInt32(item.brandHex) : 0x0A84FF
+            let sColor: UInt32 = (pColor ^ 0x204020) & 0xFFFFFF
+            let opts = ProceduralGlyphOptions(
+                title: item.title,
+                style: randomStyle,
+                primaryHex: pColor,
+                secondaryHex: sColor,
+                variantIndex: randomVariant
+            )
+            let svgStr = ProceduralGlyphGenerator.generateSVG(options: opts)
+            if let data = svgStr.data(using: .utf8) {
+                model.setCustomArtwork(data: data, for: item)
+                try? context.save()
+            }
+        }
+    }
+
+    private func invertArtworkColors() {
+        guard let data = item.customImageData else { return }
+        if CustomArtworkHelper.isSVGData(data), let svgString = String(data: data, encoding: .utf8) {
+            let inverted = invertColorsInSVG(svgString)
+            if let invData = inverted.data(using: .utf8) {
+                model.setCustomArtwork(data: invData, for: item)
+                try? context.save()
+            }
+        } else if let nsImage = NSImage(data: data),
+                  let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            if let invertedCG = invertCGImageColors(cgImage),
+               let rep = NSBitmapImageRep(cgImage: invertedCG).representation(using: .png, properties: [:]) {
+                model.setCustomArtwork(data: rep, for: item)
+                try? context.save()
+            }
+        }
+    }
+
+    private func invertColorsInSVG(_ svg: String) -> String {
+        let pattern = "#([0-9a-fA-F]{6})"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return svg }
+        let nsString = svg as NSString
+        var result = svg
+        let matches = regex.matches(in: svg, range: NSRange(location: 0, length: nsString.length)).reversed()
+        for match in matches {
+            let hexRange = match.range(at: 1)
+            let hexStr = nsString.substring(with: hexRange)
+            if let val = UInt32(hexStr, radix: 16) {
+                let r = 255 - ((val >> 16) & 0xFF)
+                let g = 255 - ((val >> 8) & 0xFF)
+                let b = 255 - (val & 0xFF)
+                let invHex = String(format: "%02X%02X%02X", r, g, b)
+                if let rRange = Range(hexRange, in: result) {
+                    result.replaceSubrange(rRange, with: invHex)
+                }
+            }
+        }
+        return result
+    }
+
+    private func invertCGImageColors(_ cgImage: CGImage) -> CGImage? {
+        let ciImage = CIImage(cgImage: cgImage)
+        guard let filter = CIFilter(name: "CIColorInvert") else { return nil }
+        filter.setValue(ciImage, forKey: kCIInputImageKey)
+        guard let output = filter.outputImage else { return nil }
+        let ctx = CIContext(options: nil)
+        return ctx.createCGImage(output, from: output.extent)
     }
 
     private var folderCustomizationCard: some View {

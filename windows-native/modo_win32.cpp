@@ -2273,12 +2273,23 @@ enum MenuCommandID {
     IDM_STYLE_MATERIAL_BRUSHED_TITANIUM,
     IDM_STYLE_MATERIAL_NEUMORPHIC,
     IDM_STYLE_MATERIAL_PRISM_GLOW,
+    IDM_STYLE_MATERIAL_LIQUID_CHROME,
+    IDM_STYLE_MATERIAL_MATTE_CERAMIC,
+    IDM_STYLE_MATERIAL_HOLOGRAPHIC,
+    IDM_STYLE_GLYPH_ORIGINAL,
+    IDM_STYLE_GLYPH_SILHOUETTE,
+    IDM_STYLE_GLYPH_EMBOSSED,
+    IDM_STYLE_GLYPH_OUTLINE,
+    IDM_STYLE_GLYPH_DUOTONE,
+    IDM_STYLE_GLYPH_GLOW,
     IDM_STYLE_EYEDROPPER,
     IDM_STYLE_WINDOWS_ACCENT,
     IDM_STYLE_RESET_DEFAULT,
     IDM_STYLE_PACK_BASE = 10100,
 
     // Tools
+    IDM_TOOLS_CREATE_MONOGRAM,
+    IDM_TOOLS_SURPRISE_ARTWORK,
     IDM_TOOLS_BATCH_CONVERT,
     IDM_TOOLS_ADMIN,
     IDM_TOOLS_SHORTCUTS,
@@ -2352,7 +2363,19 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hMatSub, (g_style.material == MATERIAL_BRUSHED_TITANIUM ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_BRUSHED_TITANIUM, L"Шлифованный металл (Brushed Titanium)");
     AppendMenuW(hMatSub, (g_style.material == MATERIAL_NEUMORPHIC ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_NEUMORPHIC, L"Неоморфизм (Neumorphic Emboss)");
     AppendMenuW(hMatSub, (g_style.material == MATERIAL_PRISM_GLOW ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_PRISM_GLOW, L"Призма (Prism Chromatic)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_LIQUID_CHROME ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_LIQUID_CHROME, L"Жидкий хром (Liquid Chrome)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_MATTE_CERAMIC ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_MATTE_CERAMIC, L"Матовая керамика (Matte Ceramic)");
+    AppendMenuW(hMatSub, (g_style.material == MATERIAL_HOLOGRAPHIC ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_MATERIAL_HOLOGRAPHIC, L"Голографическая фольга (Holo Foil)");
     AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hMatSub, L"Материал и текстура");
+
+    HMENU hGlyphSub = CreatePopupMenu();
+    AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_ORIGINAL ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_ORIGINAL, L"Оригинальный рисунок (Original Artwork)");
+    AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_SILHOUETTE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_SILHOUETTE, L"Плоский силуэт (Silhouette)");
+    AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_EMBOSSED ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_EMBOSSED, L"3D Барельеф (Embossed)");
+    AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_OUTLINE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_OUTLINE, L"Контурный штрих (Outline)");
+    AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_DUOTONE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_DUOTONE, L"Дуотон пастель (Duotone)");
+    AppendMenuW(hGlyphSub, (g_style.glyphStyle == GLYPH_GLOW ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GLOW, L"Неоновое свечение (Neon Glow)");
+    AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hGlyphSub, L"Оформление рисунка (Glyph Style)");
 
     HMENU hPackSub = CreatePopupMenu();
     int totalPacks = (int)(sizeof(kIconPacks) / sizeof(kIconPacks[0]));
@@ -2370,6 +2393,9 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
 
     // 5. Tools Menu
     HMENU hToolsMenu = CreatePopupMenu();
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_CREATE_MONOGRAM, L"Создать типографическую монограмму…\tCtrl+Shift+M");
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SURPRISE_ARTWORK, L"Мне повезёт (Случайный стиль рисунка)\tCtrl+Shift+R");
+    AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_BATCH_CONVERT, L"Пакетная конвертация изображений в иконки…\tCtrl+Shift+B");
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SYSTEM_THEMING, L"Мастер глобальной стилизации (1-Click Theming)…\tCtrl+Shift+T");
     AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
@@ -2505,11 +2531,63 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
         case IDM_STYLE_MATERIAL_BRUSHED_TITANIUM:
         case IDM_STYLE_MATERIAL_NEUMORPHIC:
         case IDM_STYLE_MATERIAL_PRISM_GLOW:
+        case IDM_STYLE_MATERIAL_LIQUID_CHROME:
+        case IDM_STYLE_MATERIAL_MATTE_CERAMIC:
+        case IDM_STYLE_MATERIAL_HOLOGRAPHIC:
             g_style.material = (SurfaceMaterial)(cmd - IDM_STYLE_MATERIAL_SMOOTH);
             SaveStyleConfig();
             InvalidateAllThumbs();
             InvalidateRect(hwnd, NULL, FALSE);
             break;
+        case IDM_STYLE_GLYPH_ORIGINAL:
+        case IDM_STYLE_GLYPH_SILHOUETTE:
+        case IDM_STYLE_GLYPH_EMBOSSED:
+        case IDM_STYLE_GLYPH_OUTLINE:
+        case IDM_STYLE_GLYPH_DUOTONE:
+        case IDM_STYLE_GLYPH_GLOW:
+            g_style.glyphStyle = (GlyphStyleMode)(cmd - IDM_STYLE_GLYPH_ORIGINAL);
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_TOOLS_CREATE_MONOGRAM: {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                auto& app = g_allApps[g_selectedAppIndex];
+                std::wstring letters = L"";
+                if (!app.name.empty()) {
+                    letters += (wchar_t)towupper(app.name[0]);
+                    size_t sp = app.name.find(L' ');
+                    if (sp != std::wstring::npos && sp + 1 < app.name.length()) {
+                        letters += (wchar_t)towupper(app.name[sp + 1]);
+                    }
+                } else {
+                    letters = L"M";
+                }
+                Color pColor(255, 10, 132, 255);
+                Color sColor(255, 94, 92, 230);
+                if (app.origBitmap) {
+                    delete app.origBitmap;
+                }
+                app.origBitmap = IconEngine::RenderMonogramBitmap(letters, pColor, sColor, 256, 0);
+                InvalidateAllThumbs();
+                g_statusText = L"Создана монограмма '" + letters + L"' для " + app.name;
+                InvalidateRect(hwnd, NULL, FALSE);
+            } else {
+                MessageBoxW(hwnd, L"Пожалуйста, выберите приложение в списке для создания монограммы.", L"Создание монограммы", MB_OK | MB_ICONINFORMATION);
+            }
+            break;
+        }
+        case IDM_TOOLS_SURPRISE_ARTWORK: {
+            int randomGlyph = rand() % 6;
+            g_style.glyphStyle = (GlyphStyleMode)randomGlyph;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            wchar_t buf[128];
+            wsprintfW(buf, L"Применён случайный стиль рисунка: #%d", randomGlyph);
+            g_statusText = buf;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
         case IDM_STYLE_EYEDROPPER:
             HandleWidgetClick(hwnd, W_BTN_EYEDROPPER, dummyPt);
             break;

@@ -1,10 +1,12 @@
 import AppKit
+import Foundation
 import ModoKit
 import SwiftData
 import SwiftUI
 
 /// Comprehensive Vector Glyphs & Brand Icons Studio.
-/// Allows browsing, searching, and applying official Simple Icons (3,000+ brands) and Apple SF Symbols to any application.
+/// Allows browsing, searching, generating, and applying official Simple Icons (3,000+ brands),
+/// Apple SF Symbols, custom Monograms, and algorithmic Geometric Marks to any application.
 struct GlyphLibraryView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.modelContext) private var context
@@ -21,9 +23,20 @@ struct GlyphLibraryView: View {
     @State private var downloadStatus: String?
     @State private var downloadedIcons: [SimpleIcon] = []
 
+    // Monogram state
+    @State private var monogramText: String = ""
+    @State private var selectedFontStyle: MonogramFontStyle = .modernSans
+    @State private var selectedFrameStyle: MonogramFrameStyle = .circularRing
+
+    // Procedural state
+    @State private var selectedGeometricStyle: GeometricGlyphStyle = .sparkle
+    @State private var geometricVariantIndex: Int = 0
+
     enum LibraryTab: String, CaseIterable, Identifiable {
-        case simpleIcons = "Brand Logos (Simple Icons)"
-        case sfSymbols = "System Glyphs (SF Symbols)"
+        case simpleIcons = "Brand Logos"
+        case sfSymbols = "System Glyphs"
+        case monogram = "Monogram Studio"
+        case procedural = "Geometric Marks"
         var id: String { rawValue }
     }
 
@@ -36,6 +49,19 @@ struct GlyphLibraryView: View {
             return allItems.first(where: { $0.id == sel })
         }
         return allItems.first
+    }
+
+    private var targetPrimaryHex: UInt32 {
+        guard let item = currentTargetItem, item.brandHex != 0 else {
+            return 0x0A84FF
+        }
+        return UInt32(item.brandHex)
+    }
+
+    private var targetSecondaryHex: UInt32 {
+        guard let item = currentTargetItem, item.brandHex != 0 else { return 0x5E5CE6 }
+        let p = UInt32(item.brandHex)
+        return (p ^ 0x204020) & 0xFFFFFF
     }
 
     private var filteredSimpleIcons: [SimpleIcon] {
@@ -111,10 +137,15 @@ struct GlyphLibraryView: View {
                         .padding(.vertical, Space.xs)
                     }
 
-                    if selectedTab == .simpleIcons {
+                    switch selectedTab {
+                    case .simpleIcons:
                         simpleIconsGrid
-                    } else {
+                    case .sfSymbols:
                         sfSymbolsGrid
+                    case .monogram:
+                        monogramStudioView
+                    case .procedural:
+                        proceduralStudioView
                     }
                 }
                 .padding(Space.md)
@@ -123,7 +154,20 @@ struct GlyphLibraryView: View {
             Divider()
             footerBar
         }
-        .frame(minWidth: 680, idealWidth: 760, minHeight: 520, idealHeight: 600)
+        .frame(minWidth: 700, idealWidth: 800, minHeight: 540, idealHeight: 620)
+        .onAppear {
+            if selectedAppId == nil {
+                selectedAppId = targetItem?.id ?? model.selection ?? allItems.first?.id
+            }
+            if monogramText.isEmpty {
+                monogramText = ProceduralGlyphGenerator.extractInitials(from: currentTargetItem?.title ?? "App")
+            }
+        }
+        .onChange(of: selectedAppId) { _, _ in
+            if monogramText.isEmpty || monogramText.count <= 2 {
+                monogramText = ProceduralGlyphGenerator.extractInitials(from: currentTargetItem?.title ?? "App")
+            }
+        }
     }
 
     // MARK: - Header
@@ -134,9 +178,9 @@ struct GlyphLibraryView: View {
                 .foregroundStyle(Palette.accentText)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Vector Glyphs & Brand Icons")
+                Text("Vector Glyphs & Artwork Studio")
                     .font(.headline)
-                Text("Explore official brand vector logos and Apple SF Symbols")
+                Text("Browse brand logos, system symbols, monogram studio, and geometric vector marks")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -169,45 +213,49 @@ struct GlyphLibraryView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 380)
+                .frame(maxWidth: 480)
 
                 Spacer()
 
-                HStack(spacing: Space.xs) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField(selectedTab == .simpleIcons ? "Search brand or slug (e.g. Cursor, Slack, Figma)…" : "Search SF Symbol…", text: $search)
-                        .textFieldStyle(.plain)
-                    if !search.isEmpty {
-                        Button { search = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
+                if selectedTab == .simpleIcons || selectedTab == .sfSymbols {
+                    HStack(spacing: Space.xs) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField(selectedTab == .simpleIcons ? "Search brand (Cursor, Slack, Figma)…" : "Search SF Symbol…", text: $search)
+                            .textFieldStyle(.plain)
+                        if !search.isEmpty {
+                            Button { search = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.horizontal, Space.sm)
+                    .padding(.vertical, Space.xs)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: Radius.sm))
+                    .frame(maxWidth: 240)
                 }
-                .padding(.horizontal, Space.sm)
-                .padding(.vertical, Space.xs)
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: Radius.sm))
             }
 
-            // Category filter pills
-            HStack(spacing: Space.xs) {
-                categoryPill("All")
-                if selectedTab == .simpleIcons {
-                    categoryPill("Developer")
-                    categoryPill("Creative")
-                    categoryPill("Social & Chat")
-                    categoryPill("Productivity")
-                } else {
-                    categoryPill("Developer")
-                    categoryPill("Media")
-                    categoryPill("Communication")
-                    categoryPill("Productivity")
-                    categoryPill("System")
-                    categoryPill("Creative")
+            if selectedTab == .simpleIcons || selectedTab == .sfSymbols {
+                HStack(spacing: Space.xs) {
+                    categoryPill("All")
+                    if selectedTab == .simpleIcons {
+                        categoryPill("Developer")
+                        categoryPill("Creative")
+                        categoryPill("Social & Chat")
+                        categoryPill("Productivity")
+                    } else {
+                        categoryPill("Developer")
+                        categoryPill("Media")
+                        categoryPill("Communication")
+                        categoryPill("Productivity")
+                        categoryPill("System")
+                        categoryPill("Creative")
+                    }
+                    Spacer()
                 }
-                Spacer()
             }
         }
         .padding(.horizontal, Space.md)
@@ -365,6 +413,191 @@ struct GlyphLibraryView: View {
         .overlay(cardShape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
     }
 
+    // MARK: - Monogram Studio
+    private var monogramStudioView: some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+
+        return VStack(spacing: Space.lg) {
+            // Configuration bar
+            HStack(spacing: Space.lg) {
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Text("Letters / Initials (1-4 chars)")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: Space.xs) {
+                        TextField("Text", text: $monogramText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                        Button("Uppercase") {
+                            monogramText = monogramText.uppercased()
+                        }
+                        .controlSize(.small)
+                        Button("Initials") {
+                            monogramText = ProceduralGlyphGenerator.extractInitials(from: currentTargetItem?.title ?? "App")
+                        }
+                        .controlSize(.small)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Text("Font Family")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Picker("", selection: $selectedFontStyle) {
+                        ForEach(MonogramFontStyle.allCases) { font in
+                            Text(font.rawValue).tag(font)
+                        }
+                    }
+                    .frame(width: 176)
+                }
+
+                Spacer()
+            }
+            .padding(Space.md)
+            .background(.background.secondary, in: cardShape)
+
+            // Grid of all 6 frames for quick 1-click preview & apply
+            VStack(alignment: .leading, spacing: Space.sm) {
+                Text("Select Monogram Frame Style:")
+                    .font(.subheadline.weight(.semibold))
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: Space.md)], spacing: Space.md) {
+                    ForEach(MonogramFrameStyle.allCases) { frame in
+                        monogramFrameCard(frame)
+                    }
+                }
+            }
+        }
+    }
+
+    private func monogramFrameCard(_ frame: MonogramFrameStyle) -> some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        let isSel = selectedFrameStyle == frame
+        let svgStr = ProceduralGlyphGenerator.generateCustomMonogramSVG(
+            text: monogramText,
+            fontStyle: selectedFontStyle,
+            frameStyle: frame,
+            primaryHex: targetPrimaryHex,
+            secondaryHex: targetSecondaryHex
+        )
+
+        return VStack(spacing: Space.sm) {
+            if let data = svgStr.data(using: .utf8), let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .padding(Space.xs)
+            }
+
+            Text(frame.rawValue)
+                .font(.callout.weight(.medium))
+
+            Button {
+                selectedFrameStyle = frame
+                applyMonogram(svg: svgStr)
+            } label: {
+                Text(currentTargetItem != nil ? "Apply to \(currentTargetItem!.title)" : "Apply")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Space.md)
+                    .padding(.vertical, 4)
+                    .background(Palette.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
+        .overlay(
+            cardShape.strokeBorder(isSel ? Palette.accent : Color(nsColor: .separatorColor), lineWidth: isSel ? 2 : 1)
+        )
+    }
+
+    // MARK: - Procedural Geometric Studio
+    private var proceduralStudioView: some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+
+        return VStack(spacing: Space.lg) {
+            // Variant picker
+            HStack(spacing: Space.md) {
+                Text("Mathematical Variation:")
+                    .font(.subheadline.weight(.medium))
+
+                Picker("", selection: $geometricVariantIndex) {
+                    Text("Variation A (Core)").tag(0)
+                    Text("Variation B (Rotated)").tag(1)
+                    Text("Variation C (Harmonic)").tag(2)
+                    Text("Variation D (Orbit)").tag(3)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 360)
+
+                Spacer()
+            }
+            .padding(Space.md)
+            .background(.background.secondary, in: cardShape)
+
+            // Grid of all 9 procedural styles
+            VStack(alignment: .leading, spacing: Space.sm) {
+                Text("Select Geometric Mark:")
+                    .font(.subheadline.weight(.semibold))
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: Space.md)], spacing: Space.md) {
+                    ForEach(GeometricGlyphStyle.allCases) { style in
+                        proceduralCard(style)
+                    }
+                }
+            }
+        }
+    }
+
+    private func proceduralCard(_ style: GeometricGlyphStyle) -> some View {
+        let cardShape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+        let isSel = selectedGeometricStyle == style
+
+        let opts = ProceduralGlyphOptions(
+            title: currentTargetItem?.title ?? "App",
+            style: style,
+            primaryHex: targetPrimaryHex,
+            secondaryHex: targetSecondaryHex,
+            variantIndex: geometricVariantIndex
+        )
+        let svgStr = ProceduralGlyphGenerator.generateSVG(options: opts)
+
+        return VStack(spacing: Space.sm) {
+            if let data = svgStr.data(using: .utf8), let img = NSImage(data: data) {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .padding(Space.xs)
+            }
+
+            Text(style.rawValue)
+                .font(.callout.weight(.medium))
+
+            Button {
+                selectedGeometricStyle = style
+                applyProcedural(svg: svgStr)
+            } label: {
+                Text(currentTargetItem != nil ? "Apply to \(currentTargetItem!.title)" : "Apply")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Space.md)
+                    .padding(.vertical, 4)
+                    .background(Palette.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Space.md)
+        .background(.background.secondary, in: cardShape)
+        .overlay(
+            cardShape.strokeBorder(isSel ? Palette.accent : Color(nsColor: .separatorColor), lineWidth: isSel ? 2 : 1)
+        )
+    }
+
     // MARK: - Footer
     private var footerBar: some View {
         HStack {
@@ -376,8 +609,18 @@ struct GlyphLibraryView: View {
 
             Spacer()
 
-            let count = selectedTab == .simpleIcons ? filteredSimpleIcons.count : filteredSFSymbols.count
-            Text("\(count) vector glyphs available")
+            let infoText: String = switch selectedTab {
+            case .simpleIcons:
+                "\(filteredSimpleIcons.count) brand vector logos"
+            case .sfSymbols:
+                "\(filteredSFSymbols.count) system glyphs"
+            case .monogram:
+                "6 custom typographic lettermark frames"
+            case .procedural:
+                "9 algorithmic geometric marks x 4 variations = 36 marks"
+            }
+
+            Text(infoText)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -390,6 +633,20 @@ struct GlyphLibraryView: View {
         guard let item = currentTargetItem else { return }
         model.setCustomArtwork(data: icon.svgData(), for: item)
         item.brandHex = Int(icon.hex)
+        try? context.save()
+        dismiss()
+    }
+
+    private func applyMonogram(svg: String) {
+        guard let item = currentTargetItem, let data = svg.data(using: .utf8) else { return }
+        model.setCustomArtwork(data: data, for: item)
+        try? context.save()
+        dismiss()
+    }
+
+    private func applyProcedural(svg: String) {
+        guard let item = currentTargetItem, let data = svg.data(using: .utf8) else { return }
+        model.setCustomArtwork(data: data, for: item)
         try? context.save()
         dismiss()
     }

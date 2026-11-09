@@ -358,6 +358,91 @@ public enum VectorVariantEngine {
             )
         )
 
+        let terminalSVG = ProceduralGlyphGenerator.generateSVG(
+            options: ProceduralGlyphOptions(title: title, style: .terminal, primaryHex: primaryColor, secondaryHex: 0x10B981)
+        )
+        variants.append(
+            VectorVariant(
+                id: "procedural-terminal",
+                title: "Терминал",
+                subtitle: "Код и консоль",
+                badge: "SVG Vector",
+                kind: .geometric,
+                brandHex: brandHex,
+                symbolName: nil,
+                svgMarkup: terminalSVG,
+                rawData: terminalSVG.data(using: .utf8)
+            )
+        )
+
+        let waveformSVG = ProceduralGlyphGenerator.generateSVG(
+            options: ProceduralGlyphOptions(title: title, style: .waveform, primaryHex: primaryColor, secondaryHex: 0xEC4899)
+        )
+        variants.append(
+            VectorVariant(
+                id: "procedural-waveform",
+                title: "Звук",
+                subtitle: "Частотная волна",
+                badge: "SVG Vector",
+                kind: .geometric,
+                brandHex: brandHex,
+                symbolName: nil,
+                svgMarkup: waveformSVG,
+                rawData: waveformSVG.data(using: .utf8)
+            )
+        )
+
+        let hexacoreSVG = ProceduralGlyphGenerator.generateSVG(
+            options: ProceduralGlyphOptions(title: title, style: .hexacore, primaryHex: primaryColor, secondaryHex: 0x6366F1)
+        )
+        variants.append(
+            VectorVariant(
+                id: "procedural-hexacore",
+                title: "Гексакор",
+                subtitle: "Изометрический куб",
+                badge: "SVG Vector",
+                kind: .geometric,
+                brandHex: brandHex,
+                symbolName: nil,
+                svgMarkup: hexacoreSVG,
+                rawData: hexacoreSVG.data(using: .utf8)
+            )
+        )
+
+        let orbitSVG = ProceduralGlyphGenerator.generateSVG(
+            options: ProceduralGlyphOptions(title: title, style: .orbit, primaryHex: primaryColor, secondaryHex: 0x06B6D4)
+        )
+        variants.append(
+            VectorVariant(
+                id: "procedural-orbit",
+                title: "Орбиталь",
+                subtitle: "Атомная модель",
+                badge: "SVG Vector",
+                kind: .geometric,
+                brandHex: brandHex,
+                symbolName: nil,
+                svgMarkup: orbitSVG,
+                rawData: orbitSVG.data(using: .utf8)
+            )
+        )
+
+        let prismSVG = ProceduralGlyphGenerator.generateSVG(
+            options: ProceduralGlyphOptions(title: title, style: .prism, primaryHex: primaryColor, secondaryHex: 0x8B5CF6)
+        )
+        variants.append(
+            VectorVariant(
+                id: "procedural-prism",
+                title: "Призма",
+                subtitle: "Граненый кристалл",
+                badge: "SVG Vector",
+                kind: .geometric,
+                brandHex: brandHex,
+                symbolName: nil,
+                svgMarkup: prismSVG,
+                rawData: prismSVG.data(using: .utf8)
+            )
+        )
+
         return variants
     }
 

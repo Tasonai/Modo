@@ -60,6 +60,11 @@ static void PrintHelp() {
         L"                           --scale <0.4..1.8>\n"
         L"                           --material <smooth|glass|titanium|neumorphic|prism|chrome|ceramic|holo>\n"
         L"                           --glyph <original|silhouette|embossed|outline|duotone|glow>\n"
+        L"  monogram <app_path>    Apply custom typographic monogram lettermark\n"
+        L"                           --text <letters>\n"
+        L"                           --frame <ring|squircle|hex|minimal>\n"
+        L"                           --shape <squircle|circle|roundedRect|pebble|hexagon>\n"
+        L"                           --bg <pastel|dark|white|clear|custom>\n"
         L"  restore <path>         Restore original system icon for an app or folder\n"
         L"  folder <folder_path>   Style a folder using desktop.ini & custom palette\n"
         L"                           --color <appleBlue|graphite|purple|teal|sunsetOrange|emerald|coralRed|amberGold|obsidian>\n"
@@ -214,6 +219,98 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
         return 0;
     } else {
         wprintf(L"[-] Failed to apply icon to %ls. %ls\n", targetPath.c_str(),
+                needsAdmin ? L"Administrator elevation required for this shortcut." : L"Ensure you have write permissions.");
+        return 1;
+    }
+}
+
+static int HandleMonogram(int argc, wchar_t* argv[], const CLSID* pngClsid) {
+    if (argc < 1 || argv[0][0] == L'-') {
+        wprintf(L"Error: Missing target path. Usage: modo monogram <app_or_shortcut_path> [options]\n");
+        return 1;
+    }
+    std::wstring targetPath = argv[0];
+    DWORD attr = GetFileAttributesW(targetPath.c_str());
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+        wprintf(L"Error: Target path does not exist: %ls\n", targetPath.c_str());
+        return 1;
+    }
+
+    RoundStyle style;
+    std::wstring textLetters = L"";
+    int frameStyle = 0; // 0=ring, 1=squircle, 2=hex, 3=minimal
+    COLORREF primaryColorRef = RGB(10, 132, 255);
+    COLORREF secondaryColorRef = RGB(94, 92, 230);
+
+    for (int i = 1; i < argc; ++i) {
+        std::wstring opt = ToLower(argv[i]);
+        if (opt == L"--text" && i + 1 < argc) {
+            textLetters = argv[++i];
+        } else if (opt == L"--frame" && i + 1 < argc) {
+            std::wstring f = ToLower(argv[++i]);
+            if (f == L"squircle" || f == L"solid") frameStyle = 1;
+            else if (f == L"hex" || f == L"hexagon") frameStyle = 2;
+            else if (f == L"minimal" || f == L"none") frameStyle = 3;
+            else frameStyle = 0;
+        } else if (opt == L"--shape" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"circle") style.shape = SHAPE_CIRCLE;
+            else if (val == L"squircle") style.shape = SHAPE_SQUIRCLE;
+            else if (val == L"roundedrect" || val == L"rect") style.shape = SHAPE_ROUNDED_RECT;
+            else if (val == L"pebble") style.shape = SHAPE_PEBBLE;
+            else if (val == L"hexagon" || val == L"hex") style.shape = SHAPE_HEXAGON;
+        } else if (opt == L"--bg" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"pastel") style.preset = PRESET_MATERIAL_PASTEL;
+            else if (val == L"dark") style.preset = PRESET_DARK_MATERIAL;
+            else if (val == L"clear" || val == L"adaptive") style.preset = PRESET_ADAPTIVE_EDGE;
+            else if (val == L"custom") style.preset = PRESET_CUSTOM_COLOR;
+        } else if (opt == L"--color" && i + 1 < argc) {
+            primaryColorRef = ParseColorPreset(argv[++i]);
+        }
+    }
+
+    AppEntry app;
+    std::wstring fname = PathFindFileNameW(targetPath.c_str());
+    size_t dot = fname.find_last_of(L'.');
+    app.name = (dot != std::wstring::npos) ? fname.substr(0, dot) : fname;
+
+    if (textLetters.empty()) {
+        if (!app.name.empty()) {
+            textLetters += (wchar_t)towupper(app.name[0]);
+            size_t space = app.name.find(L' ');
+            if (space != std::wstring::npos && space + 1 < app.name.length()) {
+                textLetters += (wchar_t)towupper(app.name[space + 1]);
+            }
+        } else {
+            textLetters = L"M";
+        }
+    }
+
+    std::wstring ext = PathFindExtensionW(targetPath.c_str());
+    if (_wcsicmp(ext.c_str(), L".lnk") == 0) {
+        app.lnkPath = targetPath;
+        app.allLnkPaths.push_back(targetPath);
+        std::wstring customIcon;
+        ShellIntegration::ResolveShortcut(targetPath, app.targetPath, customIcon);
+        if (app.targetPath.empty()) app.targetPath = targetPath;
+    } else {
+        app.targetPath = targetPath;
+    }
+
+    Color pCol(255, GetRValue(primaryColorRef), GetGValue(primaryColorRef), GetBValue(primaryColorRef));
+    Color sCol(255, GetRValue(secondaryColorRef), GetGValue(secondaryColorRef), GetBValue(secondaryColorRef));
+
+    app.origBitmap = IconEngine::RenderMonogramBitmap(textLetters, pCol, sCol, 256, frameStyle);
+
+    uint32_t rev = (uint32_t)(GetTickCount() & 0xFFFF);
+    bool needsAdmin = false;
+    if (ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin)) {
+        ShellIntegration::RefreshWindowsExplorerIconCache(true);
+        wprintf(L"[+] Successfully applied monogram '%ls' to %ls\n", textLetters.c_str(), app.name.c_str());
+        return 0;
+    } else {
+        wprintf(L"[-] Failed to apply monogram to %ls. %ls\n", targetPath.c_str(),
                 needsAdmin ? L"Administrator elevation required for this shortcut." : L"Ensure you have write permissions.");
         return 1;
     }
@@ -739,6 +836,12 @@ bool TryDispatchCLI(int argc, wchar_t* argv[], int& outExitCode, const CLSID* pn
 
     if (cmd == L"style") {
         outExitCode = HandleStyle(argc - 2, argv + 2, pngClsid);
+        ReleaseConsoleOutput();
+        return true;
+    }
+
+    if (cmd == L"monogram") {
+        outExitCode = HandleMonogram(argc - 2, argv + 2, pngClsid);
         ReleaseConsoleOutput();
         return true;
     }

@@ -43,6 +43,41 @@ public enum GeometricGlyphStyle: String, CaseIterable, Identifiable, Codable, Se
     }
 }
 
+/// Typography font style for custom lettermark monograms.
+public enum MonogramFontStyle: String, CaseIterable, Identifiable, Codable, Sendable {
+    case modernSans = "Modern Sans"
+    case monospaceCode = "Monospace Code"
+    case elegantSerif = "Classic Serif"
+    case geometricBlack = "Geometric Heavy"
+
+    public var id: String { rawValue }
+
+    public var fontFamily: String {
+        switch self {
+        case .modernSans:
+            return "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif"
+        case .monospaceCode:
+            return "'SF Mono', Monaco, Menlo, 'Courier New', monospace"
+        case .elegantSerif:
+            return "New York, Georgia, 'Times New Roman', serif"
+        case .geometricBlack:
+            return "Futura, 'Avenir Next Heavy', Impact, sans-serif"
+        }
+    }
+}
+
+/// Border and badge geometry framing the monogram lettermark.
+public enum MonogramFrameStyle: String, CaseIterable, Identifiable, Codable, Sendable {
+    case minimal = "Minimal"
+    case circularRing = "Circle Ring"
+    case squircleSolid = "Squircle Solid"
+    case hexagonFrame = "Hexagon Frame"
+    case doubleOrbit = "Double Orbit"
+    case diamondCut = "Diamond Cut"
+
+    public var id: String { rawValue }
+}
+
 /// Parameters for procedural vector SVG generation.
 public struct ProceduralGlyphOptions: Sendable, Hashable {
     public var title: String
@@ -563,7 +598,7 @@ public enum ProceduralGlyphGenerator {
         generateSVG(options: options).data(using: .utf8) ?? Data()
     }
 
-    private static func extractInitials(from text: String) -> String {
+    public static func extractInitials(from text: String) -> String {
         let clean = ItemTitle.clean(text)
         let words = clean.split(separator: " ")
         if words.count >= 2 {
@@ -572,6 +607,80 @@ public enum ProceduralGlyphGenerator {
             return "\(first)\(second)".uppercased()
         }
         return String(clean.prefix(1)).uppercased()
+    }
+
+    public static func generateCustomMonogramSVG(
+        text: String,
+        fontStyle: MonogramFontStyle = .modernSans,
+        frameStyle: MonogramFrameStyle = .circularRing,
+        primaryHex: UInt32 = 0x1A73E8,
+        secondaryHex: UInt32 = 0x4285F4
+    ) -> String {
+        let cleanText = text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(4)
+        let letters = cleanText.isEmpty ? "M" : String(cleanText)
+        let pColor = String(format: "#%06X", primaryHex & 0xFFFFFF)
+        let sColor = String(format: "#%06X", secondaryHex & 0xFFFFFF)
+        let ff = fontStyle.fontFamily
+        let fontSize: String = switch letters.count {
+        case 1: "48"
+        case 2: "36"
+        case 3: "26"
+        default: "20"
+        }
+
+        switch frameStyle {
+        case .minimal:
+            return """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <text x="50" y="64" font-family="\(ff)" font-size="\(fontSize)" font-weight="900" text-anchor="middle" fill="\(pColor)" letter-spacing="-1">\(letters)</text>
+            </svg>
+            """
+        case .circularRing:
+            return """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="\(pColor)" stroke-width="4" stroke-dasharray="180 12"/>
+              <text x="50" y="63" font-family="\(ff)" font-size="\(fontSize)" font-weight="800" text-anchor="middle" fill="\(pColor)" letter-spacing="-1">\(letters)</text>
+              <circle cx="74" cy="28" r="5" fill="\(sColor)"/>
+            </svg>
+            """
+        case .squircleSolid:
+            return """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <rect x="14" y="14" width="72" height="72" rx="20" fill="\(pColor)"/>
+              <rect x="18" y="18" width="64" height="64" rx="16" fill="none" stroke="\(sColor)" stroke-width="2" opacity="0.6"/>
+              <text x="50" y="63" font-family="\(ff)" font-size="\(fontSize)" font-weight="800" text-anchor="middle" fill="#FFFFFF" letter-spacing="-1">\(letters)</text>
+            </svg>
+            """
+        case .hexagonFrame:
+            return """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <polygon points="50,8 88,30 88,70 50,92 12,70 12,30" fill="none" stroke="\(pColor)" stroke-width="4"/>
+              <polygon points="50,14 82,33 82,67 50,86 18,67 18,33" fill="none" stroke="\(sColor)" stroke-width="1.5" opacity="0.4"/>
+              <rect x="34" y="74" width="32" height="4" rx="2" fill="\(sColor)"/>
+              <text x="50" y="61" font-family="\(ff)" font-size="\(fontSize)" font-weight="800" text-anchor="middle" fill="\(pColor)" letter-spacing="-1">\(letters)</text>
+            </svg>
+            """
+        case .doubleOrbit:
+            return """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="\(sColor)" stroke-width="2" stroke-dasharray="8 6"/>
+              <circle cx="50" cy="50" r="35" fill="none" stroke="\(pColor)" stroke-width="3"/>
+              <line x1="50" y1="6" x2="50" y2="15" stroke="\(pColor)" stroke-width="3" stroke-linecap="round"/>
+              <line x1="50" y1="85" x2="50" y2="94" stroke="\(pColor)" stroke-width="3" stroke-linecap="round"/>
+              <line x1="6" y1="50" x2="15" y2="50" stroke="\(pColor)" stroke-width="3" stroke-linecap="round"/>
+              <line x1="85" y1="50" x2="94" y2="50" stroke="\(pColor)" stroke-width="3" stroke-linecap="round"/>
+              <text x="50" y="63" font-family="\(ff)" font-size="\(fontSize)" font-weight="800" text-anchor="middle" fill="\(pColor)" letter-spacing="-1">\(letters)</text>
+            </svg>
+            """
+        case .diamondCut:
+            return """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <polygon points="50,6 94,50 50,94 6,50" fill="none" stroke="\(pColor)" stroke-width="3.5"/>
+              <polygon points="50,14 86,50 50,86 14,50" fill="none" stroke="\(sColor)" stroke-width="1.5" opacity="0.5"/>
+              <text x="50" y="63" font-family="\(ff)" font-size="\(fontSize)" font-weight="800" text-anchor="middle" fill="\(pColor)" letter-spacing="-1">\(letters)</text>
+            </svg>
+            """
+        }
     }
 }
 

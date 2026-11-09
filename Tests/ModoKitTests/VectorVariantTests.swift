@@ -155,4 +155,23 @@ struct VectorVariantTests {
         let localizedSlugs = VectorVariantEngine.candidateSlugs(for: "Заметки")
         #expect(localizedSlugs.contains("notes"))
     }
+
+    @Test("Custom Monogram SVG generator produces valid SVGs across frames and fonts")
+    func customMonogramSVGGeneration() {
+        for frame in MonogramFrameStyle.allCases {
+            for font in MonogramFontStyle.allCases {
+                let svg = ProceduralGlyphGenerator.generateCustomMonogramSVG(
+                    text: "AB",
+                    fontStyle: font,
+                    frameStyle: frame,
+                    primaryHex: 0x1A73E8,
+                    secondaryHex: 0x4285F4
+                )
+                #expect(svg.contains("<svg"))
+                #expect(svg.contains("</svg>"))
+                #expect(svg.contains("AB"))
+                #expect(svg.contains("#1A73E8"))
+            }
+        }
+    }
 }
