@@ -247,6 +247,92 @@ public enum SVGExportEngine {
         }
         svg += wrapClose
 
+        // 5. Status / modifier badge overlay
+        if style.glyphBadge != .none {
+            let r = size * 0.088
+            let isPill = (style.glyphBadge == .beta || style.glyphBadge == .pro)
+            let pillW = isPill ? (style.glyphBadge == .beta ? r * 2.35 : r * 2.05) : r * 2.0
+            let pillH = r * 2.0
+            let marginX = isPill ? pillW * 0.65 : r * 1.35
+            let marginY = r * 1.35
+
+            let cx: Double
+            let cy: Double
+            switch style.glyphBadgePosition {
+            case .topRight:
+                cx = (pad + innerDim) - marginX
+                cy = pad + marginY
+            case .bottomRight:
+                cx = (pad + innerDim) - marginX
+                cy = (pad + innerDim) - marginY
+            case .topLeft:
+                cx = pad + marginX
+                cy = pad + marginY
+            case .bottomLeft:
+                cx = pad + marginX
+                cy = (pad + innerDim) - marginY
+            }
+
+            let badgeFill: String = switch style.glyphBadge {
+            case .none: "none"
+            case .notificationDot: "#FF3B30"
+            case .checkmark: "#34C759"
+            case .star: "#FF9500"
+            case .lock: "#1E293B"
+            case .alert: "#F97316"
+            case .beta: "#8B5CF6"
+            case .pro: "#0284C7"
+            }
+
+            let rx = isPill ? pillH * 0.5 : r
+            let bx = cx - pillW * 0.5
+            let by = cy - pillH * 0.5
+            svg += """
+              <g class="badge-overlay">
+                <rect x="\(bx)" y="\(by)" width="\(pillW)" height="\(pillH)" rx="\(rx)" fill="\(badgeFill)" stroke="#FFFFFF" stroke-width="\(max(2.0, size * 0.012))" />
+
+            """
+            switch style.glyphBadge {
+            case .none, .notificationDot:
+                break
+            case .checkmark:
+                svg += """
+                    <path d="M \(cx - r * 0.42) \(cy - r * 0.04) L \(cx - r * 0.10) \(cy + r * 0.36) L \(cx + r * 0.42) \(cy - r * 0.30)" fill="none" stroke="#FFFFFF" stroke-width="\(r * 0.26)" stroke-linecap="round" stroke-linejoin="round" />
+
+                """
+            case .star:
+                svg += """
+                    <polygon points="\(cx),\(cy - r * 0.52) \(cx + r * 0.16),\(cy - r * 0.16) \(cx + r * 0.52),\(cy - r * 0.16) \(cx + r * 0.23),\(cy + r * 0.08) \(cx + r * 0.35),\(cy + r * 0.45) \(cx),\(cy + r * 0.23) \(cx - r * 0.35),\(cy + r * 0.45) \(cx - r * 0.23),\(cy + r * 0.08) \(cx - r * 0.52),\(cy - r * 0.16) \(cx - r * 0.16),\(cy - r * 0.16)" fill="#FFFFFF" />
+
+                """
+            case .lock:
+                let bw = r * 0.82
+                let bh = r * 0.65
+                svg += """
+                    <rect x="\(cx - bw * 0.5)" y="\(cy - bh * 0.2)" width="\(bw)" height="\(bh)" rx="\(bh * 0.25)" fill="#FFFFFF" />
+                    <path d="M \(cx - bw * 0.32) \(cy - bh * 0.2) A \(bw * 0.32) \(bw * 0.32) 0 0 1 \(cx + bw * 0.32) \(cy - bh * 0.2)" fill="none" stroke="#FFFFFF" stroke-width="\(r * 0.18)" stroke-linecap="round" />
+
+                """
+            case .alert:
+                svg += """
+                    <line x1="\(cx)" y1="\(cy - r * 0.42)" x2="\(cx)" y2="\(cy + r * 0.05)" stroke="#FFFFFF" stroke-width="\(r * 0.24)" stroke-linecap="round" />
+                    <circle cx="\(cx)" cy="\(cy + r * 0.32)" r="\(r * 0.12)" fill="#FFFFFF" />
+
+                """
+            case .beta:
+                svg += """
+                    <text x="\(cx)" y="\(cy + r * 0.30)" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="\(r * 0.84)" fill="#FFFFFF" text-anchor="middle">BETA</text>
+
+                """
+            case .pro:
+                svg += """
+                    <text x="\(cx)" y="\(cy + r * 0.30)" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="\(r * 0.84)" fill="#FFFFFF" text-anchor="middle">PRO</text>
+
+                """
+            }
+            svg += "  </g>\n\n"
+        }
+
         svg += "</svg>\n"
         return svg
     }

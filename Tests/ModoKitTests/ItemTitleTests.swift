@@ -87,6 +87,24 @@ func styleClamping() {
         #expect(Bool(false), "Failed to encode/decode tinted artwork RoundIconStyle")
     }
 
+    // Status / Modifier Badge Overlays
+    let badgeStyle = RoundIconStyle(glyphBadge: .checkmark, glyphBadgePosition: .bottomRight)
+    #expect(badgeStyle.glyphBadge == .checkmark)
+    #expect(badgeStyle.glyphBadgePosition == .bottomRight)
+
+    if let encBadge = try? JSONEncoder().encode(badgeStyle),
+       let decBadge = try? JSONDecoder().decode(RoundIconStyle.self, from: encBadge) {
+        #expect(decBadge.glyphBadge == .checkmark)
+        #expect(decBadge.glyphBadgePosition == .bottomRight)
+    } else {
+        #expect(Bool(false), "Failed to encode/decode badge RoundIconStyle")
+    }
+
+    var resetStyle = badgeStyle
+    resetStyle.resetPosition()
+    #expect(resetStyle.glyphBadge == .none)
+    #expect(resetStyle.glyphBadgePosition == .topRight)
+
     // Round-trip encoding
     if let encoded = try? JSONEncoder().encode(tintedStyle),
        let decoded = try? JSONDecoder().decode(RoundIconStyle.self, from: encoded) {

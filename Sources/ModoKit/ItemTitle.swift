@@ -206,6 +206,30 @@ public enum GlyphTintGradientPreset: String, CaseIterable, Identifiable, Codable
     }
 }
 
+/// Status or modifier badge overlaid on the icon artwork.
+public enum GlyphBadgeOverlay: String, CaseIterable, Identifiable, Codable, Sendable {
+    case none = "None"
+    case notificationDot = "Notification Dot"
+    case checkmark = "Verified Check"
+    case star = "Star / Favorite"
+    case lock = "Private Lock"
+    case alert = "Alert / Warning"
+    case beta = "Beta Tag"
+    case pro = "Pro Tag"
+
+    public var id: String { rawValue }
+}
+
+/// Anchor position for the status modifier badge.
+public enum GlyphBadgePosition: String, CaseIterable, Identifiable, Codable, Sendable {
+    case topRight = "Top Right"
+    case bottomRight = "Bottom Right"
+    case topLeft = "Top Left"
+    case bottomLeft = "Bottom Left"
+
+    public var id: String { rawValue }
+}
+
 /// Value type holding all parameters for rendering a Modo adaptive icon.
 public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var backgroundStyle: RoundBackgroundStyle
@@ -247,6 +271,10 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
     public var glyphCustomColorHex: UInt32?
     /// Gradient preset mask for styling the foreground glyph (nil if using flat/original).
     public var glyphGradientPreset: GlyphTintGradientPreset?
+    /// Status or modifier badge overlaid on top of the icon artwork.
+    public var glyphBadge: GlyphBadgeOverlay
+    /// Position anchor for the status modifier badge.
+    public var glyphBadgePosition: GlyphBadgePosition
 
     enum CodingKeys: String, CodingKey {
         case backgroundStyle, shape, iconScale, offsetX, offsetY
@@ -254,6 +282,7 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         case autoTrim, customHex, appearanceMode, tintColorHex, surfaceMaterial, glyphStyle
         case glyphRotation, glyphFlipHorizontal, glyphFlipVertical
         case glyphCustomColorHex, glyphGradientPreset
+        case glyphBadge, glyphBadgePosition
     }
 
     public init(
@@ -276,7 +305,9 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         glyphFlipHorizontal: Bool = false,
         glyphFlipVertical: Bool = false,
         glyphCustomColorHex: UInt32? = nil,
-        glyphGradientPreset: GlyphTintGradientPreset? = nil
+        glyphGradientPreset: GlyphTintGradientPreset? = nil,
+        glyphBadge: GlyphBadgeOverlay = .none,
+        glyphBadgePosition: GlyphBadgePosition = .topRight
     ) {
         self.backgroundStyle = backgroundStyle
         self.shape = shape
@@ -298,6 +329,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.glyphFlipVertical = glyphFlipVertical
         self.glyphCustomColorHex = glyphCustomColorHex.map { $0 & 0xFFFFFF }
         self.glyphGradientPreset = glyphGradientPreset
+        self.glyphBadge = glyphBadge
+        self.glyphBadgePosition = glyphBadgePosition
     }
 
     public init(from decoder: Decoder) throws {
@@ -326,6 +359,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         self.glyphFlipVertical = try container.decodeIfPresent(Bool.self, forKey: .glyphFlipVertical) ?? false
         self.glyphCustomColorHex = try container.decodeIfPresent(UInt32.self, forKey: .glyphCustomColorHex)
         self.glyphGradientPreset = try container.decodeIfPresent(GlyphTintGradientPreset.self, forKey: .glyphGradientPreset)
+        self.glyphBadge = try container.decodeIfPresent(GlyphBadgeOverlay.self, forKey: .glyphBadge) ?? .none
+        self.glyphBadgePosition = try container.decodeIfPresent(GlyphBadgePosition.self, forKey: .glyphBadgePosition) ?? .topRight
     }
 
     public mutating func resetPosition() {
@@ -336,6 +371,8 @@ public struct RoundIconStyle: Codable, Hashable, Sendable {
         glyphFlipVertical = false
         glyphCustomColorHex = nil
         glyphGradientPreset = nil
+        glyphBadge = .none
+        glyphBadgePosition = .topRight
     }
 }
 

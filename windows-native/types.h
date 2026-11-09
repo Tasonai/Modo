@@ -74,6 +74,24 @@ enum GlyphGradientPreset {
     GLYPH_GRAD_PURPLE_HAZE = 6
 };
 
+enum GlyphBadgeOverlay {
+    BADGE_NONE = 0,
+    BADGE_DOT = 1,
+    BADGE_CHECKMARK = 2,
+    BADGE_STAR = 3,
+    BADGE_LOCK = 4,
+    BADGE_ALERT = 5,
+    BADGE_BETA = 6,
+    BADGE_PRO = 7
+};
+
+enum GlyphBadgePosition {
+    BADGE_POS_TOP_RIGHT = 0,
+    BADGE_POS_BOTTOM_RIGHT = 1,
+    BADGE_POS_TOP_LEFT = 2,
+    BADGE_POS_BOTTOM_LEFT = 3
+};
+
 struct BrandPaletteWin {
     COLORREF primary;
     COLORREF secondary;
@@ -115,6 +133,8 @@ struct RoundStyle {
     bool flipV = false;        // vertical flip
     COLORREF glyphColor = 0;   // 0 = none / original, otherwise RGB(...)
     GlyphGradientPreset glyphGrad = GLYPH_GRAD_NONE;
+    GlyphBadgeOverlay badge = BADGE_NONE;
+    GlyphBadgePosition badgePos = BADGE_POS_TOP_RIGHT;
 };
 
 struct AppEntry {
@@ -136,6 +156,8 @@ struct AppEntry {
     bool isFlippedV = false;
     COLORREF customGlyphColor = 0;
     GlyphGradientPreset customGlyphGrad = GLYPH_GRAD_NONE;
+    GlyphBadgeOverlay customBadge = BADGE_NONE;
+    GlyphBadgePosition customBadgePos = BADGE_POS_TOP_RIGHT;
     Bitmap* origBitmap = nullptr;
     Bitmap* cachedThumb = nullptr; // 64x64 cached circular preview for the list
 };

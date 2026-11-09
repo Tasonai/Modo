@@ -403,6 +403,10 @@ static void SaveStyleConfig() {
     WritePrivateProfileStringW(L"Style", L"Material", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", (int)g_style.glyphStyle);
     WritePrivateProfileStringW(L"Style", L"GlyphStyle", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)g_style.badge);
+    WritePrivateProfileStringW(L"Style", L"Badge", buf, cfgPath.c_str());
+    wsprintfW(buf, L"%d", (int)g_style.badgePos);
+    WritePrivateProfileStringW(L"Style", L"BadgePos", buf, cfgPath.c_str());
     wsprintfW(buf, L"%d", g_gridIconSize);
     WritePrivateProfileStringW(L"Style", L"GridIconSize", buf, cfgPath.c_str());
 }
@@ -432,6 +436,8 @@ static void LoadStyleConfig() {
     g_style.customColor = (COLORREF)GetPrivateProfileIntW(L"Style", L"CustomColor", (INT)RGB(26, 115, 232), cfgPath.c_str());
     g_style.material = (SurfaceMaterial)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Material", 0, cfgPath.c_str()), 0, 7);
     g_style.glyphStyle = (GlyphStyleMode)std::clamp((int)GetPrivateProfileIntW(L"Style", L"GlyphStyle", 0, cfgPath.c_str()), 0, 5);
+    g_style.badge = (GlyphBadgeOverlay)std::clamp((int)GetPrivateProfileIntW(L"Style", L"Badge", 0, cfgPath.c_str()), 0, 7);
+    g_style.badgePos = (GlyphBadgePosition)std::clamp((int)GetPrivateProfileIntW(L"Style", L"BadgePos", 0, cfgPath.c_str()), 0, 3);
     g_gridIconSize = std::clamp((int)GetPrivateProfileIntW(L"Style", L"GridIconSize", 56, cfgPath.c_str()), 48, 96);
 }
 
@@ -2293,6 +2299,18 @@ enum MenuCommandID {
     IDM_STYLE_GLYPH_GRAD_EMERALD,
     IDM_STYLE_GLYPH_GRAD_TITANIUM,
     IDM_STYLE_GLYPH_GRAD_PURPLE,
+    IDM_STYLE_GLYPH_BADGE_NONE,
+    IDM_STYLE_GLYPH_BADGE_DOT,
+    IDM_STYLE_GLYPH_BADGE_CHECK,
+    IDM_STYLE_GLYPH_BADGE_STAR,
+    IDM_STYLE_GLYPH_BADGE_LOCK,
+    IDM_STYLE_GLYPH_BADGE_ALERT,
+    IDM_STYLE_GLYPH_BADGE_BETA,
+    IDM_STYLE_GLYPH_BADGE_PRO,
+    IDM_STYLE_GLYPH_BADGE_POS_TR,
+    IDM_STYLE_GLYPH_BADGE_POS_BR,
+    IDM_STYLE_GLYPH_BADGE_POS_TL,
+    IDM_STYLE_GLYPH_BADGE_POS_BL,
     IDM_STYLE_EYEDROPPER,
     IDM_STYLE_WINDOWS_ACCENT,
     IDM_STYLE_RESET_DEFAULT,
@@ -2427,6 +2445,26 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_TITANIUM ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_TITANIUM, L"Titanium Ice");
     AppendMenuW(hTintSub, (g_style.glyphGrad == GLYPH_GRAD_PURPLE_HAZE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_GRAD_PURPLE, L"Purple Haze");
     AppendMenuW(hGlyphSub, MF_POPUP, (UINT_PTR)hTintSub, L"Градиентная заливка рисунка (Gradient Mask)");
+
+    HMENU hBadgeSub = CreatePopupMenu();
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_NONE ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_NONE, L"Без бейджа (None)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_DOT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_DOT, L"Точка уведомления (Notification Dot)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_CHECKMARK ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_CHECK, L"Проверено (Verified Check)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_STAR ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_STAR, L"Звезда / Избранное (Star)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_LOCK ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_LOCK, L"Замок / Приватность (Lock)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_ALERT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_ALERT, L"Предупреждение (Alert)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_BETA ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_BETA, L"Метка Beta (Beta Tag)");
+    AppendMenuW(hBadgeSub, (g_style.badge == BADGE_PRO ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_PRO, L"Метка Pro (Pro Tag)");
+    AppendMenuW(hBadgeSub, MF_SEPARATOR, 0, NULL);
+
+    HMENU hBadgePosSub = CreatePopupMenu();
+    AppendMenuW(hBadgePosSub, (g_style.badgePos == BADGE_POS_TOP_RIGHT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_POS_TR, L"Сверху справа (Top Right)");
+    AppendMenuW(hBadgePosSub, (g_style.badgePos == BADGE_POS_BOTTOM_RIGHT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_POS_BR, L"Снизу справа (Bottom Right)");
+    AppendMenuW(hBadgePosSub, (g_style.badgePos == BADGE_POS_TOP_LEFT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_POS_TL, L"Сверху слева (Top Left)");
+    AppendMenuW(hBadgePosSub, (g_style.badgePos == BADGE_POS_BOTTOM_LEFT ? MF_CHECKED : MF_UNCHECKED) | MF_STRING, IDM_STYLE_GLYPH_BADGE_POS_BL, L"Снизу слева (Bottom Left)");
+    AppendMenuW(hBadgeSub, MF_POPUP, (UINT_PTR)hBadgePosSub, L"Позиция бейджа (Position)");
+
+    AppendMenuW(hGlyphSub, MF_POPUP, (UINT_PTR)hBadgeSub, L"Бейдж статуса (Badge Overlay)");
 
     AppendMenuW(hStyleMenu, MF_POPUP, (UINT_PTR)hGlyphSub, L"Оформление рисунка (Glyph Style)");
 
@@ -2663,6 +2701,48 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
             SaveStyleConfig();
             InvalidateAllThumbs();
             g_statusText = L"Применен градиент рисунка";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_BADGE_NONE:
+        case IDM_STYLE_GLYPH_BADGE_DOT:
+        case IDM_STYLE_GLYPH_BADGE_CHECK:
+        case IDM_STYLE_GLYPH_BADGE_STAR:
+        case IDM_STYLE_GLYPH_BADGE_LOCK:
+        case IDM_STYLE_GLYPH_BADGE_ALERT:
+        case IDM_STYLE_GLYPH_BADGE_BETA:
+        case IDM_STYLE_GLYPH_BADGE_PRO:
+            g_style.badge = (GlyphBadgeOverlay)(cmd - IDM_STYLE_GLYPH_BADGE_NONE);
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = (g_style.badge == BADGE_NONE) ? L"Бейдж статуса отключен" : L"Применен бейдж статуса рисунка";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_BADGE_POS_TR:
+            g_style.badgePos = BADGE_POS_TOP_RIGHT;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Позиция бейджа: сверху справа";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_BADGE_POS_BR:
+            g_style.badgePos = BADGE_POS_BOTTOM_RIGHT;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Позиция бейджа: снизу справа";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_BADGE_POS_TL:
+            g_style.badgePos = BADGE_POS_TOP_LEFT;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Позиция бейджа: сверху слева";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        case IDM_STYLE_GLYPH_BADGE_POS_BL:
+            g_style.badgePos = BADGE_POS_BOTTOM_LEFT;
+            SaveStyleConfig();
+            InvalidateAllThumbs();
+            g_statusText = L"Позиция бейджа: снизу слева";
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case IDM_TOOLS_CREATE_MONOGRAM: {

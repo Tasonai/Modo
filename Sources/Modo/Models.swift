@@ -25,6 +25,8 @@ final class Item {
     var isFlippedVertically: Bool?
     var customGlyphColorHex: Int?
     var customGlyphGradient: String?
+    var customBadgeOverlay: String?
+    var customBadgePosition: String?
     @Attribute(.externalStorage) var customImageData: Data?
 
     init(
@@ -44,6 +46,8 @@ final class Item {
         isFlippedVertically: Bool? = nil,
         customGlyphColorHex: Int? = nil,
         customGlyphGradient: String? = nil,
+        customBadgeOverlay: String? = nil,
+        customBadgePosition: String? = nil,
         customImageData: Data? = nil
     ) {
         self.id = UUID()
@@ -64,6 +68,8 @@ final class Item {
         self.isFlippedVertically = isFlippedVertically
         self.customGlyphColorHex = customGlyphColorHex
         self.customGlyphGradient = customGlyphGradient
+        self.customBadgeOverlay = customBadgeOverlay
+        self.customBadgePosition = customBadgePosition
         self.customImageData = customImageData
     }
 
@@ -533,6 +539,12 @@ final class AppModel {
         if let colorHex = item.customGlyphColorHex { s.glyphCustomColorHex = UInt32(colorHex & 0xFFFFFF) }
         if let gradName = item.customGlyphGradient, let grad = GlyphTintGradientPreset(rawValue: gradName) {
             s.glyphGradientPreset = grad
+        }
+        if let badgeName = item.customBadgeOverlay, let badge = GlyphBadgeOverlay(rawValue: badgeName) {
+            s.glyphBadge = badge
+        }
+        if let posName = item.customBadgePosition, let pos = GlyphBadgePosition(rawValue: posName) {
+            s.glyphBadgePosition = pos
         }
         return s
     }

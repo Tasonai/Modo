@@ -706,6 +706,71 @@ struct DetailInspectorView: View {
                 }
             }
 
+            // Status & Modifier Badge Overlay
+            VStack(alignment: .leading, spacing: Space.xs) {
+                HStack {
+                    Text("Бейдж статуса")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if item.customBadgeOverlay != nil && item.customBadgeOverlay != GlyphBadgeOverlay.none.rawValue {
+                        Button {
+                            setBadgeOverlay(badge: nil, position: nil)
+                        } label: {
+                            Text("Убрать бейдж")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Palette.accent)
+                    }
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Space.xs) {
+                        ForEach(GlyphBadgeOverlay.allCases) { badge in
+                            let isSel = (item.customBadgeOverlay == badge.rawValue) || (item.customBadgeOverlay == nil && badge == .none)
+                            Button {
+                                setBadgeOverlay(badge: badge == .none ? nil : badge.rawValue, position: item.customBadgePosition)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    badgeIconPreview(badge)
+                                    Text(badgeLabel(badge))
+                                        .font(.caption2.weight(isSel ? .bold : .regular))
+                                }
+                                .padding(.horizontal, Space.sm)
+                                .padding(.vertical, 4)
+                                .background(isSel ? Palette.accent : Color.primary.opacity(0.06), in: Capsule())
+                                .foregroundStyle(isSel ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+
+                if item.customBadgeOverlay != nil && item.customBadgeOverlay != GlyphBadgeOverlay.none.rawValue {
+                    HStack(spacing: Space.xs) {
+                        Text("Позиция:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        ForEach(GlyphBadgePosition.allCases) { pos in
+                            let isSel = (item.customBadgePosition == pos.rawValue) || (item.customBadgePosition == nil && pos == .topRight)
+                            Button {
+                                setBadgeOverlay(badge: item.customBadgeOverlay, position: pos.rawValue)
+                            } label: {
+                                Text(badgePositionLabel(pos))
+                                    .font(.caption2.weight(isSel ? .bold : .regular))
+                                    .padding(.horizontal, Space.xs)
+                                    .padding(.vertical, 2)
+                                    .background(isSel ? Palette.accent.opacity(0.2) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+                                    .foregroundStyle(isSel ? Palette.accent : .secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
             // File & Clipboard Actions
             HStack(spacing: Space.sm) {
                 Button {
@@ -823,7 +888,7 @@ struct DetailInspectorView: View {
     }
 
     private var hasActiveTransformations: Bool {
-        currentRotation != 0.0 || isFlippedH || isFlippedV || item.customGlyphColorHex != nil || item.customGlyphGradient != nil
+        currentRotation != 0.0 || isFlippedH || isFlippedV || item.customGlyphColorHex != nil || item.customGlyphGradient != nil || (item.customBadgeOverlay != nil && item.customBadgeOverlay != GlyphBadgeOverlay.none.rawValue)
     }
 
     private func setGlyphTint(color: Int?, gradient: String?) {
@@ -831,6 +896,61 @@ struct DetailInspectorView: View {
         item.customGlyphGradient = gradient
         model.invalidateCache(for: item)
         try? context.save()
+    }
+
+    private func setBadgeOverlay(badge: String?, position: String?) {
+        item.customBadgeOverlay = badge
+        if position != nil {
+            item.customBadgePosition = position
+        } else if item.customBadgePosition == nil {
+            item.customBadgePosition = GlyphBadgePosition.topRight.rawValue
+        }
+        model.invalidateCache(for: item)
+        try? context.save()
+    }
+
+    @ViewBuilder
+    private func badgeIconPreview(_ badge: GlyphBadgeOverlay) -> some View {
+        switch badge {
+        case .none:
+            EmptyView()
+        case .notificationDot:
+            Circle().fill(Color.red).frame(width: 8, height: 8)
+        case .checkmark:
+            Circle().fill(Color.green).frame(width: 8, height: 8)
+        case .star:
+            Circle().fill(Color.orange).frame(width: 8, height: 8)
+        case .lock:
+            Circle().fill(Color.gray).frame(width: 8, height: 8)
+        case .alert:
+            Circle().fill(Color.orange).frame(width: 8, height: 8)
+        case .beta:
+            Capsule().fill(Color.purple).frame(width: 12, height: 8)
+        case .pro:
+            Capsule().fill(Color.blue).frame(width: 12, height: 8)
+        }
+    }
+
+    private func badgeLabel(_ badge: GlyphBadgeOverlay) -> String {
+        switch badge {
+        case .none: return "Без бейджа"
+        case .notificationDot: return "Точка"
+        case .checkmark: return "Проверено"
+        case .star: return "Звезда"
+        case .lock: return "Замок"
+        case .alert: return "Внимание"
+        case .beta: return "Beta"
+        case .pro: return "Pro"
+        }
+    }
+
+    private func badgePositionLabel(_ pos: GlyphBadgePosition) -> String {
+        switch pos {
+        case .topRight: return "Сверху справа"
+        case .bottomRight: return "Снизу справа"
+        case .topLeft: return "Сверху слева"
+        case .bottomLeft: return "Снизу слева"
+        }
     }
 
     private func rotateArtwork(by degrees: Double) {
@@ -859,6 +979,8 @@ struct DetailInspectorView: View {
         item.isFlippedVertically = false
         item.customGlyphColorHex = nil
         item.customGlyphGradient = nil
+        item.customBadgeOverlay = nil
+        item.customBadgePosition = nil
         model.invalidateCache(for: item)
         try? context.save()
     }

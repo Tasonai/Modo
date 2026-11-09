@@ -62,6 +62,8 @@ static void PrintHelp() {
         L"                           --glyph <original|silhouette|embossed|outline|duotone|glow>\n"
         L"                           --glyph-color <hex|name> (custom flat artwork color)\n"
         L"                           --glyph-gradient <gold|cyber|sunset|emerald|titanium|purple>\n"
+        L"                           --badge <dot|check|star|lock|alert|beta|pro|none>\n"
+        L"                           --badge-pos <tr|br|tl|bl>\n"
         L"                           --rotate <degrees> --fliph --flipv\n"
         L"  monogram <app_path>    Apply custom typographic monogram lettermark\n"
         L"                           --text <letters>\n"
@@ -202,6 +204,22 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
             style.flipH = true;
         } else if (opt == L"--flipv") {
             style.flipV = true;
+        } else if (opt == L"--badge" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"dot" || val == L"notification") style.badge = BADGE_DOT;
+            else if (val == L"check" || val == L"checkmark" || val == L"verified") style.badge = BADGE_CHECKMARK;
+            else if (val == L"star" || val == L"favorite") style.badge = BADGE_STAR;
+            else if (val == L"lock" || val == L"private") style.badge = BADGE_LOCK;
+            else if (val == L"alert" || val == L"warning") style.badge = BADGE_ALERT;
+            else if (val == L"beta") style.badge = BADGE_BETA;
+            else if (val == L"pro") style.badge = BADGE_PRO;
+            else style.badge = BADGE_NONE;
+        } else if (opt == L"--badge-pos" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"br" || val == L"bottomright") style.badgePos = BADGE_POS_BOTTOM_RIGHT;
+            else if (val == L"tl" || val == L"topleft") style.badgePos = BADGE_POS_TOP_LEFT;
+            else if (val == L"bl" || val == L"bottomleft") style.badgePos = BADGE_POS_BOTTOM_LEFT;
+            else style.badgePos = BADGE_POS_TOP_RIGHT;
         }
     }
 
@@ -296,6 +314,22 @@ static int HandleMonogram(int argc, wchar_t* argv[], const CLSID* pngClsid) {
             style.flipH = true;
         } else if (opt == L"--flipv") {
             style.flipV = true;
+        } else if (opt == L"--badge" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"dot" || val == L"notification") style.badge = BADGE_DOT;
+            else if (val == L"check" || val == L"checkmark" || val == L"verified") style.badge = BADGE_CHECKMARK;
+            else if (val == L"star" || val == L"favorite") style.badge = BADGE_STAR;
+            else if (val == L"lock" || val == L"private") style.badge = BADGE_LOCK;
+            else if (val == L"alert" || val == L"warning") style.badge = BADGE_ALERT;
+            else if (val == L"beta") style.badge = BADGE_BETA;
+            else if (val == L"pro") style.badge = BADGE_PRO;
+            else style.badge = BADGE_NONE;
+        } else if (opt == L"--badge-pos" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"br" || val == L"bottomright") style.badgePos = BADGE_POS_BOTTOM_RIGHT;
+            else if (val == L"tl" || val == L"topleft") style.badgePos = BADGE_POS_TOP_LEFT;
+            else if (val == L"bl" || val == L"bottomleft") style.badgePos = BADGE_POS_BOTTOM_LEFT;
+            else style.badgePos = BADGE_POS_TOP_RIGHT;
         }
     }
 
@@ -399,6 +433,22 @@ static int HandleLucide(int argc, wchar_t* argv[], const CLSID* pngClsid) {
             style.flipH = true;
         } else if (opt == L"--flipv") {
             style.flipV = true;
+        } else if (opt == L"--badge" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"dot" || val == L"notification") style.badge = BADGE_DOT;
+            else if (val == L"check" || val == L"checkmark" || val == L"verified") style.badge = BADGE_CHECKMARK;
+            else if (val == L"star" || val == L"favorite") style.badge = BADGE_STAR;
+            else if (val == L"lock" || val == L"private") style.badge = BADGE_LOCK;
+            else if (val == L"alert" || val == L"warning") style.badge = BADGE_ALERT;
+            else if (val == L"beta") style.badge = BADGE_BETA;
+            else if (val == L"pro") style.badge = BADGE_PRO;
+            else style.badge = BADGE_NONE;
+        } else if (opt == L"--badge-pos" && i + 1 < argc) {
+            std::wstring val = ToLower(argv[++i]);
+            if (val == L"br" || val == L"bottomright") style.badgePos = BADGE_POS_BOTTOM_RIGHT;
+            else if (val == L"tl" || val == L"topleft") style.badgePos = BADGE_POS_TOP_LEFT;
+            else if (val == L"bl" || val == L"bottomleft") style.badgePos = BADGE_POS_BOTTOM_LEFT;
+            else style.badgePos = BADGE_POS_TOP_RIGHT;
         }
     }
 

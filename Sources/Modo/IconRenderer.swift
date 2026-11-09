@@ -316,7 +316,173 @@ enum IconRenderer {
         ctx.strokePath()
         ctx.restoreGState()
 
+        // 5. Status / modifier badge overlay
+        drawGlyphBadge(in: ctx, badge: style.glyphBadge, position: style.glyphBadgePosition, canvasDim: dim, circleRect: circleRect)
+
         return out
+    }
+
+    /// Renders a status or modifier badge overlay on top of the icon artwork.
+    static func drawGlyphBadge(
+        in ctx: CGContext,
+        badge: GlyphBadgeOverlay,
+        position: GlyphBadgePosition,
+        canvasDim dim: CGFloat,
+        circleRect: CGRect
+    ) {
+        guard badge != .none else { return }
+
+        let r = dim * 0.088
+        let isPill = (badge == .beta || badge == .pro)
+        let pillW = isPill ? (badge == .beta ? r * 2.35 : r * 2.05) : r * 2.0
+        let pillH = r * 2.0
+
+        let cx: CGFloat
+        let cy: CGFloat
+        let marginX = isPill ? pillW * 0.65 : r * 1.35
+        let marginY = r * 1.35
+
+        switch position {
+        case .topRight:
+            cx = circleRect.maxX - marginX
+            cy = circleRect.maxY - marginY
+        case .bottomRight:
+            cx = circleRect.maxX - marginX
+            cy = circleRect.minY + marginY
+        case .topLeft:
+            cx = circleRect.minX + marginX
+            cy = circleRect.maxY - marginY
+        case .bottomLeft:
+            cx = circleRect.minX + marginX
+            cy = circleRect.minY + marginY
+        }
+
+        ctx.saveGState()
+
+        // 1. Drop shadow
+        ctx.setShadow(
+            offset: CGSize(width: 0, height: -dim * 0.008),
+            blur: dim * 0.022,
+            color: NSColor.black.withAlphaComponent(0.38).cgColor
+        )
+
+        let badgeRect = CGRect(x: cx - pillW * 0.5, y: cy - pillH * 0.5, width: pillW, height: pillH)
+        let badgeCorner = isPill ? pillH * 0.5 : r
+        let badgePath = CGPath(roundedRect: badgeRect, cornerWidth: badgeCorner, cornerHeight: badgeCorner, transform: nil)
+
+        // 2. High-contrast outer stroke / ring (white 2.5pt)
+        let strokeW = max(2.0, dim * 0.012)
+        ctx.saveGState()
+        ctx.addPath(badgePath)
+        ctx.setStrokeColor(NSColor.white.cgColor)
+        ctx.setLineWidth(strokeW)
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        // 3. Solid badge fill
+        let fillColor: NSColor = switch badge {
+        case .none: .clear
+        case .notificationDot: NSColor(srgbRed: 0.98, green: 0.23, blue: 0.19, alpha: 1.0)
+        case .checkmark: NSColor(srgbRed: 0.20, green: 0.78, blue: 0.35, alpha: 1.0)
+        case .star: NSColor(srgbRed: 1.00, green: 0.60, blue: 0.00, alpha: 1.0)
+        case .lock: NSColor(srgbRed: 0.15, green: 0.20, blue: 0.28, alpha: 1.0)
+        case .alert: NSColor(srgbRed: 0.98, green: 0.45, blue: 0.09, alpha: 1.0)
+        case .beta: NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1.0)
+        case .pro: NSColor(srgbRed: 0.01, green: 0.52, blue: 0.78, alpha: 1.0)
+        }
+
+        ctx.setFillColor(fillColor.cgColor)
+        ctx.addPath(badgePath)
+        ctx.fillPath()
+
+        // 4. Emblem glyph or text inside badge
+        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        switch badge {
+        case .none, .notificationDot:
+            break
+
+        case .checkmark:
+            ctx.setStrokeColor(NSColor.white.cgColor)
+            ctx.setLineWidth(r * 0.26)
+            ctx.setLineCap(.round)
+            ctx.setLineJoin(.round)
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: cx - r * 0.42, y: cy - r * 0.04))
+            ctx.addLine(to: CGPoint(x: cx - r * 0.10, y: cy - r * 0.36))
+            ctx.addLine(to: CGPoint(x: cx + r * 0.42, y: cy + r * 0.30))
+            ctx.strokePath()
+
+        case .star:
+            ctx.setFillColor(NSColor.white.cgColor)
+            let starPath = CGMutablePath()
+            let points = 5
+            let outerR = r * 0.52
+            let innerR = outerR * 0.45
+            for i in 0..<(points * 2) {
+                let radius = (i % 2 == 0) ? outerR : innerR
+                let angle = CGFloat(i) * .pi / CGFloat(points) - .pi / 2.0
+                let px = cx + radius * cos(angle)
+                let py = cy + radius * sin(angle)
+                if i == 0 {
+                    starPath.move(to: CGPoint(x: px, y: py))
+                } else {
+                    starPath.addLine(to: CGPoint(x: px, y: py))
+                }
+            }
+            starPath.closeSubpath()
+            ctx.addPath(starPath)
+            ctx.fillPath()
+
+        case .lock:
+            ctx.setFillColor(NSColor.white.cgColor)
+            ctx.setStrokeColor(NSColor.white.cgColor)
+            let bodyW = r * 0.82
+            let bodyH = r * 0.65
+            let bodyRect = CGRect(x: cx - bodyW * 0.5, y: cy - bodyH * 0.85, width: bodyW, height: bodyH)
+            let bodyPath = CGPath(roundedRect: bodyRect, cornerWidth: bodyH * 0.25, cornerHeight: bodyH * 0.25, transform: nil)
+            ctx.addPath(bodyPath)
+            ctx.fillPath()
+
+            ctx.setLineWidth(r * 0.18)
+            ctx.setLineCap(.round)
+            ctx.beginPath()
+            let shackleR = bodyW * 0.32
+            ctx.addArc(center: CGPoint(x: cx, y: bodyRect.maxY - 1), radius: shackleR, startAngle: 0, endAngle: .pi, clockwise: false)
+            ctx.strokePath()
+
+        case .alert:
+            ctx.setStrokeColor(NSColor.white.cgColor)
+            ctx.setLineWidth(r * 0.24)
+            ctx.setLineCap(.round)
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: cx, y: cy + r * 0.42))
+            ctx.addLine(to: CGPoint(x: cx, y: cy - r * 0.05))
+            ctx.strokePath()
+
+            ctx.setFillColor(NSColor.white.cgColor)
+            let dotRect = CGRect(x: cx - r * 0.12, y: cy - r * 0.42, width: r * 0.24, height: r * 0.24)
+            ctx.fillEllipse(in: dotRect)
+
+        case .beta, .pro:
+            let text = badge == .beta ? "BETA" : "PRO"
+            let fontSize = r * 0.84
+            let font = NSFont.systemFont(ofSize: fontSize, weight: .bold)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: NSColor.white
+            ]
+            let str = NSAttributedString(string: text, attributes: attrs)
+            let strSize = str.size()
+            let textRect = CGRect(
+                x: cx - strSize.width * 0.5,
+                y: cy - strSize.height * 0.5,
+                width: strSize.width,
+                height: strSize.height
+            )
+            str.draw(in: textRect)
+        }
+
+        ctx.restoreGState()
     }
 
     private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])

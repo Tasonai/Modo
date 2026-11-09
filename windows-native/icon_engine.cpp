@@ -528,6 +528,154 @@ static void ApplySurfaceMaterialShader(Graphics& g, SurfaceMaterial mat, RectF r
     }
 }
 
+static void RenderGlyphBadgeGDIPlus(Graphics& g, GlyphBadgeOverlay badge, GlyphBadgePosition pos, REAL dim, RectF circleRect) {
+    if (badge == BADGE_NONE) return;
+
+    REAL r = dim * 0.088f;
+    bool isPill = (badge == BADGE_BETA || badge == BADGE_PRO);
+    REAL pillW = isPill ? (badge == BADGE_BETA ? r * 2.35f : r * 2.05f) : r * 2.0f;
+    REAL pillH = r * 2.0f;
+
+    REAL marginX = isPill ? pillW * 0.65f : r * 1.35f;
+    REAL marginY = r * 1.35f;
+
+    REAL cx = 0, cy = 0;
+    switch (pos) {
+        case BADGE_POS_TOP_RIGHT:
+            cx = circleRect.GetRight() - marginX;
+            cy = circleRect.Y + marginY;
+            break;
+        case BADGE_POS_BOTTOM_RIGHT:
+            cx = circleRect.GetRight() - marginX;
+            cy = circleRect.GetBottom() - marginY;
+            break;
+        case BADGE_POS_TOP_LEFT:
+            cx = circleRect.X + marginX;
+            cy = circleRect.Y + marginY;
+            break;
+        case BADGE_POS_BOTTOM_LEFT:
+            cx = circleRect.X + marginX;
+            cy = circleRect.GetBottom() - marginY;
+            break;
+    }
+
+    RectF badgeRect(cx - pillW * 0.5f, cy - pillH * 0.5f, pillW, pillH);
+    REAL badgeCorner = isPill ? pillH * 0.5f : r;
+
+    // 1. Drop shadow
+    REAL shadowBlur = dim * 0.018f;
+    for (int s = 3; s >= 1; --s) {
+        REAL expand = shadowBlur * (REAL)s / 3.0f;
+        RectF sr(badgeRect.X - expand * 0.5f, badgeRect.Y - expand * 0.5f + dim * 0.006f, badgeRect.Width + expand, badgeRect.Height + expand);
+        GraphicsPath sp;
+        AddRoundedRect(sp, sr, badgeCorner + expand * 0.5f);
+        SolidBrush sb(Color(35, 0, 0, 0));
+        g.FillPath(&sb, &sp);
+    }
+
+    GraphicsPath badgePath;
+    AddRoundedRect(badgePath, badgeRect, badgeCorner);
+
+    // 2. High-contrast white border ring
+    REAL strokeW = std::max(2.0f, dim * 0.012f);
+    Pen whitePen(Color(255, 255, 255, 255), strokeW);
+    whitePen.SetLineJoin(LineJoinRound);
+    g.DrawPath(&whitePen, &badgePath);
+
+    // 3. Solid badge fill
+    Color fillCol(255, 255, 255, 255);
+    switch (badge) {
+        case BADGE_NONE: break;
+        case BADGE_DOT: fillCol = Color(255, 255, 59, 48); break;
+        case BADGE_CHECKMARK: fillCol = Color(255, 52, 199, 89); break;
+        case BADGE_STAR: fillCol = Color(255, 255, 149, 0); break;
+        case BADGE_LOCK: fillCol = Color(255, 30, 41, 59); break;
+        case BADGE_ALERT: fillCol = Color(255, 249, 115, 22); break;
+        case BADGE_BETA: fillCol = Color(255, 139, 92, 246); break;
+        case BADGE_PRO: fillCol = Color(255, 2, 132, 199); break;
+    }
+    SolidBrush fillBrush(fillCol);
+    g.FillPath(&fillBrush, &badgePath);
+
+    // 4. Emblem glyph or text inside badge
+    switch (badge) {
+        case BADGE_NONE:
+        case BADGE_DOT:
+            break;
+
+        case BADGE_CHECKMARK: {
+            Pen checkPen(Color(255, 255, 255, 255), r * 0.26f);
+            checkPen.SetStartCap(LineCapRound);
+            checkPen.SetEndCap(LineCapRound);
+            checkPen.SetLineJoin(LineJoinRound);
+            PointF pts[3] = {
+                PointF(cx - r * 0.42f, cy - r * 0.04f),
+                PointF(cx - r * 0.10f, cy + r * 0.36f),
+                PointF(cx + r * 0.42f, cy - r * 0.30f)
+            };
+            g.DrawLines(&checkPen, pts, 3);
+            break;
+        }
+
+        case BADGE_STAR: {
+            SolidBrush starBrush(Color(255, 255, 255, 255));
+            int points = 5;
+            REAL outerR = r * 0.52f;
+            REAL innerR = outerR * 0.45f;
+            PointF starPts[10];
+            const REAL kPi = 3.14159265f;
+            for (int i = 0; i < 10; ++i) {
+                REAL radius = (i % 2 == 0) ? outerR : innerR;
+                REAL angle = (REAL)i * kPi / 5.0f - kPi / 2.0f;
+                starPts[i] = PointF(cx + radius * std::cos(angle), cy + radius * std::sin(angle));
+            }
+            g.FillPolygon(&starBrush, starPts, 10);
+            break;
+        }
+
+        case BADGE_LOCK: {
+            SolidBrush lockBrush(Color(255, 255, 255, 255));
+            REAL bw = r * 0.82f;
+            REAL bh = r * 0.65f;
+            RectF bodyRect(cx - bw * 0.5f, cy - bh * 0.2f, bw, bh);
+            GraphicsPath bp;
+            AddRoundedRect(bp, bodyRect, bh * 0.25f);
+            g.FillPath(&lockBrush, &bp);
+
+            Pen shacklePen(Color(255, 255, 255, 255), r * 0.18f);
+            shacklePen.SetStartCap(LineCapRound);
+            shacklePen.SetEndCap(LineCapRound);
+            REAL shackleR = bw * 0.32f;
+            g.DrawArc(&shacklePen, cx - shackleR, cy - bh * 0.2f - shackleR, shackleR * 2.0f, shackleR * 2.0f, 180.0f, 180.0f);
+            break;
+        }
+
+        case BADGE_ALERT: {
+            Pen alertPen(Color(255, 255, 255, 255), r * 0.24f);
+            alertPen.SetStartCap(LineCapRound);
+            alertPen.SetEndCap(LineCapRound);
+            g.DrawLine(&alertPen, PointF(cx, cy - r * 0.42f), PointF(cx, cy + r * 0.05f));
+
+            SolidBrush dotBrush(Color(255, 255, 255, 255));
+            g.FillEllipse(&dotBrush, cx - r * 0.12f, cy + r * 0.20f, r * 0.24f, r * 0.24f);
+            break;
+        }
+
+        case BADGE_BETA:
+        case BADGE_PRO: {
+            const wchar_t* txt = (badge == BADGE_BETA) ? L"BETA" : L"PRO";
+            FontFamily ff(L"Segoe UI");
+            Font font(&ff, r * 0.70f, FontStyleBold, UnitPixel);
+            SolidBrush textBrush(Color(255, 255, 255, 255));
+            StringFormat sf;
+            sf.SetAlignment(StringAlignmentCenter);
+            sf.SetLineAlignment(StringAlignmentCenter);
+            g.DrawString(txt, -1, &font, badgeRect, &sf, &textBrush);
+            break;
+        }
+    }
+}
+
 Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int canvasSize) {
     Bitmap* out = new Bitmap(canvasSize, canvasSize, PixelFormat32bppARGB);
     if (!sourceBitmap) return out;
@@ -917,6 +1065,8 @@ Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int
     GraphicsPath rimPath;
     AddShapePath(rimPath, style.shape, rimRect);
     g.DrawPath(&rimPen, &rimPath);
+
+    RenderGlyphBadgeGDIPlus(g, style.badge, style.badgePos, dim, circleRect);
 
     delete trimmed;
     return out;
