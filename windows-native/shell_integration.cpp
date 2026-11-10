@@ -8,6 +8,7 @@
 #include <shellapi.h>
 #include <objbase.h>
 #include <gdiplus.h>
+#include <tlhelp32.h>
 
 #include <algorithm>
 #include <cwchar>
@@ -78,36 +79,106 @@ std::wstring GetRegistryStringValue(HKEY hRoot, const std::wstring& subKey, cons
 }
 
 void RefreshWindowsExplorerIconCache(bool restartExplorerForTaskbar) {
+    // 1. Flush association changes and notify shell
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
     SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)L"ShellState", SMTO_ABORTIFHUNG, 500, NULL);
+    SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)L"Environment", SMTO_ABORTIFHUNG, 500, NULL);
+
     wchar_t sysDir[MAX_PATH] = {0};
-    if (GetSystemDirectoryW(sysDir, MAX_PATH)) {
-        std::wstring ie4 = std::wstring(sysDir) + L"\\ie4uinit.exe";
-        if (GetFileAttributesW(ie4.c_str()) != INVALID_FILE_ATTRIBUTES) {
-            ShellExecuteW(NULL, L"open", ie4.c_str(), L"-show", NULL, SW_HIDE);
-        }
-    }
+    GetSystemDirectoryW(sysDir, MAX_PATH);
+
     if (restartExplorerForTaskbar) {
-        HWND hTray = FindWindowW(L"Shell_TrayWnd", NULL);
-        if (hTray) {
-            DWORD pid = 0;
-            GetWindowThreadProcessId(hTray, &pid);
-            PostMessageW(hTray, WM_QUIT, 0, 0);
-            Sleep(450);
-            if (FindWindowW(L"Shell_TrayWnd", NULL) != NULL && pid != 0) {
-                HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pid);
-                if (hProc) {
-                    TerminateProcess(hProc, 0);
-                    WaitForSingleObject(hProc, 1000);
-                    CloseHandle(hProc);
-                }
+        // Kill all instances of explorer.exe reliably using taskkill
+        if (sysDir[0]) {
+            std::wstring taskkill = std::wstring(sysDir) + L"\\taskkill.exe";
+            SHELLEXECUTEINFOW sei = { sizeof(sei) };
+            sei.cbSize = sizeof(sei);
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+            sei.lpFile = taskkill.c_str();
+            sei.lpParameters = L"/F /IM explorer.exe";
+            sei.nShow = SW_HIDE;
+            if (ShellExecuteExW(&sei) && sei.hProcess) {
+                WaitForSingleObject(sei.hProcess, 3000);
+                CloseHandle(sei.hProcess);
             }
-            Sleep(250);
-            if (FindWindowW(L"Shell_TrayWnd", NULL) == NULL) {
-                wchar_t winDir[MAX_PATH] = {0};
-                GetWindowsDirectoryW(winDir, MAX_PATH);
-                std::wstring expExe = std::wstring(winDir) + L"\\explorer.exe";
-                ShellExecuteW(NULL, L"open", expExe.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+
+        // Terminate any lingering explorer.exe instances via process snapshot
+        HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnap != INVALID_HANDLE_VALUE) {
+            PROCESSENTRY32W pe;
+            pe.dwSize = sizeof(pe);
+            if (Process32FirstW(hSnap, &pe)) {
+                do {
+                    if (_wcsicmp(pe.szExeFile, L"explorer.exe") == 0) {
+                        HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, pe.th32ProcessID);
+                        if (hProc) {
+                            TerminateProcess(hProc, 0);
+                            WaitForSingleObject(hProc, 1000);
+                            CloseHandle(hProc);
+                        }
+                    }
+                } while (Process32NextW(hSnap, &pe));
+            }
+            CloseHandle(hSnap);
+        }
+
+        Sleep(400);
+
+        // Delete locked cache files while explorer.exe is terminated
+        wchar_t localAppData[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData)) && localAppData[0]) {
+            std::wstring oldCache = std::wstring(localAppData) + L"\\IconCache.db";
+            SetFileAttributesW(oldCache.c_str(), FILE_ATTRIBUTE_NORMAL);
+            DeleteFileW(oldCache.c_str());
+
+            std::wstring expCacheDir = std::wstring(localAppData) + L"\\Microsoft\\Windows\\Explorer";
+            std::wstring searchPattern = expCacheDir + L"\\iconcache_*.db";
+            WIN32_FIND_DATAW ffd;
+            HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &ffd);
+            if (hFind != INVALID_HANDLE_VALUE) {
+                do {
+                    std::wstring fPath = expCacheDir + L"\\" + ffd.cFileName;
+                    SetFileAttributesW(fPath.c_str(), FILE_ATTRIBUTE_NORMAL);
+                    DeleteFileW(fPath.c_str());
+                } while (FindNextFileW(hFind, &ffd));
+                FindClose(hFind);
+            }
+
+            searchPattern = expCacheDir + L"\\thumbcache_*.db";
+            hFind = FindFirstFileW(searchPattern.c_str(), &ffd);
+            if (hFind != INVALID_HANDLE_VALUE) {
+                do {
+                    std::wstring fPath = expCacheDir + L"\\" + ffd.cFileName;
+                    SetFileAttributesW(fPath.c_str(), FILE_ATTRIBUTE_NORMAL);
+                    DeleteFileW(fPath.c_str());
+                } while (FindNextFileW(hFind, &ffd));
+                FindClose(hFind);
+            }
+        }
+
+        // Clear icon cache using ie4uinit
+        if (sysDir[0]) {
+            std::wstring ie4 = std::wstring(sysDir) + L"\\ie4uinit.exe";
+            if (GetFileAttributesW(ie4.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                ShellExecuteW(NULL, L"open", ie4.c_str(), L"-ClearIconCache", NULL, SW_HIDE);
+                ShellExecuteW(NULL, L"open", ie4.c_str(), L"-show", NULL, SW_HIDE);
+            }
+        }
+
+        // Restart explorer.exe
+        wchar_t winDir[MAX_PATH] = {0};
+        GetWindowsDirectoryW(winDir, MAX_PATH);
+        std::wstring expExe = std::wstring(winDir) + L"\\explorer.exe";
+        ShellExecuteW(NULL, L"open", expExe.c_str(), NULL, NULL, SW_SHOWNORMAL);
+
+        Sleep(350);
+        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, NULL, NULL);
+    } else {
+        if (sysDir[0]) {
+            std::wstring ie4 = std::wstring(sysDir) + L"\\ie4uinit.exe";
+            if (GetFileAttributesW(ie4.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                ShellExecuteW(NULL, L"open", ie4.c_str(), L"-show", NULL, SW_HIDE);
             }
         }
     }
@@ -246,10 +317,34 @@ void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid)
                 L"\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Проводник.lnk",
                 L"\\Microsoft\\Windows\\Start Menu\\Programs\\Windows System\\File Explorer.lnk",
                 L"\\Microsoft\\Windows\\Start Menu\\Programs\\Windows System\\Проводник.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\Служебные - Windows\\Проводник.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\Служебные - Windows\\File Explorer.lnk",
+                L"\\Microsoft\\Windows\\Start Menu\\Programs\\Стандартные - Windows\\Проводник.lnk",
                 L"\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\System Tools\\File Explorer.lnk"
             };
             for (const wchar_t* rp : relPaths) {
                 std::wstring p = std::wstring(appData) + rp;
+                if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                    fe.allLnkPaths.push_back(p);
+                    if (fe.lnkPath.empty()) fe.lnkPath = p;
+                    std::wstring t, cIcon;
+                    ResolveShortcut(p, t, cIcon);
+                    if (cIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+                }
+            }
+        }
+        wchar_t commonPrograms[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_COMMON_PROGRAMS, NULL, 0, commonPrograms)) && commonPrograms[0]) {
+            const wchar_t* commonRelPaths[] = {
+                L"\\System Tools\\File Explorer.lnk",
+                L"\\System Tools\\Проводник.lnk",
+                L"\\Windows System\\File Explorer.lnk",
+                L"\\Windows System\\Проводник.lnk",
+                L"\\Служебные - Windows\\Проводник.lnk",
+                L"\\Служебные - Windows\\File Explorer.lnk"
+            };
+            for (const wchar_t* crp : commonRelPaths) {
+                std::wstring p = std::wstring(commonPrograms) + crp;
                 if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) {
                     fe.allLnkPaths.push_back(p);
                     if (fe.lnkPath.empty()) fe.lnkPath = p;
@@ -495,7 +590,8 @@ bool ApplyRoundIconToEntry(AppEntry& app, const RoundStyle& style, const CLSID* 
     wsprintfW(revSuffix, L"_%u_%u.ico", (unsigned)(GetTickCount() & 0xFFFF), ++revCounter);
     std::wstring icoPath = iconsDir + L"\\" + safe + revSuffix;
 
-    if (!IconEngine::SaveMultiSizeIco(app.origBitmap, style, icoPath, pngClsid)) return false;
+    Bitmap* artToUse = app.customArtwork ? app.customArtwork : app.origBitmap;
+    if (!IconEngine::SaveMultiSizeIco(artToUse, style, icoPath, pngClsid)) return false;
 
     if (app.isFolder) {
         bool ok = ApplyCustomFolderIcon(app.targetPath, icoPath);
@@ -536,27 +632,34 @@ bool ApplyRoundIconToEntry(AppEntry& app, const RoundStyle& style, const CLSID* 
     if (app.isFileExplorer) {
         std::wstring icoWithIdx = icoPath + L",0";
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Applications\\explorer.exe\\DefaultIcon", NULL, icoWithIdx);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\DefaultIcon", NULL, icoWithIdx);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\CLSID\\{52205A70-C2E2-4E6B-B590-E7ED7E7D00B1}\\DefaultIcon", NULL, icoWithIdx);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\DefaultIcon", NULL, icoWithIdx);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\{52205A70-C2E2-4E6B-B590-E7ED7E7D00B1}\\DefaultIcon", NULL, icoWithIdx);
 
         wchar_t appData[MAX_PATH] = {0};
         if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
             std::wstring tbDir = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
             if (GetFileAttributesW(tbDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                std::wstring tbExplorerLnk = tbDir + L"\\File Explorer.lnk";
-                if (GetFileAttributesW(tbExplorerLnk.c_str()) == INVALID_FILE_ATTRIBUTES) {
-                    IShellLinkW* psl = nullptr;
-                    if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&psl)) && psl) {
-                        psl->SetPath(app.targetPath.c_str());
-                        psl->SetIconLocation(icoPath.c_str(), 0);
-                        IPersistFile* ppf = nullptr;
-                        if (SUCCEEDED(psl->QueryInterface(IID_IPersistFile, (void**)&ppf)) && ppf) {
-                            if (SUCCEEDED(ppf->Save(tbExplorerLnk.c_str(), TRUE))) {
-                                app.allLnkPaths.push_back(tbExplorerLnk);
+                WIN32_FIND_DATAW fd;
+                HANDLE hf = FindFirstFileW((tbDir + L"\\*.lnk").c_str(), &fd);
+                if (hf != INVALID_HANDLE_VALUE) {
+                    do {
+                        std::wstring lnkFull = tbDir + L"\\" + fd.cFileName;
+                        std::wstring trg, cIco;
+                        ResolveShortcut(lnkFull, trg, cIco);
+                        std::wstring base = PathFindFileNameW(trg.c_str());
+                        if (_wcsicmp(base.c_str(), L"explorer.exe") == 0 ||
+                            _wcsicmp(fd.cFileName, L"File Explorer.lnk") == 0 ||
+                            _wcsicmp(fd.cFileName, L"Проводник.lnk") == 0) {
+                            if (SetShortcutIconLocation(lnkFull, icoPath)) {
+                                TouchFileModificationTime(lnkFull);
+                                SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, lnkFull.c_str(), NULL);
                                 updatedCount++;
                             }
-                            ppf->Release();
                         }
-                        psl->Release();
-                    }
+                    } while (FindNextFileW(hf, &fd));
+                    FindClose(hf);
                 }
             }
         }
@@ -609,6 +712,10 @@ bool RestoreOriginalEntry(AppEntry& app) {
     }
     if (app.isFileExplorer) {
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Applications\\explorer.exe\\DefaultIcon", NULL, app.defaultRestoreIcon);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\DefaultIcon", NULL, app.defaultRestoreIcon);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\CLSID\\{52205A70-C2E2-4E6B-B590-E7ED7E7D00B1}\\DefaultIcon", NULL, app.defaultRestoreIcon);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\DefaultIcon", NULL, app.defaultRestoreIcon);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\{52205A70-C2E2-4E6B-B590-E7ED7E7D00B1}\\DefaultIcon", NULL, app.defaultRestoreIcon);
     }
 
     if (app.allLnkPaths.empty() && !app.lnkPath.empty()) {

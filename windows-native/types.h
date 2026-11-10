@@ -159,6 +159,7 @@ struct AppEntry {
     GlyphBadgeOverlay customBadge = BADGE_NONE;
     GlyphBadgePosition customBadgePos = BADGE_POS_TOP_RIGHT;
     Bitmap* origBitmap = nullptr;
+    Bitmap* customArtwork = nullptr;
     Bitmap* cachedThumb = nullptr; // 64x64 cached circular preview for the list
 };
 

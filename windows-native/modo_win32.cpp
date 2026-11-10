@@ -134,12 +134,29 @@ enum WidgetID {
     W_SLIDER_GRID_SIZE,
     W_GRID_AREA,
     W_INSP_TAB_STYLE,
+    W_INSP_TAB_ARTWORK,
     W_INSP_TAB_GEOMETRY,
     W_INSP_TAB_OPTIONS,
     // Surface material pills (8 materials)
     W_MATERIAL_0, W_MATERIAL_1, W_MATERIAL_2, W_MATERIAL_3, W_MATERIAL_4, W_MATERIAL_5, W_MATERIAL_6, W_MATERIAL_7,
     // Glyph artwork style pills (6 modes)
-    W_GLYPH_0, W_GLYPH_1, W_GLYPH_2, W_GLYPH_3, W_GLYPH_4, W_GLYPH_5
+    W_GLYPH_0, W_GLYPH_1, W_GLYPH_2, W_GLYPH_3, W_GLYPH_4, W_GLYPH_5,
+    // Explorer quick restart
+    W_BTN_RESTART_EXPLORER,
+    // Artwork Tab controls
+    W_BTN_ART_FILE,
+    W_BTN_ART_PASTE,
+    W_BTN_ART_LUCIDE,
+    W_BTN_ART_MONOGRAM,
+    W_BTN_ART_RESET,
+    W_BTN_ART_ROT_L,
+    W_BTN_ART_ROT_R,
+    W_BTN_ART_FLIP_H,
+    W_BTN_ART_FLIP_V,
+    W_BTN_ART_RESET_TRANS,
+    W_BTN_ART_GRAD_0, W_BTN_ART_GRAD_1, W_BTN_ART_GRAD_2, W_BTN_ART_GRAD_3, W_BTN_ART_GRAD_4, W_BTN_ART_GRAD_5, W_BTN_ART_GRAD_6,
+    W_BTN_ART_BADGE_0, W_BTN_ART_BADGE_1, W_BTN_ART_BADGE_2, W_BTN_ART_BADGE_3, W_BTN_ART_BADGE_4, W_BTN_ART_BADGE_5, W_BTN_ART_BADGE_6, W_BTN_ART_BADGE_7,
+    W_BTN_ART_BPOS_TR, W_BTN_ART_BPOS_BR, W_BTN_ART_BPOS_TL, W_BTN_ART_BPOS_BL
 };
 
 struct HitZone {
@@ -312,8 +329,12 @@ static int g_viewMode = APP_VIEW_GRID;
 static int g_gridScrollY = 0;
 static int g_gridIconSize = 56; // Grid Gallery icon size in px (48..96)
 
-enum InspectorTab { INSP_TAB_STYLE = 0, INSP_TAB_GEOMETRY = 1, INSP_TAB_OPTIONS = 2 };
+enum InspectorTab { INSP_TAB_STYLE = 0, INSP_TAB_ARTWORK = 1, INSP_TAB_GEOMETRY = 2, INSP_TAB_OPTIONS = 3 };
 static int g_inspectorTab = INSP_TAB_STYLE;
+
+static inline Bitmap* GetEffectiveArtwork(const AppEntry& app) {
+    return app.customArtwork ? app.customArtwork : app.origBitmap;
+}
 
 // Forward declarations
 static void InvalidateAllThumbs();
@@ -371,8 +392,9 @@ static void InvalidateAllThumbs() {
 }
 
 static Bitmap* GetAppThumb(AppEntry& app) {
-    if (!app.cachedThumb && app.origBitmap) {
-        app.cachedThumb = RenderGoogleRoundIcon(app.origBitmap, g_style, 128);
+    Bitmap* art = GetEffectiveArtwork(app);
+    if (!app.cachedThumb && art) {
+        app.cachedThumb = RenderGoogleRoundIcon(art, g_style, 128);
     }
     return app.cachedThumb;
 }
@@ -477,6 +499,7 @@ static void RebuildFilteredList() {
 static void ScanInstalledWindowsApps() {
     for (auto& app : g_allApps) {
         delete app.origBitmap;
+        delete app.customArtwork;
         delete app.cachedThumb;
     }
     g_allApps.clear();
@@ -659,6 +682,68 @@ static void AddCustomAppOrImage(HWND hwnd) {
     }
 }
 
+static Bitmap* CreateBitmapFromClipboard() {
+    if (!OpenClipboard(NULL)) return nullptr;
+    Bitmap* bmp = nullptr;
+    HANDLE hDib = GetClipboardData(CF_DIB);
+    if (hDib) {
+        BITMAPINFO* bi = (BITMAPINFO*)GlobalLock(hDib);
+        if (bi) {
+            void* pBits = (BYTE*)bi + bi->bmiHeader.biSize + (bi->bmiHeader.biClrUsed * sizeof(RGBQUAD));
+            if (bi->bmiHeader.biBitCount == 32) {
+                int w = bi->bmiHeader.biWidth;
+                int h = std::abs(bi->bmiHeader.biHeight);
+                bmp = new Bitmap(w, h, PixelFormat32bppARGB);
+                BitmapData bd;
+                Rect rc(0, 0, w, h);
+                if (bmp->LockBits(&rc, ImageLockModeWrite, PixelFormat32bppARGB, &bd) == Ok) {
+                    bool bottomUp = (bi->bmiHeader.biHeight > 0);
+                    for (int y = 0; y < h; ++y) {
+                        int srcY = bottomUp ? (h - 1 - y) : y;
+                        uint8_t* pDst = (uint8_t*)bd.Scan0 + y * bd.Stride;
+                        const uint8_t* pSrc = (const uint8_t*)pBits + srcY * (w * 4);
+                        memcpy(pDst, pSrc, w * 4);
+                    }
+                    bmp->UnlockBits(&bd);
+                }
+            } else {
+                HDC hdc = GetDC(NULL);
+                HBITMAP hBmp = CreateDIBitmap(hdc, &bi->bmiHeader, CBM_INIT, pBits, bi, DIB_RGB_COLORS);
+                ReleaseDC(NULL, hdc);
+                if (hBmp) {
+                    bmp = Bitmap::FromHBITMAP(hBmp, NULL);
+                    DeleteObject(hBmp);
+                }
+            }
+            GlobalUnlock(hDib);
+        }
+    } else {
+        HBITMAP hBmp = (HBITMAP)GetClipboardData(CF_BITMAP);
+        if (hBmp) {
+            bmp = Bitmap::FromHBITMAP(hBmp, NULL);
+        }
+    }
+    CloseClipboard();
+    return bmp;
+}
+
+static Bitmap* PromptUserForArtworkFile(HWND hwnd) {
+    wchar_t filePath[MAX_PATH] = {0};
+    OPENFILENAMEW ofn = {0};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFilter = L"Изображения и значки (*.png;*.ico;*.jpg;*.jpeg;*.bmp)\0*.png;*.ico;*.jpg;*.jpeg;*.bmp\0Все файлы (*.*)\0*.*\0";
+    ofn.lpstrFile = filePath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+    ofn.lpstrTitle = L"Выберите изображение для рисунка значка (.png, .ico, .jpg)";
+
+    if (GetOpenFileNameW(&ofn) && filePath[0]) {
+        return IconEngine::LoadHighResIcon(filePath, L"");
+    }
+    return nullptr;
+}
+
 static void ExportStandardIcons(HWND hwnd) {
     if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
         MessageBoxW(hwnd, L"Выберите приложение в галерее или списке для экспорта.", L"Modo Studio", MB_OK | MB_ICONWARNING);
@@ -676,10 +761,11 @@ static void ExportStandardIcons(HWND hwnd) {
         std::wstring dir = outDir;
         AppEntry& app = g_allApps[g_selectedAppIndex];
         std::wstring safe = SanitizeFileName(app.name);
-        Bitmap* master1024 = RenderGoogleRoundIcon(app.origBitmap, g_style, 1024);
+        Bitmap* art = GetEffectiveArtwork(app);
+        Bitmap* master1024 = RenderGoogleRoundIcon(art, g_style, 1024);
         std::wstring icoFile = dir + L"\\" + safe + L".ico";
         std::wstring pngFile = dir + L"\\" + safe + L".png";
-        SaveMultiSizeIco(app.origBitmap, g_style, icoFile, &g_pngClsid);
+        SaveMultiSizeIco(art, g_style, icoFile, &g_pngClsid);
         if (master1024) {
             master1024->Save(pngFile.c_str(), &g_pngClsid, NULL);
             delete master1024;
@@ -708,7 +794,8 @@ static void ExportWebFaviconKitDialog(HWND hwnd) {
     if (SHGetPathFromIDListW(pidl, outDir) && outDir[0]) {
         std::wstring dir = outDir;
         AppEntry& app = g_allApps[g_selectedAppIndex];
-        if (ExportWebFaviconKit(app.origBitmap, g_style, app.name, dir, &g_pngClsid)) {
+        Bitmap* art = GetEffectiveArtwork(app);
+        if (ExportWebFaviconKit(art, g_style, app.name, dir, &g_pngClsid)) {
             g_statusText = L"Web Favicon Kit успешно сохранён в " + dir;
             InvalidateRect(hwnd, NULL, FALSE);
             MessageBoxW(hwnd, (L"Пакет Web Favicon Kit (favicon.ico, PNG 16/32/180/192/512, site.webmanifest, HTML-теги) успешно создан в:\n" + dir).c_str(),
@@ -736,7 +823,8 @@ static void ExportXcodeCatalogDialog(HWND hwnd) {
     if (SHGetPathFromIDListW(pidl, outDir) && outDir[0]) {
         std::wstring dir = outDir;
         AppEntry& app = g_allApps[g_selectedAppIndex];
-        if (ExportXcodeAssetCatalog(app.origBitmap, g_style, app.name, dir, &g_pngClsid)) {
+        Bitmap* art = GetEffectiveArtwork(app);
+        if (ExportXcodeAssetCatalog(art, g_style, app.name, dir, &g_pngClsid)) {
             g_statusText = L"Xcode Asset Catalog успешно сохранён в " + dir;
             InvalidateRect(hwnd, NULL, FALSE);
             MessageBoxW(hwnd, (L"Каталог Xcode Asset Catalog (.appiconset с 11 размерами и Contents.json) успешно создан в:\n" + dir).c_str(),
@@ -754,6 +842,7 @@ static void ExportShowcaseBannerDialog(HWND hwnd, ShowcaseTheme theme = SHOWCASE
         return;
     }
     AppEntry& app = g_allApps[g_selectedAppIndex];
+    Bitmap* art = GetEffectiveArtwork(app);
     std::wstring defName = SanitizeFileName(app.name) + L"-showcase.png";
 
     wchar_t szFile[MAX_PATH] = {0};
@@ -769,7 +858,7 @@ static void ExportShowcaseBannerDialog(HWND hwnd, ShowcaseTheme theme = SHOWCASE
     ofn.lpstrDefExt = L"png";
 
     if (GetSaveFileNameW(&ofn)) {
-        if (ExportShowcaseBanner(app.origBitmap, g_style, app.name,
+        if (ExportShowcaseBanner(art, g_style, app.name,
                                  theme, layout,
                                  szFile, &g_pngClsid)) {
             g_statusText = L"Showcase баннер успешно сохранён: " + std::wstring(szFile);
@@ -1041,7 +1130,12 @@ enum IconGlyphType {
     GLYPH_SHAPE_SQUIRCLE,
     GLYPH_SHAPE_ROUNDRECT,
     GLYPH_SHAPE_PEBBLE,
-    GLYPH_SHAPE_HEXAGON
+    GLYPH_SHAPE_HEXAGON,
+    GLYPH_EXPLORER,
+    GLYPH_PHOTO,
+    GLYPH_CLIPBOARD,
+    GLYPH_VECTOR,
+    GLYPH_FONT
 };
 
 static void DrawGlyphIcon(Graphics& g, IconGlyphType glyph, RectF r, Color clr) {
@@ -1163,6 +1257,40 @@ static void DrawGlyphIcon(Graphics& g, IconGlyphType glyph, RectF r, Color clr) 
             hpts[i] = PointF(cx + (REAL)(rad * cos(ang)), cy + (REAL)(rad * sin(ang)));
         }
         g.DrawPolygon(&p, hpts, 6);
+        break;
+    }
+    case GLYPH_EXPLORER: {
+        g.DrawLine(&p, r.X + 1.0f, r.Y + 3.0f, r.X + 5.0f, r.Y + 3.0f);
+        g.DrawLine(&p, r.X + 5.0f, r.Y + 3.0f, r.X + 7.0f, r.Y + 5.0f);
+        g.DrawLine(&p, r.X + 7.0f, r.Y + 5.0f, r.GetRight() - 1.0f, r.Y + 5.0f);
+        g.DrawLine(&p, r.GetRight() - 1.0f, r.Y + 5.0f, r.GetRight() - 1.0f, r.GetBottom() - 1.0f);
+        g.DrawLine(&p, r.GetRight() - 1.0f, r.GetBottom() - 1.0f, r.X + 1.0f, r.GetBottom() - 1.0f);
+        g.DrawLine(&p, r.X + 1.0f, r.GetBottom() - 1.0f, r.X + 1.0f, r.Y + 3.0f);
+        break;
+    }
+    case GLYPH_PHOTO: {
+        DrawRoundRect(g, RectF(r.X + 1.0f, r.Y + 2.0f, r.Width - 2.0f, r.Height - 4.0f), 2.0f, clr, 1.2f);
+        g.FillEllipse(&b, r.X + 3.5f, r.Y + 4.0f, 2.5f, 2.5f);
+        PointF pts[3] = { PointF(r.X + 2.0f, r.GetBottom() - 3.0f), PointF(r.X + 6.0f, r.Y + 6.0f), PointF(r.X + 10.0f, r.GetBottom() - 3.0f) };
+        g.DrawLines(&p, pts, 3);
+        break;
+    }
+    case GLYPH_CLIPBOARD: {
+        DrawRoundRect(g, RectF(r.X + 2.0f, r.Y + 3.0f, r.Width - 4.0f, r.Height - 4.0f), 2.0f, clr, 1.2f);
+        g.DrawLine(&p, r.X + 5.0f, r.Y + 1.5f, r.GetRight() - 5.0f, r.Y + 1.5f);
+        break;
+    }
+    case GLYPH_VECTOR: {
+        PointF pts[4] = { PointF(r.X + r.Width * 0.5f, r.Y + 1.0f), PointF(r.GetRight() - 1.0f, r.Y + r.Height * 0.5f),
+                          PointF(r.X + r.Width * 0.5f, r.GetBottom() - 1.0f), PointF(r.X + 1.0f, r.Y + r.Height * 0.5f) };
+        g.DrawPolygon(&p, pts, 4);
+        break;
+    }
+    case GLYPH_FONT: {
+        FontFamily ff(L"Segoe UI");
+        Font fn(&ff, 9.0f, FontStyleBold, UnitPixel);
+        StringFormat sf; sf.SetAlignment(StringAlignmentCenter); sf.SetLineAlignment(StringAlignmentCenter);
+        g.DrawString(L"A", -1, &fn, r, &sf, &b);
         break;
     }
     default:
@@ -1325,8 +1453,20 @@ static const wchar_t* GetWidgetTooltip(WidgetID id) {
         case W_BTN_APP_VIEW_LIST: return L"Компактный детальный список приложений (Ctrl+2)";
         case W_SLIDER_GRID_SIZE: return L"Размер значков карточек в сетке: 48-96px (Ctrl++ / Ctrl+-)";
         case W_INSP_TAB_STYLE: return L"Вкладка: Стиль, форма подложки и цвет";
+        case W_INSP_TAB_ARTWORK: return L"Вкладка: Рисунок значка, замена, градиенты и бейджи";
         case W_INSP_TAB_GEOMETRY: return L"Вкладка: Геометрия, масштаб и смещение значка";
         case W_INSP_TAB_OPTIONS: return L"Вкладка: Тени, автообрезка полей и монохром";
+        case W_BTN_RESTART_EXPLORER: return L"Перезапустить Проводник Windows и сбросить кэш иконок";
+        case W_BTN_ART_FILE: return L"Загрузить картинку или векторный значок из файла (.png, .svg, .ico, .jpg)";
+        case W_BTN_ART_PASTE: return L"Вставить изображение рисунка из буфера обмена Windows";
+        case W_BTN_ART_LUCIDE: return L"Выбрать открытый векторный значок из каталога Lucide";
+        case W_BTN_ART_MONOGRAM: return L"Создать типографическую буквенную монограмму";
+        case W_BTN_ART_RESET: return L"Вернуть исходный системный рисунок приложения";
+        case W_BTN_ART_ROT_L: return L"Повернуть рисунок на 90 градусов против часовой стрелки";
+        case W_BTN_ART_ROT_R: return L"Повернуть рисунок на 90 градусов по часовой стрелке";
+        case W_BTN_ART_FLIP_H: return L"Отразить рисунок по горизонтали зеркально";
+        case W_BTN_ART_FLIP_V: return L"Отразить рисунок по вертикали зеркально";
+        case W_BTN_ART_RESET_TRANS: return L"Сбросить поворот, отражение и градиенты рисунка";
         case W_BTN_EYEDROPPER: return L"Экранная пипетка: захват цвета из любой точки экрана (Esc для отмены)";
         case W_BTN_PALETTE: return L"Выбор произвольного цвета фона в палитре Windows";
         case W_SWATCH_WIN_ACCENT: return L"Цвет акцента текущей темы Windows (Ctrl+Shift+A)";
@@ -1419,6 +1559,9 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     RectF menuR(224.0f, 13.0f, 76.0f, 28.0f);
     DrawStudioPillButton(g, W_BTN_MODO_MENU, menuR, L"Меню %BE", fSmallBold, theme, false, false, false);
+
+    RectF expR(306.0f, 13.0f, 172.0f, 28.0f);
+    DrawStudioPillButton(g, W_BTN_RESTART_EXPLORER, expR, L"Перезапуск Проводника", fSmallBold, theme, false, false, false, GLYPH_EXPLORER);
 
     // Top-right Toolbar Controls
     RectF themeR((REAL)(clientW - 556), 13.0f, 130.0f, 28.0f);
@@ -1862,9 +2005,10 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
         AppEntry& app = g_allApps[g_selectedAppIndex];
-        if (app.origBitmap) {
-            g.DrawImage(app.origBitmap, RectF(leftPodiumX + 10.0f, stagePodiumY + 10.0f, podiumSize - 20.0f, podiumSize - 20.0f));
-            Bitmap* hiRound = RenderGoogleRoundIcon(app.origBitmap, g_style, 256);
+        Bitmap* art = GetEffectiveArtwork(app);
+        if (art) {
+            g.DrawImage(art, RectF(leftPodiumX + 10.0f, stagePodiumY + 10.0f, podiumSize - 20.0f, podiumSize - 20.0f));
+            Bitmap* hiRound = RenderGoogleRoundIcon(art, g_style, 256);
             if (hiRound) {
                 float tx = g_heroTiltX;
                 float ty = g_heroTiltY;
@@ -1971,12 +2115,14 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     FillRoundRect(g, tabSwitchR, 6.0f, theme.controlBg);
     DrawRoundRect(g, tabSwitchR, 6.0f, theme.controlBorder, 1.0f);
 
-    REAL iSegW = (tabSwitchR.Width - 6.0f) / 3.0f;
+    REAL iSegW = (tabSwitchR.Width - 8.0f) / 4.0f;
     RectF tabStyleR(tabSwitchR.X + 2.0f, tabSwitchR.Y + 2.0f, iSegW, tabSwitchR.Height - 4.0f);
-    RectF tabGeoR(tabSwitchR.X + 3.0f + iSegW, tabSwitchR.Y + 2.0f, iSegW, tabSwitchR.Height - 4.0f);
-    RectF tabOptR(tabSwitchR.X + 4.0f + iSegW * 2.0f, tabSwitchR.Y + 2.0f, iSegW, tabSwitchR.Height - 4.0f);
+    RectF tabArtR(tabSwitchR.X + 3.0f + iSegW, tabSwitchR.Y + 2.0f, iSegW, tabSwitchR.Height - 4.0f);
+    RectF tabGeoR(tabSwitchR.X + 4.0f + iSegW * 2.0f, tabSwitchR.Y + 2.0f, iSegW, tabSwitchR.Height - 4.0f);
+    RectF tabOptR(tabSwitchR.X + 5.0f + iSegW * 3.0f, tabSwitchR.Y + 2.0f, iSegW, tabSwitchR.Height - 4.0f);
 
     RegisterHit(W_INSP_TAB_STYLE, tabStyleR);
+    RegisterHit(W_INSP_TAB_ARTWORK, tabArtR);
     RegisterHit(W_INSP_TAB_GEOMETRY, tabGeoR);
     RegisterHit(W_INSP_TAB_OPTIONS, tabOptR);
 
@@ -1986,11 +2132,13 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
     };
 
     if (g_inspectorTab == INSP_TAB_STYLE) drawActiveTab(tabStyleR);
+    else if (g_inspectorTab == INSP_TAB_ARTWORK) drawActiveTab(tabArtR);
     else if (g_inspectorTab == INSP_TAB_GEOMETRY) drawActiveTab(tabGeoR);
     else drawActiveTab(tabOptR);
 
     g.DrawString(L"Стиль", -1, &fSmallBold, tabStyleR, &sfC, (g_inspectorTab == INSP_TAB_STYLE) ? &primBr : &secBr);
-    g.DrawString(L"Геометрия", -1, &fSmallBold, tabGeoR, &sfC, (g_inspectorTab == INSP_TAB_GEOMETRY) ? &primBr : &secBr);
+    g.DrawString(L"Рисунок", -1, &fSmallBold, tabArtR, &sfC, (g_inspectorTab == INSP_TAB_ARTWORK) ? &primBr : &secBr);
+    g.DrawString(L"Геом.", -1, &fSmallBold, tabGeoR, &sfC, (g_inspectorTab == INSP_TAB_GEOMETRY) ? &primBr : &secBr);
     g.DrawString(L"Опции", -1, &fSmallBold, tabOptR, &sfC, (g_inspectorTab == INSP_TAB_OPTIONS) ? &primBr : &secBr);
 
     // 3. Tab Content Area
@@ -2083,6 +2231,74 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
             int col = gl % 3;
             RectF gr((REAL)(inspX + 16) + col * (glyW3 + 4.0f), glyphY + 16.0f + row * 24.0f, glyW3, 20.0f);
             DrawStudioPillButton(g, (WidgetID)(W_GLYPH_0 + gl), gr, glyphNames[gl], fSmallBold, theme, false, (int)g_style.glyphStyle == gl);
+        }
+
+    } else if (g_inspectorTab == INSP_TAB_ARTWORK) {
+        // --- TAB 2: РИСУНОК ЗНАЧКА ---
+        // 1. Замена изображения рисунка
+        g.DrawString(L"Заменить рисунок значка", -1, &fSmallBold, PointF((REAL)(inspX + 16), tabBodyY), NULL, &primBr);
+        REAL artW4 = (inspW - 32.0f - 3.0f * 4.0f) / 4.0f;
+        RectF btnFileR((REAL)(inspX + 16), tabBodyY + 18.0f, artW4, 26.0f);
+        RectF btnPasteR((REAL)(inspX + 16) + (artW4 + 4.0f), tabBodyY + 18.0f, artW4, 26.0f);
+        RectF btnLucideR((REAL)(inspX + 16) + 2 * (artW4 + 4.0f), tabBodyY + 18.0f, artW4, 26.0f);
+        RectF btnMonoR((REAL)(inspX + 16) + 3 * (artW4 + 4.0f), tabBodyY + 18.0f, artW4, 26.0f);
+
+        DrawStudioPillButton(g, W_BTN_ART_FILE, btnFileR, L"Файл...", fSmallBold, theme, false, false, false, GLYPH_PHOTO);
+        DrawStudioPillButton(g, W_BTN_ART_PASTE, btnPasteR, L"Буфер", fSmallBold, theme, false, false, false, GLYPH_CLIPBOARD);
+        DrawStudioPillButton(g, W_BTN_ART_LUCIDE, btnLucideR, L"Lucide...", fSmallBold, theme, false, false, false, GLYPH_VECTOR);
+        DrawStudioPillButton(g, W_BTN_ART_MONOGRAM, btnMonoR, L"Текст...", fSmallBold, theme, false, false, false, GLYPH_FONT);
+
+        REAL resetArtY = tabBodyY + 48.0f;
+        DrawStudioPillButton(g, W_BTN_ART_RESET, RectF((REAL)(inspX + 16), resetArtY, (REAL)(inspW - 32), 24.0f),
+                             L"Вернуть системный значок", fSmall, theme, false, false, false, GLYPH_REVERT);
+
+        // 2. Поворот и зеркальное отражение
+        REAL transY = resetArtY + 30.0f;
+        wchar_t transLbl[96];
+        wsprintfW(transLbl, L"Поворот и отражение (%d°%ls%ls)",
+                  (int)std::round(g_style.rotation),
+                  g_style.flipH ? L" · Flip H" : L"",
+                  g_style.flipV ? L" · Flip V" : L"");
+        g.DrawString(transLbl, -1, &fSmallBold, PointF((REAL)(inspX + 16), transY), NULL, &primBr);
+
+        REAL rotW5 = (inspW - 32.0f - 4.0f * 4.0f) / 5.0f;
+        DrawStudioPillButton(g, W_BTN_ART_ROT_L, RectF((REAL)(inspX + 16), transY + 18.0f, rotW5, 24.0f), L"-90°", fSmallBold, theme);
+        DrawStudioPillButton(g, W_BTN_ART_ROT_R, RectF((REAL)(inspX + 16) + (rotW5 + 4.0f), transY + 18.0f, rotW5, 24.0f), L"+90°", fSmallBold, theme);
+        DrawStudioPillButton(g, W_BTN_ART_FLIP_H, RectF((REAL)(inspX + 16) + 2 * (rotW5 + 4.0f), transY + 18.0f, rotW5, 24.0f), L"Flip H", fSmallBold, theme, false, g_style.flipH);
+        DrawStudioPillButton(g, W_BTN_ART_FLIP_V, RectF((REAL)(inspX + 16) + 3 * (rotW5 + 4.0f), transY + 18.0f, rotW5, 24.0f), L"Flip V", fSmallBold, theme, false, g_style.flipV);
+        DrawStudioPillButton(g, W_BTN_ART_RESET_TRANS, RectF((REAL)(inspX + 16) + 4 * (rotW5 + 4.0f), transY + 18.0f, rotW5, 24.0f), L"0°", fSmallBold, theme);
+
+        // 3. Градиентная маска рисунка (7 градиентов)
+        REAL gradY = transY + 46.0f;
+        g.DrawString(L"Градиентная заливка рисунка", -1, &fSmallBold, PointF((REAL)(inspX + 16), gradY), NULL, &primBr);
+        const wchar_t* gradNames[7] = { L"Нет", L"Gold", L"Cyber", L"Sunset", L"Emerald", L"Titan", L"Amethyst" };
+        REAL grW4 = (inspW - 32.0f - 3.0f * 4.0f) / 4.0f;
+        for (int gr = 0; gr < 7; ++gr) {
+            int row = gr / 4;
+            int col = gr % 4;
+            RectF grR((REAL)(inspX + 16) + col * (grW4 + 4.0f), gradY + 18.0f + row * 24.0f, grW4, 20.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_BTN_ART_GRAD_0 + gr), grR, gradNames[gr], fSmallBold, theme, false, (int)g_style.glyphGrad == gr);
+        }
+
+        // 4. Бейдж статуса на значке (8 бейджей + 4 позиции)
+        REAL badgeY = gradY + 18.0f + 2 * 24.0f + 6.0f;
+        g.DrawString(L"Бейдж статуса поверх рисунка", -1, &fSmallBold, PointF((REAL)(inspX + 16), badgeY), NULL, &primBr);
+        const wchar_t* badgeNames[8] = { L"Нет", L"Точка", L"Галочка", L"Звезда", L"Замок", L"Alert", L"Beta", L"Pro" };
+        REAL bdW4 = (inspW - 32.0f - 3.0f * 4.0f) / 4.0f;
+        for (int b = 0; b < 8; ++b) {
+            int row = b / 4;
+            int col = b % 4;
+            RectF bdR((REAL)(inspX + 16) + col * (bdW4 + 4.0f), badgeY + 18.0f + row * 24.0f, bdW4, 20.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_BTN_ART_BADGE_0 + b), bdR, badgeNames[b], fSmallBold, theme, false, (int)g_style.badge == b);
+        }
+
+        // Badge positions (4 positions)
+        REAL bposRowY = badgeY + 18.0f + 2 * 24.0f + 6.0f;
+        const wchar_t* bposNames[4] = { L"Справа вверх", L"Справа низ", L"Слева вверх", L"Слева низ" };
+        REAL bpW4 = (inspW - 32.0f - 3.0f * 4.0f) / 4.0f;
+        for (int bp = 0; bp < 4; ++bp) {
+            RectF bpR((REAL)(inspX + 16) + bp * (bpW4 + 4.0f), bposRowY, bpW4, 20.0f);
+            DrawStudioPillButton(g, (WidgetID)(W_BTN_ART_BPOS_TR + bp), bpR, bposNames[bp], fSmall, theme, false, (int)g_style.badgePos == bp);
         }
 
     } else if (g_inspectorTab == INSP_TAB_GEOMETRY) {
@@ -2760,10 +2976,10 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 }
                 Color pColor(255, 10, 132, 255);
                 Color sColor(255, 94, 92, 230);
-                if (app.origBitmap) {
-                    delete app.origBitmap;
+                if (app.customArtwork) {
+                    delete app.customArtwork;
                 }
-                app.origBitmap = IconEngine::RenderMonogramBitmap(letters, pColor, sColor, 256, 0);
+                app.customArtwork = IconEngine::RenderMonogramBitmap(letters, pColor, sColor, 256, 0);
                 InvalidateAllThumbs();
                 g_statusText = L"Создана монограмма '" + letters + L"' для " + app.name;
                 InvalidateRect(hwnd, NULL, FALSE);
@@ -2894,9 +3110,11 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                 int idx = cmd - IDM_TOOLS_LUCIDE_BASE;
                 if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
                     auto& app = g_allApps[g_selectedAppIndex];
-                    Color strokeCol(255, 255, 255, 255);
-                    if (app.origBitmap) delete app.origBitmap;
-                    app.origBitmap = IconEngine::RenderLucideVectorBitmap(kLucideMenuIcons[idx].id, strokeCol, 256);
+                    Color strokeCol(255, 30, 30, 30);
+                    if (g_isDarkMode) strokeCol = Color(255, 240, 240, 245);
+                    if (app.customArtwork) delete app.customArtwork;
+                    app.customArtwork = IconEngine::RenderLucideVectorBitmap(kLucideMenuIcons[idx].id, strokeCol, 256);
+                    if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
                     InvalidateAllThumbs();
                     wchar_t buf[128];
                     wsprintfW(buf, L"Применен вектор Lucide: %ls", kLucideMenuIcons[idx].label);
@@ -2972,8 +3190,20 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 
+        case W_BTN_RESTART_EXPLORER: {
+            RefreshWindowsExplorerIconCache(true);
+            g_statusText = L"Проводник Windows перезапущен, дисковый кэш иконок успешно очищен";
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
+
         case W_INSP_TAB_STYLE:
             g_inspectorTab = INSP_TAB_STYLE;
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+
+        case W_INSP_TAB_ARTWORK:
+            g_inspectorTab = INSP_TAB_ARTWORK;
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 
@@ -2986,6 +3216,160 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             g_inspectorTab = INSP_TAB_OPTIONS;
             InvalidateRect(hwnd, NULL, FALSE);
             break;
+
+        case W_BTN_ART_FILE: {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                AppEntry& app = g_allApps[g_selectedAppIndex];
+                Bitmap* newBmp = PromptUserForArtworkFile(hwnd);
+                if (newBmp) {
+                    if (app.customArtwork) delete app.customArtwork;
+                    app.customArtwork = newBmp;
+                    if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
+                    g_statusText = L"Загружен рисунок значка для: " + app.name;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                }
+            } else {
+                MessageBoxW(hwnd, L"Выберите приложение в галерее для замены рисунка.", L"Замена рисунка", MB_OK | MB_ICONINFORMATION);
+            }
+            break;
+        }
+
+        case W_BTN_ART_PASTE: {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                AppEntry& app = g_allApps[g_selectedAppIndex];
+                Bitmap* clipBmp = CreateBitmapFromClipboard();
+                if (clipBmp) {
+                    if (app.customArtwork) delete app.customArtwork;
+                    app.customArtwork = clipBmp;
+                    if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
+                    g_statusText = L"Вставлен рисунок из буфера обмена для: " + app.name;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                } else {
+                    MessageBoxW(hwnd, L"В буфере обмена Windows нет подходящего изображения.", L"Буфер обмена", MB_OK | MB_ICONWARNING);
+                }
+            } else {
+                MessageBoxW(hwnd, L"Выберите приложение в галерее для вставки рисунка.", L"Буфер обмена", MB_OK | MB_ICONINFORMATION);
+            }
+            break;
+        }
+
+        case W_BTN_ART_LUCIDE: {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                HMENU hLucideSub = CreatePopupMenu();
+                int lucideCount = (int)(sizeof(kLucideMenuIcons) / sizeof(kLucideMenuIcons[0]));
+                for (int i = 0; i < lucideCount; ++i) {
+                    AppendMenuW(hLucideSub, MF_STRING, IDM_TOOLS_LUCIDE_BASE + i, kLucideMenuIcons[i].label);
+                }
+                POINT screenPt = pt;
+                ClientToScreen(hwnd, &screenPt);
+                TrackPopupMenu(hLucideSub, TPM_LEFTALIGN | TPM_TOPALIGN, screenPt.x, screenPt.y, 0, hwnd, NULL);
+                DestroyMenu(hLucideSub);
+            } else {
+                MessageBoxW(hwnd, L"Выберите приложение в галерее для выбора вектора Lucide.", L"Каталог Lucide", MB_OK | MB_ICONINFORMATION);
+            }
+            break;
+        }
+
+        case W_BTN_ART_MONOGRAM: {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                AppEntry& app = g_allApps[g_selectedAppIndex];
+                std::wstring letters;
+                if (!app.name.empty()) {
+                    letters += (wchar_t)towupper(app.name[0]);
+                    size_t sp = app.name.find(L' ');
+                    if (sp != std::wstring::npos && sp + 1 < app.name.length()) {
+                        letters += (wchar_t)towupper(app.name[sp + 1]);
+                    }
+                } else {
+                    letters = L"M";
+                }
+                Color pColor(255, 10, 132, 255);
+                Color sColor(255, 94, 92, 230);
+                if (app.customArtwork) delete app.customArtwork;
+                app.customArtwork = IconEngine::RenderMonogramBitmap(letters, pColor, sColor, 256, 0);
+                if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
+                g_statusText = L"Создана монограмма '" + letters + L"' для " + app.name;
+                InvalidateRect(hwnd, NULL, FALSE);
+            } else {
+                MessageBoxW(hwnd, L"Выберите приложение в галерее для создания монограммы.", L"Монограмма", MB_OK | MB_ICONINFORMATION);
+            }
+            break;
+        }
+
+        case W_BTN_ART_RESET: {
+            if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                AppEntry& app = g_allApps[g_selectedAppIndex];
+                if (app.customArtwork) {
+                    delete app.customArtwork;
+                    app.customArtwork = nullptr;
+                }
+                app.customRotation = 0.0;
+                app.isFlippedH = false;
+                app.isFlippedV = false;
+                app.customGlyphGrad = GLYPH_GRAD_NONE;
+                app.customBadge = BADGE_NONE;
+                if (app.cachedThumb) {
+                    delete app.cachedThumb;
+                    app.cachedThumb = nullptr;
+                }
+                g_style.rotation = 0.0;
+                g_style.flipH = false;
+                g_style.flipV = false;
+                g_style.glyphGrad = GLYPH_GRAD_NONE;
+                g_style.badge = BADGE_NONE;
+                SaveStyleConfig();
+                InvalidateAllThumbs();
+                g_statusText = L"Восстановлен исходный системный рисунок: " + app.name;
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+            break;
+        }
+
+        case W_BTN_ART_ROT_L:
+            g_style.rotation = std::fmod(g_style.rotation - 90.0 + 360.0, 360.0);
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_ART_ROT_R:
+            g_style.rotation = std::fmod(g_style.rotation + 90.0, 360.0);
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_ART_FLIP_H:
+            g_style.flipH = !g_style.flipH;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_ART_FLIP_V:
+            g_style.flipV = !g_style.flipV;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+        case W_BTN_ART_RESET_TRANS:
+            g_style.rotation = 0.0;
+            g_style.flipH = false;
+            g_style.flipV = false;
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+
+        case W_BTN_ART_GRAD_0:
+        case W_BTN_ART_GRAD_1:
+        case W_BTN_ART_GRAD_2:
+        case W_BTN_ART_GRAD_3:
+        case W_BTN_ART_GRAD_4:
+        case W_BTN_ART_GRAD_5:
+        case W_BTN_ART_GRAD_6:
+            g_style.glyphGrad = (GlyphGradientPreset)(id - W_BTN_ART_GRAD_0);
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+
+        case W_BTN_ART_BADGE_0:
+        case W_BTN_ART_BADGE_1:
+        case W_BTN_ART_BADGE_2:
+        case W_BTN_ART_BADGE_3:
+        case W_BTN_ART_BADGE_4:
+        case W_BTN_ART_BADGE_5:
+        case W_BTN_ART_BADGE_6:
+        case W_BTN_ART_BADGE_7:
+            g_style.badge = (GlyphBadgeOverlay)(id - W_BTN_ART_BADGE_0);
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
+
+        case W_BTN_ART_BPOS_TR:
+        case W_BTN_ART_BPOS_BR:
+        case W_BTN_ART_BPOS_TL:
+        case W_BTN_ART_BPOS_BL:
+            g_style.badgePos = (GlyphBadgePosition)(id - W_BTN_ART_BPOS_TR);
+            SaveStyleConfig(); InvalidateAllThumbs(); InvalidateRect(hwnd, NULL, FALSE); break;
 
         case W_GRID_AREA: {
             RectF gridArea;
@@ -4107,6 +4491,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nCmd
 
     for (auto& app : g_allApps) {
         delete app.origBitmap;
+        delete app.customArtwork;
         delete app.cachedThumb;
     }
     GdiplusShutdown(g_gdiplusToken);
