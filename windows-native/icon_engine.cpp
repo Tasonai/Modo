@@ -2160,4 +2160,408 @@ Bitmap* RenderLucideVectorBitmap(const std::wstring& iconName, Color strokeColor
     return bmp;
 }
 
+#include "simple_icons_data.h"
+
+static void AddSvgArcToBezier(GraphicsPath& path, REAL x1, REAL y1, REAL rx, REAL ry, REAL phiDeg, bool fA, bool fS, REAL x2, REAL y2) {
+    if (rx <= 0.0001f || ry <= 0.0001f) {
+        path.AddLine(x1, y1, x2, y2);
+        return;
+    }
+    REAL dx = x1 - x2;
+    REAL dy = y1 - y2;
+    if (std::abs(dx) < 0.0001f && std::abs(dy) < 0.0001f) return;
+
+    REAL phi = phiDeg * 3.14159265358979323846f / 180.0f;
+    REAL cosPhi = std::cos(phi);
+    REAL sinPhi = std::sin(phi);
+
+    REAL x1p = cosPhi * (dx * 0.5f) + sinPhi * (dy * 0.5f);
+    REAL y1p = -sinPhi * (dx * 0.5f) + cosPhi * (dy * 0.5f);
+
+    rx = std::abs(rx);
+    ry = std::abs(ry);
+    REAL lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+    if (lambda > 1.0f) {
+        REAL sqrtL = std::sqrt(lambda);
+        rx *= sqrtL;
+        ry *= sqrtL;
+    }
+
+    REAL rxSq = rx * rx;
+    REAL rySq = ry * ry;
+    REAL x1pSq = x1p * x1p;
+    REAL y1pSq = y1p * y1p;
+    REAL num = rxSq * rySq - rxSq * y1pSq - rySq * x1pSq;
+    REAL den = rxSq * y1pSq + rySq * x1pSq;
+    REAL sq = (den > 0.0f && num > 0.0f) ? std::sqrt(num / den) : 0.0f;
+    if (fA == fS) sq = -sq;
+    REAL cxp = sq * (rx * y1p / ry);
+    REAL cyp = sq * -(ry * x1p / rx);
+
+    REAL cx = cosPhi * cxp - sinPhi * cyp + (x1 + x2) * 0.5f;
+    REAL cy = sinPhi * cxp + cosPhi * cyp + (y1 + y2) * 0.5f;
+
+    auto vecAngle = [](REAL ux, REAL uy, REAL vx, REAL vy) -> REAL {
+        REAL dot = ux * vx + uy * vy;
+        REAL len = std::sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+        if (len < 1e-6f) return 0.0f;
+        REAL a = std::acos(std::clamp(dot / len, -1.0f, 1.0f));
+        if ((ux * vy - uy * vx) < 0.0f) a = -a;
+        return a;
+    };
+
+    REAL theta1 = vecAngle(1.0f, 0.0f, (x1p - cxp) / rx, (y1p - cyp) / ry);
+    REAL dTheta = vecAngle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+    if (!fS && dTheta > 0.0f) dTheta -= 2.0f * 3.14159265358979323846f;
+    else if (fS && dTheta < 0.0f) dTheta += 2.0f * 3.14159265358979323846f;
+
+    int numSegs = (int)std::ceil(std::abs(dTheta) / (3.14159265358979323846f * 0.5f));
+    if (numSegs < 1) numSegs = 1;
+    REAL segTheta = dTheta / (REAL)numSegs;
+
+    for (int i = 0; i < numSegs; ++i) {
+        REAL th0 = theta1 + (REAL)i * segTheta;
+        REAL th1 = th0 + segTheta;
+        REAL alpha = std::sin(segTheta) * (std::sqrt(4.0f + 3.0f * std::tan(segTheta * 0.5f) * std::tan(segTheta * 0.5f)) - 1.0f) / 3.0f;
+
+        REAL cos0 = std::cos(th0), sin0 = std::sin(th0);
+        REAL cos1 = std::cos(th1), sin1 = std::sin(th1);
+
+        REAL ep0x = cx + rx * cos0 * cosPhi - ry * sin0 * sinPhi;
+        REAL ep0y = cy + rx * cos0 * sinPhi + ry * sin0 * cosPhi;
+
+        REAL ep1x = cx + rx * cos1 * cosPhi - ry * sin1 * sinPhi;
+        REAL ep1y = cy + rx * cos1 * sinPhi + ry * sin1 * cosPhi;
+
+        REAL cp1x = ep0x + alpha * (-rx * sin0 * cosPhi - ry * cos0 * sinPhi);
+        REAL cp1y = ep0y + alpha * (-rx * sin0 * sinPhi + ry * cos0 * cosPhi);
+
+        REAL cp2x = ep1x - alpha * (-rx * sin1 * cosPhi - ry * sin1 * sinPhi);
+        REAL cp2y = ep1y - alpha * (-rx * sin1 * sinPhi + ry * cos1 * cosPhi);
+
+        path.AddBezier(ep0x, ep0y, cp1x, cp1y, cp2x, cp2y, ep1x, ep1y);
+    }
+}
+
+static bool ParseSvgPathToGraphicsPath(const char* str, GraphicsPath& path, REAL scaleX, REAL scaleY, REAL offX, REAL offY) {
+    if (!str || !*str) return false;
+
+    REAL curX = 0, curY = 0;
+    REAL startX = 0, startY = 0;
+    REAL lastCtrlX = 0, lastCtrlY = 0;
+    char lastCmd = 0;
+
+    const char* p = str;
+
+    auto readNum = [&p](REAL& val) -> bool {
+        while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',')) p++;
+        if (!*p) return false;
+        char* endPtr = nullptr;
+        val = (REAL)strtod(p, &endPtr);
+        if (endPtr == p) return false;
+        p = endPtr;
+        return true;
+    };
+
+    auto readFlag = [&p](bool& flag) -> bool {
+        while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',')) p++;
+        if (!*p) return false;
+        if (*p == '0') { flag = false; p++; return true; }
+        if (*p == '1') { flag = true; p++; return true; }
+        return false;
+    };
+
+    while (*p) {
+        while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',')) p++;
+        if (!*p) break;
+
+        char c = *p;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+            lastCmd = c;
+            p++;
+        }
+
+        switch (lastCmd) {
+            case 'M':
+            case 'm': {
+                REAL x = 0, y = 0;
+                if (!readNum(x) || !readNum(y)) break;
+                if (lastCmd == 'm') { x += curX; y += curY; }
+                path.StartFigure();
+                curX = x; curY = y;
+                startX = x; startY = y;
+                lastCtrlX = x; lastCtrlY = y;
+                lastCmd = (lastCmd == 'M') ? 'L' : 'l';
+                break;
+            }
+            case 'L':
+            case 'l': {
+                REAL x = 0, y = 0;
+                if (!readNum(x) || !readNum(y)) break;
+                if (lastCmd == 'l') { x += curX; y += curY; }
+                path.AddLine(curX * scaleX + offX, curY * scaleY + offY, x * scaleX + offX, y * scaleY + offY);
+                curX = x; curY = y;
+                lastCtrlX = x; lastCtrlY = y;
+                break;
+            }
+            case 'H':
+            case 'h': {
+                REAL x = 0;
+                if (!readNum(x)) break;
+                if (lastCmd == 'h') x += curX;
+                path.AddLine(curX * scaleX + offX, curY * scaleY + offY, x * scaleX + offX, curY * scaleY + offY);
+                curX = x;
+                lastCtrlX = x; lastCtrlY = curY;
+                break;
+            }
+            case 'V':
+            case 'v': {
+                REAL y = 0;
+                if (!readNum(y)) break;
+                if (lastCmd == 'v') y += curY;
+                path.AddLine(curX * scaleX + offX, curY * scaleY + offY, curX * scaleX + offX, y * scaleY + offY);
+                curY = y;
+                lastCtrlX = curX; lastCtrlY = y;
+                break;
+            }
+            case 'C':
+            case 'c': {
+                REAL x1 = 0, y1 = 0, x2 = 0, y2 = 0, x = 0, y = 0;
+                if (!readNum(x1) || !readNum(y1) || !readNum(x2) || !readNum(y2) || !readNum(x) || !readNum(y)) break;
+                if (lastCmd == 'c') {
+                    x1 += curX; y1 += curY;
+                    x2 += curX; y2 += curY;
+                    x += curX; y += curY;
+                }
+                path.AddBezier(curX * scaleX + offX, curY * scaleY + offY,
+                               x1 * scaleX + offX, y1 * scaleY + offY,
+                               x2 * scaleX + offX, y2 * scaleY + offY,
+                               x * scaleX + offX, y * scaleY + offY);
+                lastCtrlX = x2; lastCtrlY = y2;
+                curX = x; curY = y;
+                break;
+            }
+            case 'S':
+            case 's': {
+                REAL x2 = 0, y2 = 0, x = 0, y = 0;
+                if (!readNum(x2) || !readNum(y2) || !readNum(x) || !readNum(y)) break;
+                if (lastCmd == 's') { x2 += curX; y2 += curY; x += curX; y += curY; }
+                REAL x1 = curX * 2.0f - lastCtrlX;
+                REAL y1 = curY * 2.0f - lastCtrlY;
+                path.AddBezier(curX * scaleX + offX, curY * scaleY + offY,
+                               x1 * scaleX + offX, y1 * scaleY + offY,
+                               x2 * scaleX + offX, y2 * scaleY + offY,
+                               x * scaleX + offX, y * scaleY + offY);
+                lastCtrlX = x2; lastCtrlY = y2;
+                curX = x; curY = y;
+                break;
+            }
+            case 'Q':
+            case 'q': {
+                REAL qx = 0, qy = 0, x = 0, y = 0;
+                if (!readNum(qx) || !readNum(qy) || !readNum(x) || !readNum(y)) break;
+                if (lastCmd == 'q') { qx += curX; qy += curY; x += curX; y += curY; }
+                REAL cp1x = curX + (2.0f / 3.0f) * (qx - curX);
+                REAL cp1y = curY + (2.0f / 3.0f) * (qy - curY);
+                REAL cp2x = x + (2.0f / 3.0f) * (qx - x);
+                REAL cp2y = y + (2.0f / 3.0f) * (qy - y);
+                path.AddBezier(curX * scaleX + offX, curY * scaleY + offY,
+                               cp1x * scaleX + offX, cp1y * scaleY + offY,
+                               cp2x * scaleX + offX, cp2y * scaleY + offY,
+                               x * scaleX + offX, y * scaleY + offY);
+                lastCtrlX = qx; lastCtrlY = qy;
+                curX = x; curY = y;
+                break;
+            }
+            case 'A':
+            case 'a': {
+                REAL rx = 0, ry = 0, rot = 0, x = 0, y = 0;
+                bool fA = false, fS = false;
+                if (!readNum(rx) || !readNum(ry) || !readNum(rot) || !readFlag(fA) || !readFlag(fS) || !readNum(x) || !readNum(y)) break;
+                if (lastCmd == 'a') { x += curX; y += curY; }
+                AddSvgArcToBezier(path,
+                                  curX * scaleX + offX, curY * scaleY + offY,
+                                  rx * scaleX, ry * scaleY, rot, fA, fS,
+                                  x * scaleX + offX, y * scaleY + offY);
+                curX = x; curY = y;
+                lastCtrlX = x; lastCtrlY = y;
+                break;
+            }
+            case 'Z':
+            case 'z': {
+                path.CloseFigure();
+                curX = startX; curY = startY;
+                lastCtrlX = startX; lastCtrlY = startY;
+                break;
+            }
+            default:
+                p++;
+                break;
+        }
+    }
+    return true;
+}
+
+Bitmap* RenderSimpleIconBitmap(const std::wstring& slugOrName, Color customColor, int size) {
+    if (size <= 0) size = 256;
+    Bitmap* bmp = new Bitmap(size, size, PixelFormat32bppARGB);
+    Graphics g(bmp);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.Clear(Color(0, 0, 0, 0));
+
+    const SimpleIconItemDef* found = nullptr;
+    std::wstring lowerQuery = slugOrName;
+    for (auto& c : lowerQuery) c = towlower(c);
+
+    for (int i = 0; i < kSimpleIconsCount; ++i) {
+        std::wstring s = kSimpleIconsCurated[i].slug;
+        for (auto& c : s) c = towlower(c);
+        std::wstring t = kSimpleIconsCurated[i].title;
+        for (auto& c : t) c = towlower(c);
+
+        if (s == lowerQuery || t == lowerQuery || lowerQuery.find(s) != std::wstring::npos) {
+            found = &kSimpleIconsCurated[i];
+            break;
+        }
+    }
+
+    if (!found && kSimpleIconsCount > 0) {
+        found = &kSimpleIconsCurated[0];
+    }
+
+    if (found) {
+        GraphicsPath path;
+        REAL pad = (REAL)size * 0.12f;
+        REAL usable = (REAL)size - pad * 2.0f;
+        REAL scale = usable / 24.0f; // SimpleIcons standard 24x24 viewBox
+
+        ParseSvgPathToGraphicsPath(found->path, path, scale, scale, pad, pad);
+
+        Color fillCol = customColor;
+        if (fillCol.GetA() == 0) {
+            COLORREF bCol = found->brandColor;
+            fillCol = Color(255, GetRValue(bCol), GetGValue(bCol), GetBValue(bCol));
+        }
+        SolidBrush brush(fillCol);
+        g.FillPath(&brush, &path);
+    }
+
+    return bmp;
+}
+
+Bitmap* RenderProceduralGeometricBitmap(int styleIdx, Color pCol, Color sCol, int size) {
+    if (size <= 0) size = 256;
+    Bitmap* bmp = new Bitmap(size, size, PixelFormat32bppARGB);
+    Graphics g(bmp);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.Clear(Color(0, 0, 0, 0));
+
+    REAL s = (REAL)size / 100.0f;
+    Pen pPen(pCol, std::max(2.0f, s * 4.0f));
+    pPen.SetStartCap(LineCapRound);
+    pPen.SetEndCap(LineCapRound);
+    pPen.SetLineJoin(LineJoinRound);
+
+    Pen sPen(sCol, std::max(1.5f, s * 2.5f));
+    sPen.SetStartCap(LineCapRound);
+    sPen.SetEndCap(LineCapRound);
+
+    SolidBrush pBrush(pCol);
+    SolidBrush sBrush(sCol);
+
+    switch (styleIdx % 8) {
+        case 0: { // Sparkle (Celestial Star)
+            PointF star[9] = {
+                {50.0f*s, 10.0f*s}, {60.0f*s, 40.0f*s}, {90.0f*s, 50.0f*s}, {60.0f*s, 60.0f*s},
+                {50.0f*s, 90.0f*s}, {40.0f*s, 60.0f*s}, {10.0f*s, 50.0f*s}, {40.0f*s, 40.0f*s},
+                {50.0f*s, 10.0f*s}
+            };
+            g.FillPolygon(&pBrush, star, 8);
+            g.FillEllipse(&sBrush, 22.0f*s, 22.0f*s, 8.0f*s, 8.0f*s);
+            g.FillEllipse(&sBrush, 70.0f*s, 70.0f*s, 8.0f*s, 8.0f*s);
+            break;
+        }
+        case 1: { // Aperture (Camera Shutter)
+            g.DrawEllipse(&pPen, 12.0f*s, 12.0f*s, 76.0f*s, 76.0f*s);
+            for (int i = 0; i < 6; ++i) {
+                REAL ang = (REAL)i * 60.0f * 3.14159265f / 180.0f;
+                REAL x1 = 50.0f*s + 38.0f*s * std::cos(ang);
+                REAL y1 = 50.0f*s + 38.0f*s * std::sin(ang);
+                REAL x2 = 50.0f*s + 18.0f*s * std::cos(ang + 0.9f);
+                REAL y2 = 50.0f*s + 18.0f*s * std::sin(ang + 0.9f);
+                g.DrawLine(&pPen, x1, y1, x2, y2);
+            }
+            g.FillEllipse(&sBrush, 43.0f*s, 43.0f*s, 14.0f*s, 14.0f*s);
+            break;
+        }
+        case 2: { // Orbit (Planetary / Atom)
+            g.DrawEllipse(&pPen, 15.0f*s, 32.0f*s, 70.0f*s, 36.0f*s);
+            GraphicsState st = g.Save();
+            g.TranslateTransform(50.0f*s, 50.0f*s);
+            g.RotateTransform(60.0f);
+            g.DrawEllipse(&sPen, -35.0f*s, -18.0f*s, 70.0f*s, 36.0f*s);
+            g.RotateTransform(60.0f);
+            g.DrawEllipse(&sPen, -35.0f*s, -18.0f*s, 70.0f*s, 36.0f*s);
+            g.Restore(st);
+            g.FillEllipse(&pBrush, 42.0f*s, 42.0f*s, 16.0f*s, 16.0f*s);
+            break;
+        }
+        case 3: { // Hexacore (Nested Hexagons)
+            PointF h1[6], h2[6];
+            for (int i = 0; i < 6; ++i) {
+                REAL ang = (REAL)i * 60.0f * 3.14159265f / 180.0f;
+                h1[i] = { 50.0f*s + 40.0f*s * std::cos(ang), 50.0f*s + 40.0f*s * std::sin(ang) };
+                h2[i] = { 50.0f*s + 24.0f*s * std::cos(ang), 50.0f*s + 24.0f*s * std::sin(ang) };
+            }
+            g.DrawPolygon(&pPen, h1, 6);
+            g.DrawPolygon(&sPen, h2, 6);
+            g.FillEllipse(&pBrush, 44.0f*s, 44.0f*s, 12.0f*s, 12.0f*s);
+            break;
+        }
+        case 4: { // Prism (Faceted Diamond)
+            PointF top[4] = { {30.0f*s, 22.0f*s}, {70.0f*s, 22.0f*s}, {90.0f*s, 44.0f*s}, {10.0f*s, 44.0f*s} };
+            PointF bot[3] = { {10.0f*s, 44.0f*s}, {90.0f*s, 44.0f*s}, {50.0f*s, 86.0f*s} };
+            g.DrawPolygon(&pPen, top, 4);
+            g.DrawPolygon(&pPen, bot, 3);
+            g.DrawLine(&sPen, 30.0f*s, 22.0f*s, 50.0f*s, 86.0f*s);
+            g.DrawLine(&sPen, 70.0f*s, 22.0f*s, 50.0f*s, 86.0f*s);
+            g.DrawLine(&sPen, 50.0f*s, 22.0f*s, 50.0f*s, 44.0f*s);
+            break;
+        }
+        case 5: { // Shield (Cyber Shield)
+            GraphicsPath sp;
+            sp.AddLine(50.0f*s, 12.0f*s, 84.0f*s, 24.0f*s);
+            sp.AddLine(84.0f*s, 24.0f*s, 84.0f*s, 54.0f*s);
+            sp.AddBezier(84.0f*s, 54.0f*s, 72.0f*s, 76.0f*s, 50.0f*s, 88.0f*s, 50.0f*s, 88.0f*s);
+            sp.AddBezier(50.0f*s, 88.0f*s, 28.0f*s, 76.0f*s, 16.0f*s, 54.0f*s, 16.0f*s, 54.0f*s);
+            sp.AddLine(16.0f*s, 54.0f*s, 16.0f*s, 24.0f*s);
+            sp.CloseFigure();
+            g.DrawPath(&pPen, &sp);
+            PointF chev[3] = { {34.0f*s, 44.0f*s}, {50.0f*s, 60.0f*s}, {66.0f*s, 44.0f*s} };
+            g.DrawLines(&sPen, chev, 3);
+            break;
+        }
+        case 6: { // Terminal (Code Prompt)
+            g.DrawRectangle(&pPen, 14.0f*s, 18.0f*s, 72.0f*s, 64.0f*s);
+            PointF pr[3] = { {26.0f*s, 38.0f*s}, {38.0f*s, 50.0f*s}, {26.0f*s, 62.0f*s} };
+            g.DrawLines(&pPen, pr, 3);
+            g.DrawLine(&sPen, 46.0f*s, 62.0f*s, 70.0f*s, 62.0f*s);
+            break;
+        }
+        case 7: // Waveform (Audio equalizer)
+        default: {
+            for (int i = 0; i < 7; ++i) {
+                REAL x = (22.0f + (REAL)i * 9.5f) * s;
+                REAL h = (15.0f + (REAL)(std::sin((REAL)i * 0.8f) + 1.0f) * 22.0f) * s;
+                REAL y = 50.0f*s - h * 0.5f;
+                g.DrawLine(&pPen, x, y, x, y + h);
+            }
+            g.DrawEllipse(&sPen, 12.0f*s, 12.0f*s, 76.0f*s, 76.0f*s);
+            break;
+        }
+    }
+
+    return bmp;
+}
+
 } // namespace IconEngine

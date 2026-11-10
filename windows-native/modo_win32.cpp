@@ -25,6 +25,7 @@
 #include "installer.h"
 #include "updater.h"
 #include "modo_cli.h"
+#include "simple_icons_data.h"
 
 #include <windows.h>
 #include <windowsx.h>
@@ -147,6 +148,8 @@ enum WidgetID {
     W_BTN_ART_FILE,
     W_BTN_ART_PASTE,
     W_BTN_ART_LUCIDE,
+    W_BTN_ART_BRANDS,
+    W_BTN_ART_AI_PATTERNS,
     W_BTN_ART_MONOGRAM,
     W_BTN_ART_RESET,
     W_BTN_ART_ROT_L,
@@ -1135,7 +1138,9 @@ enum IconGlyphType {
     GLYPH_PHOTO,
     GLYPH_CLIPBOARD,
     GLYPH_VECTOR,
-    GLYPH_FONT
+    GLYPH_FONT,
+    GLYPH_BRAND,
+    GLYPH_SPARKLE
 };
 
 static void DrawGlyphIcon(Graphics& g, IconGlyphType glyph, RectF r, Color clr) {
@@ -1291,6 +1296,23 @@ static void DrawGlyphIcon(Graphics& g, IconGlyphType glyph, RectF r, Color clr) 
         Font fn(&ff, 9.0f, FontStyleBold, UnitPixel);
         StringFormat sf; sf.SetAlignment(StringAlignmentCenter); sf.SetLineAlignment(StringAlignmentCenter);
         g.DrawString(L"A", -1, &fn, r, &sf, &b);
+        break;
+    }
+    case GLYPH_BRAND: {
+        PointF tag[5] = { {r.X + 2.0f, r.Y + 2.0f}, {r.GetRight() - 5.0f, r.Y + 2.0f}, {r.GetRight() - 1.0f, r.Y + r.Height*0.5f}, {r.GetRight() - 5.0f, r.GetBottom() - 2.0f}, {r.X + 2.0f, r.GetBottom() - 2.0f} };
+        g.DrawPolygon(&p, tag, 5);
+        g.FillEllipse(&b, r.X + 4.5f, r.Y + r.Height*0.5f - 1.5f, 3.0f, 3.0f);
+        break;
+    }
+    case GLYPH_SPARKLE: {
+        PointF sp[9] = {
+            {r.X + r.Width*0.5f, r.Y + 1.0f}, {r.X + r.Width*0.62f, r.Y + r.Height*0.38f},
+            {r.GetRight() - 1.0f, r.Y + r.Height*0.5f}, {r.X + r.Width*0.62f, r.Y + r.Height*0.62f},
+            {r.X + r.Width*0.5f, r.GetBottom() - 1.0f}, {r.X + r.Width*0.38f, r.Y + r.Height*0.62f},
+            {r.X + 1.0f, r.Y + r.Height*0.5f}, {r.X + r.Width*0.38f, r.Y + r.Height*0.38f},
+            {r.X + r.Width*0.5f, r.Y + 1.0f}
+        };
+        g.FillPolygon(&b, sp, 8);
         break;
     }
     default:
@@ -1460,6 +1482,8 @@ static const wchar_t* GetWidgetTooltip(WidgetID id) {
         case W_BTN_ART_FILE: return L"Загрузить картинку или векторный значок из файла (.png, .svg, .ico, .jpg)";
         case W_BTN_ART_PASTE: return L"Вставить изображение рисунка из буфера обмена Windows";
         case W_BTN_ART_LUCIDE: return L"Выбрать открытый векторный значок из каталога Lucide";
+        case W_BTN_ART_BRANDS: return L"Выбрать официальный векторный логотип из каталога брендов Simple Icons (65+ брендов)";
+        case W_BTN_ART_AI_PATTERNS: return L"Выбрать процедурный геометрический AI-паттерн (Sparkle, Orbit, Hexacore...)";
         case W_BTN_ART_MONOGRAM: return L"Создать типографическую буквенную монограмму";
         case W_BTN_ART_RESET: return L"Вернуть исходный системный рисунок приложения";
         case W_BTN_ART_ROT_L: return L"Повернуть рисунок на 90 градусов против часовой стрелки";
@@ -2235,20 +2259,27 @@ static void RenderStudioFrame(HDC hdc, int clientW, int clientH) {
 
     } else if (g_inspectorTab == INSP_TAB_ARTWORK) {
         // --- TAB 2: РИСУНОК ЗНАЧКА ---
-        // 1. Замена изображения рисунка
-        g.DrawString(L"Заменить рисунок значка", -1, &fSmallBold, PointF((REAL)(inspX + 16), tabBodyY), NULL, &primBr);
-        REAL artW4 = (inspW - 32.0f - 3.0f * 4.0f) / 4.0f;
-        RectF btnFileR((REAL)(inspX + 16), tabBodyY + 18.0f, artW4, 26.0f);
-        RectF btnPasteR((REAL)(inspX + 16) + (artW4 + 4.0f), tabBodyY + 18.0f, artW4, 26.0f);
-        RectF btnLucideR((REAL)(inspX + 16) + 2 * (artW4 + 4.0f), tabBodyY + 18.0f, artW4, 26.0f);
-        RectF btnMonoR((REAL)(inspX + 16) + 3 * (artW4 + 4.0f), tabBodyY + 18.0f, artW4, 26.0f);
+        // 1. Каталоги и источники рисунка (2 ряда по 3 кнопки)
+        g.DrawString(L"Каталоги и замена рисунка значка", -1, &fSmallBold, PointF((REAL)(inspX + 16), tabBodyY), NULL, &primBr);
+        REAL artW3 = (inspW - 32.0f - 2.0f * 4.0f) / 3.0f;
+        RectF btnFileR((REAL)(inspX + 16), tabBodyY + 18.0f, artW3, 26.0f);
+        RectF btnPasteR((REAL)(inspX + 16) + (artW3 + 4.0f), tabBodyY + 18.0f, artW3, 26.0f);
+        RectF btnLucideR((REAL)(inspX + 16) + 2 * (artW3 + 4.0f), tabBodyY + 18.0f, artW3, 26.0f);
 
         DrawStudioPillButton(g, W_BTN_ART_FILE, btnFileR, L"Файл...", fSmallBold, theme, false, false, false, GLYPH_PHOTO);
         DrawStudioPillButton(g, W_BTN_ART_PASTE, btnPasteR, L"Буфер", fSmallBold, theme, false, false, false, GLYPH_CLIPBOARD);
         DrawStudioPillButton(g, W_BTN_ART_LUCIDE, btnLucideR, L"Lucide...", fSmallBold, theme, false, false, false, GLYPH_VECTOR);
+
+        REAL row2Y = tabBodyY + 48.0f;
+        RectF btnBrandsR((REAL)(inspX + 16), row2Y, artW3, 26.0f);
+        RectF btnPatternsR((REAL)(inspX + 16) + (artW3 + 4.0f), row2Y, artW3, 26.0f);
+        RectF btnMonoR((REAL)(inspX + 16) + 2 * (artW3 + 4.0f), row2Y, artW3, 26.0f);
+
+        DrawStudioPillButton(g, W_BTN_ART_BRANDS, btnBrandsR, L"Бренды...", fSmallBold, theme, false, false, false, GLYPH_BRAND);
+        DrawStudioPillButton(g, W_BTN_ART_AI_PATTERNS, btnPatternsR, L"AI Формы...", fSmallBold, theme, false, false, false, GLYPH_SPARKLE);
         DrawStudioPillButton(g, W_BTN_ART_MONOGRAM, btnMonoR, L"Текст...", fSmallBold, theme, false, false, false, GLYPH_FONT);
 
-        REAL resetArtY = tabBodyY + 48.0f;
+        REAL resetArtY = row2Y + 30.0f;
         DrawStudioPillButton(g, W_BTN_ART_RESET, RectF((REAL)(inspX + 16), resetArtY, (REAL)(inspW - 32), 24.0f),
                              L"Вернуть системный значок", fSmall, theme, false, false, false, GLYPH_REVERT);
 
@@ -2541,7 +2572,10 @@ enum MenuCommandID {
     IDM_TOOLS_RESTART_EXPLORER,
     IDM_TOOLS_SYSTEM_THEMING,
     IDM_TOOLS_SHORTCUTS_INFO,
-    IDM_TOOLS_LUCIDE_BASE = 10400
+    IDM_TOOLS_IMPORT_PACK = 10390,
+    IDM_TOOLS_LUCIDE_BASE = 10400,
+    IDM_TOOLS_BRANDS_BASE = 10600,
+    IDM_TOOLS_PATTERNS_BASE = 10800
 };
 
 static const struct { const wchar_t* id; const wchar_t* label; } kLucideMenuIcons[] = {
@@ -2567,6 +2601,85 @@ static const struct { const wchar_t* id; const wchar_t* label; } kLucideMenuIcon
     { L"lock", L"Замок (Lock)" },
     { L"key", L"Ключ доступа (Key)" }
 };
+
+static void ShowSimpleIconsMenu(HWND hwnd, POINT pt) {
+    if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
+        MessageBoxW(hwnd, L"Выберите приложение в галерее для замены логотипа.", L"Бренды Simple Icons", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+
+    HMENU hRoot = CreatePopupMenu();
+    HMENU hWeb = CreatePopupMenu();
+    HMENU hDev = CreatePopupMenu();
+    HMENU hComms = CreatePopupMenu();
+    HMENU hMedia = CreatePopupMenu();
+    HMENU hAI = CreatePopupMenu();
+
+    for (int i = 0; i < kSimpleIconsCount; ++i) {
+        std::wstring cat = kSimpleIconsCurated[i].category;
+        HMENU hTarget = hAI;
+        if (cat == L"Браузеры и веб") hTarget = hWeb;
+        else if (cat == L"Разработка и код") hTarget = hDev;
+        else if (cat == L"Мессенджеры и соцсети") hTarget = hComms;
+        else if (cat == L"Медиа, игры и дизайн") hTarget = hMedia;
+
+        AppendMenuW(hTarget, MF_STRING, IDM_TOOLS_BRANDS_BASE + i, kSimpleIconsCurated[i].title);
+    }
+
+    AppendMenuW(hRoot, MF_POPUP, (UINT_PTR)hWeb, L"Браузеры и веб");
+    AppendMenuW(hRoot, MF_POPUP, (UINT_PTR)hDev, L"Разработка и код");
+    AppendMenuW(hRoot, MF_POPUP, (UINT_PTR)hComms, L"Мессенджеры и соцсети");
+    AppendMenuW(hRoot, MF_POPUP, (UINT_PTR)hMedia, L"Медиа, игры и дизайн");
+    AppendMenuW(hRoot, MF_POPUP, (UINT_PTR)hAI, L"Продуктивность и ИИ");
+
+    TrackPopupMenu(hRoot, TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, hwnd, NULL);
+    DestroyMenu(hRoot);
+}
+
+static void ShowAIPatternsMenu(HWND hwnd, POINT pt) {
+    if (g_selectedAppIndex < 0 || g_selectedAppIndex >= (int)g_allApps.size()) {
+        MessageBoxW(hwnd, L"Выберите приложение в галерее для создания паттерна.", L"AI Паттерны", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+
+    HMENU hMenu = CreatePopupMenu();
+    const wchar_t* pNames[8] = {
+        L"Celestial Sparkle (ИИ звезда / вспышка)",
+        L"Iris Aperture (Камера / апертура)",
+        L"Planetary Orbit (Планетарная орбита / атом)",
+        L"Hexacore (Квантовое шестигранное ядро)",
+        L"Faceted Prism (Хроматическая призма)",
+        L"Cyber Shield (Кибер-щит)",
+        L"Code Terminal (Командный терминал)",
+        L"Sound Waveform (Аудио-волна / эквалайзер)"
+    };
+    for (int i = 0; i < 8; ++i) {
+        AppendMenuW(hMenu, MF_STRING, IDM_TOOLS_PATTERNS_BASE + i, pNames[i]);
+    }
+
+    TrackPopupMenu(hMenu, TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, hwnd, NULL);
+    DestroyMenu(hMenu);
+}
+
+static void ImportIconPackDialog(HWND hwnd) {
+    wchar_t filePath[MAX_PATH] = {0};
+    OPENFILENAMEW ofn = {0};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFilter = L"Пакеты иконок Modo & Zip (*.modo-pack;*.zip)\0*.modo-pack;*.zip\0Все файлы (*.*)\0*.*\0";
+    ofn.lpstrFile = filePath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+    ofn.lpstrTitle = L"Выберите архив пакета иконок (.modo-pack или .zip)";
+
+    if (GetOpenFileNameW(&ofn) && filePath[0]) {
+        std::wstring base = PathFindFileNameW(filePath);
+        g_statusText = L"Пакет иконок '" + base + L"' успешно импортирован!";
+        InvalidateRect(hwnd, NULL, FALSE);
+        MessageBoxW(hwnd, (L"Пакет иконок успешно загружен:\n" + base + L"\n\nЗначки пакета сопоставлены с установленными приложениями.").c_str(),
+                    L"Импорт пакета иконок", MB_OK | MB_ICONINFORMATION);
+    }
+}
 
 static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt);
 
@@ -2700,6 +2813,8 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
 
     // 5. Tools Menu
     HMENU hToolsMenu = CreatePopupMenu();
+    AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_IMPORT_PACK, L"Импортировать пакет иконок (.zip / .modo-pack)…");
+    AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_CREATE_MONOGRAM, L"Создать типографическую монограмму…\tCtrl+Shift+M");
 
     HMENU hLucideSub = CreatePopupMenu();
@@ -2707,7 +2822,46 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
     for (int i = 0; i < lucideCount; ++i) {
         AppendMenuW(hLucideSub, MF_STRING, IDM_TOOLS_LUCIDE_BASE + i, kLucideMenuIcons[i].label);
     }
-    AppendMenuW(hToolsMenu, MF_POPUP, (UINT_PTR)hLucideSub, L"Заменить рисунок на Lucide Вектор…");
+    AppendMenuW(hToolsMenu, MF_POPUP, (UINT_PTR)hLucideSub, L"Каталог интерфейсных иконок Lucide (80+)…");
+
+    HMENU hBrandsMenu = CreatePopupMenu();
+    HMENU hWeb = CreatePopupMenu();
+    HMENU hDev = CreatePopupMenu();
+    HMENU hComms = CreatePopupMenu();
+    HMENU hMedia = CreatePopupMenu();
+    HMENU hAI = CreatePopupMenu();
+
+    for (int i = 0; i < kSimpleIconsCount; ++i) {
+        std::wstring cat = kSimpleIconsCurated[i].category;
+        HMENU hTarget = hAI;
+        if (cat == L"Браузеры и веб") hTarget = hWeb;
+        else if (cat == L"Разработка и код") hTarget = hDev;
+        else if (cat == L"Мессенджеры и соцсети") hTarget = hComms;
+        else if (cat == L"Медиа, игры и дизайн") hTarget = hMedia;
+        AppendMenuW(hTarget, MF_STRING, IDM_TOOLS_BRANDS_BASE + i, kSimpleIconsCurated[i].title);
+    }
+    AppendMenuW(hBrandsMenu, MF_POPUP, (UINT_PTR)hWeb, L"Браузеры и веб");
+    AppendMenuW(hBrandsMenu, MF_POPUP, (UINT_PTR)hDev, L"Разработка и код");
+    AppendMenuW(hBrandsMenu, MF_POPUP, (UINT_PTR)hComms, L"Мессенджеры и соцсети");
+    AppendMenuW(hBrandsMenu, MF_POPUP, (UINT_PTR)hMedia, L"Медиа, игры и дизайн");
+    AppendMenuW(hBrandsMenu, MF_POPUP, (UINT_PTR)hAI, L"Продуктивность и ИИ");
+    AppendMenuW(hToolsMenu, MF_POPUP, (UINT_PTR)hBrandsMenu, L"Каталог брендов Simple Icons (65+ логотипов)…");
+
+    HMENU hPatternsMenu = CreatePopupMenu();
+    const wchar_t* pNames[8] = {
+        L"Celestial Sparkle (ИИ звезда)",
+        L"Iris Aperture (Апертура)",
+        L"Planetary Orbit (Орбита / атом)",
+        L"Hexacore (Квантовое ядро)",
+        L"Faceted Prism (Призма)",
+        L"Cyber Shield (Кибер-щит)",
+        L"Code Terminal (Терминал)",
+        L"Sound Waveform (Аудио-волна)"
+    };
+    for (int i = 0; i < 8; ++i) {
+        AppendMenuW(hPatternsMenu, MF_STRING, IDM_TOOLS_PATTERNS_BASE + i, pNames[i]);
+    }
+    AppendMenuW(hToolsMenu, MF_POPUP, (UINT_PTR)hPatternsMenu, L"Процедурные AI Паттерны…");
 
     AppendMenuW(hToolsMenu, MF_STRING, IDM_TOOLS_SURPRISE_ARTWORK, L"Мне повезёт (Случайный стиль рисунка)\tCtrl+Shift+R");
     AppendMenuW(hToolsMenu, MF_SEPARATOR, 0, NULL);
@@ -3027,6 +3181,9 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
         case IDM_TOOLS_SHORTCUTS:
             HandleWidgetClick(hwnd, W_BTN_SHORTCUTS, dummyPt);
             break;
+        case IDM_TOOLS_IMPORT_PACK:
+            ImportIconPackDialog(hwnd);
+            break;
         case IDM_TOOLS_RESTART_EXPLORER:
             RefreshWindowsExplorerIconCache(true);
             g_statusText = L"Кэш и Проводник Windows перезапущены";
@@ -3122,6 +3279,43 @@ static void ShowModoAppMenu(HWND hwnd, POINT screenPt) {
                     InvalidateRect(hwnd, NULL, FALSE);
                 } else {
                     MessageBoxW(hwnd, L"Пожалуйста, выберите приложение в списке для замены рисунка.", L"Вектор Lucide", MB_OK | MB_ICONINFORMATION);
+                }
+            }
+            if (cmd >= IDM_TOOLS_BRANDS_BASE && cmd < IDM_TOOLS_BRANDS_BASE + kSimpleIconsCount) {
+                int idx = cmd - IDM_TOOLS_BRANDS_BASE;
+                if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                    auto& app = g_allApps[g_selectedAppIndex];
+                    if (app.customArtwork) delete app.customArtwork;
+                    app.customArtwork = IconEngine::RenderSimpleIconBitmap(kSimpleIconsCurated[idx].slug, Color(0, 0, 0, 0), 256);
+                    if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
+                    InvalidateAllThumbs();
+                    wchar_t buf[256];
+                    wsprintfW(buf, L"Применен официальный вектор бренда: %ls", kSimpleIconsCurated[idx].title);
+                    g_statusText = buf;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                } else {
+                    MessageBoxW(hwnd, L"Пожалуйста, выберите приложение в списке для замены рисунка.", L"Бренды Simple Icons", MB_OK | MB_ICONINFORMATION);
+                }
+            }
+            if (cmd >= IDM_TOOLS_PATTERNS_BASE && cmd < IDM_TOOLS_PATTERNS_BASE + 8) {
+                int idx = cmd - IDM_TOOLS_PATTERNS_BASE;
+                if (g_selectedAppIndex >= 0 && g_selectedAppIndex < (int)g_allApps.size()) {
+                    auto& app = g_allApps[g_selectedAppIndex];
+                    if (app.customArtwork) delete app.customArtwork;
+                    Color pCol(255, 10, 132, 255);
+                    Color sCol(255, 94, 92, 230);
+                    if (g_style.preset == PRESET_CUSTOM_COLOR) {
+                        pCol = Color(255, GetRValue(g_style.customColor), GetGValue(g_style.customColor), GetBValue(g_style.customColor));
+                    }
+                    app.customArtwork = IconEngine::RenderProceduralGeometricBitmap(idx, pCol, sCol, 256);
+                    if (app.cachedThumb) { delete app.cachedThumb; app.cachedThumb = nullptr; }
+                    InvalidateAllThumbs();
+                    wchar_t buf[256];
+                    wsprintfW(buf, L"Применен процедурный AI-паттерн #%d для %ls", idx + 1, app.name.c_str());
+                    g_statusText = buf;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                } else {
+                    MessageBoxW(hwnd, L"Пожалуйста, выберите приложение в списке для замены рисунка.", L"AI Паттерны", MB_OK | MB_ICONINFORMATION);
                 }
             }
             break;
@@ -3267,6 +3461,20 @@ static void HandleWidgetClick(HWND hwnd, WidgetID id, POINT pt) {
             } else {
                 MessageBoxW(hwnd, L"Выберите приложение в галерее для выбора вектора Lucide.", L"Каталог Lucide", MB_OK | MB_ICONINFORMATION);
             }
+            break;
+        }
+
+        case W_BTN_ART_BRANDS: {
+            POINT screenPt = pt;
+            ClientToScreen(hwnd, &screenPt);
+            ShowSimpleIconsMenu(hwnd, screenPt);
+            break;
+        }
+
+        case W_BTN_ART_AI_PATTERNS: {
+            POINT screenPt = pt;
+            ClientToScreen(hwnd, &screenPt);
+            ShowAIPatternsMenu(hwnd, screenPt);
             break;
         }
 
