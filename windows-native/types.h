@@ -135,6 +135,30 @@ struct RoundStyle {
     GlyphGradientPreset glyphGrad = GLYPH_GRAD_NONE;
     GlyphBadgeOverlay badge = BADGE_NONE;
     GlyphBadgePosition badgePos = BADGE_POS_TOP_RIGHT;
+
+    bool operator==(const RoundStyle& o) const {
+        return preset == o.preset &&
+               shape == o.shape &&
+               std::abs(scale - o.scale) < 1e-5 &&
+               std::abs(offsetX - o.offsetX) < 1e-5 &&
+               std::abs(offsetY - o.offsetY) < 1e-5 &&
+               std::abs(shadow - o.shadow) < 1e-5 &&
+               autoTrim == o.autoTrim &&
+               innerShadow == o.innerShadow &&
+               fullBleed == o.fullBleed &&
+               monochrome == o.monochrome &&
+               customColor == o.customColor &&
+               material == o.material &&
+               glyphStyle == o.glyphStyle &&
+               std::abs(rotation - o.rotation) < 1e-3 &&
+               flipH == o.flipH &&
+               flipV == o.flipV &&
+               glyphColor == o.glyphColor &&
+               glyphGrad == o.glyphGrad &&
+               badge == o.badge &&
+               badgePos == o.badgePos;
+    }
+    bool operator!=(const RoundStyle& o) const { return !(*this == o); }
 };
 
 struct AppEntry {
@@ -151,6 +175,8 @@ struct AppEntry {
     bool isFolder = false;
     bool isSystemPinnedTop = false;
     bool isApplied = false;
+    bool hasCustomStyle = false;
+    RoundStyle customStyle;
     double customRotation = 0.0;
     bool isFlippedH = false;
     bool isFlippedV = false;

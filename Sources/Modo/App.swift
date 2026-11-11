@@ -91,6 +91,20 @@ struct ModoApp: App {
                     .keyboardShortcut("r")
             }
 
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo Style Change") {
+                    model.undoStyle()
+                }
+                .keyboardShortcut("z", modifiers: [.command])
+                .disabled(!model.canUndoStyle)
+
+                Button("Redo Style Change") {
+                    model.redoStyle()
+                }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!model.canRedoStyle)
+            }
+
             CommandGroup(after: .pasteboard) {
                 Divider()
                 Button("Choose Custom Icon / SVG…") {
@@ -206,6 +220,18 @@ struct ModoApp: App {
 
                 Button("App Showcase & README Hero Studio…") {
                     model.showShowcaseStudio = true
+                }
+
+                if !model.recentBackups.isEmpty {
+                    Divider()
+                    Menu("Restore System Snapshot") {
+                        ForEach(model.recentBackups) { point in
+                            Button("\(point.name) (\(point.date.formatted(date: .abbreviated, time: .shortened)))") {
+                                let all = (try? model.container.mainContext.fetch(FetchDescriptor<Item>())) ?? []
+                                _ = model.restoreFromBackupPoint(point, items: all)
+                            }
+                        }
+                    }
                 }
 
                 Divider()

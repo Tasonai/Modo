@@ -171,8 +171,42 @@ final class AppModel {
     }
     private static let autoVectorizeKey = "modo.autoVectorizePacks"
 
+    private var isApplyingUndoRedoOrRestore = false
+    private var styleUndoStack: [RoundIconStyle] = []
+    private var styleRedoStack: [RoundIconStyle] = []
+
+    var canUndoStyle: Bool { !styleUndoStack.isEmpty }
+    var canRedoStyle: Bool { !styleRedoStack.isEmpty }
+
+    func undoStyle() {
+        guard let prev = styleUndoStack.popLast() else { return }
+        isApplyingUndoRedoOrRestore = true
+        styleRedoStack.append(style)
+        style = prev
+        isApplyingUndoRedoOrRestore = false
+        statusMessage = "Undid style change"
+    }
+
+    func redoStyle() {
+        guard let next = styleRedoStack.popLast() else { return }
+        isApplyingUndoRedoOrRestore = true
+        styleUndoStack.append(style)
+        style = next
+        isApplyingUndoRedoOrRestore = false
+        statusMessage = "Redid style change"
+    }
+
     var style: RoundIconStyle = RoundIconStyle() {
         didSet {
+            if !isApplyingUndoRedoOrRestore && oldValue != style {
+                if styleUndoStack.last != oldValue {
+                    styleUndoStack.append(oldValue)
+                    if styleUndoStack.count > 40 {
+                        styleUndoStack.removeFirst()
+                    }
+                }
+                styleRedoStack.removeAll()
+            }
             roundCache.removeAll()
             persistStyle()
             // Manual tweaks leave the pack: the UI then reads "Custom Style".
@@ -384,15 +418,30 @@ final class AppModel {
 
     var recentBackups: [SystemBackupPoint] = []
 
-    /// Creates an immutable snapshot restore point of selected applications before styling.
+    /// Creates an immutable snapshot restore point of selected applications, active theme style, and per-app overrides.
     @discardableResult
     func createBackupPoint(for items: [Item], name: String? = nil) -> SystemBackupPoint {
-        let appPaths = items.map(\.bundlePath).filter { !$0.isEmpty }
+        let validItems = items.filter { !$0.bundlePath.isEmpty }
+        let appPaths = validItems.map(\.bundlePath)
+        let snapshots = validItems.map { item in
+            AppBackupItemSnapshot(
+                bundlePath: item.bundlePath,
+                wasApplied: item.isApplied,
+                customImageData: item.customImageData,
+                brandHex: item.brandHex,
+                customScale: item.customScale,
+                customOffsetX: item.customOffsetX,
+                customOffsetY: item.customOffsetY
+            )
+        }
         let pointName = name ?? "Backup \(Date.now.formatted(date: .abbreviated, time: .shortened))"
         let point = SystemBackupPoint(
             name: pointName,
             appPaths: appPaths,
-            packName: activePackName
+            packName: activePackName,
+            savedStyle: style,
+            savedPackId: activePackId,
+            itemSnapshots: snapshots
         )
         recentBackups.insert(point, at: 0)
         if recentBackups.count > 10 { recentBackups = Array(recentBackups.prefix(10)) }
@@ -402,15 +451,61 @@ final class AppModel {
         return point
     }
 
-    /// Restores all applications in `backup` back to original system icons.
+    /// Restores applications, style settings, and per-app artwork back to the exact state captured in `backup`.
     @discardableResult
     func restoreFromBackupPoint(_ backup: SystemBackupPoint, items: [Item]) -> Int {
-        var restored = 0
+        if let prevStyle = backup.savedStyle {
+            isApplyingUndoRedoOrRestore = true
+            style = prevStyle
+            if let prevPack = backup.savedPackId {
+                activePackId = prevPack
+            }
+            isApplyingUndoRedoOrRestore = false
+        }
+
+        let snapshotMap: [String: AppBackupItemSnapshot] = Dictionary(
+            uniqueKeysWithValues: (backup.itemSnapshots ?? []).map { ($0.bundlePath, $0) }
+        )
         let pathSet = Set(backup.appPaths)
+        var restored = 0
+
         for item in items where pathSet.contains(item.bundlePath) {
-            restoreOriginalIcon(for: item)
+            if let snap = snapshotMap[item.bundlePath] {
+                item.customImageData = snap.customImageData
+                item.brandHex = snap.brandHex
+                item.customScale = snap.customScale
+                item.customOffsetX = snap.customOffsetX
+                item.customOffsetY = snap.customOffsetY
+                invalidateCache(for: item)
+
+                if snap.wasApplied {
+                    let rendered: NSImage = if item.isFolder {
+                        folderIcon(for: item)
+                    } else {
+                        IconRenderer.renderRoundIcon(
+                            sourceImage: sourceIcon(for: item, canvasSize: 512),
+                            style: effectiveStyle(for: item),
+                            fallbackHex: UInt32(clamping: item.brandHex),
+                            canvasSize: 512
+                        )
+                    }
+                    let st = IconRenderer.applyIconWithDetails(rendered, toAppAt: item.bundlePath, allowAdminPrompt: false, flushCaches: false)
+                    item.isApplied = st.isSuccess
+                    if st.isSuccess { recordApplied(item) }
+                } else {
+                    _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath, flushCaches: false)
+                    item.isApplied = false
+                    forgetApplied(item)
+                }
+            } else {
+                _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath, flushCaches: false)
+                item.isApplied = false
+                forgetApplied(item)
+            }
             restored += 1
         }
+        IconRenderer.flushSystemDockAndFinder()
+        try? container.mainContext.save()
         statusMessage = "Restored \(restored) apps from backup \(backup.name)"
         return restored
     }
@@ -440,7 +535,9 @@ final class AppModel {
         }
         if let data = defaults.data(forKey: Self.styleKey),
            let saved = try? JSONDecoder().decode(RoundIconStyle.self, from: data) {
+            isApplyingUndoRedoOrRestore = true
             style = saved
+            isApplyingUndoRedoOrRestore = false
         }
         if let data = defaults.data(forKey: Self.customPacksKey),
            let saved = try? JSONDecoder().decode([CustomIconPack].self, from: data) {
@@ -553,6 +650,11 @@ final class AppModel {
     func invalidateCache(for item: Item) {
         roundCache[item.id] = nil
         originalCache[item.id] = nil
+    }
+
+    /// Clears only the rendered preview cache for `item` (keeps original disk icon cached during live drags).
+    func invalidateItemCache(for item: Item) {
+        roundCache[item.id] = nil
     }
 
     /// Assigns custom vector SVG or raster image data as the glyph for `item`.
@@ -817,9 +919,10 @@ final class AppModel {
                 canvasSize: 1024
             )
         }
-        let status = IconRenderer.applyIconWithDetails(hiRes, toAppAt: item.bundlePath, allowAdminPrompt: true)
-        item.isApplied = status.isSuccess
-        if status.isSuccess {
+        let status = IconRenderer.applyIconWithDetails(hiRes, toAppAt: item.bundlePath, allowAdminPrompt: true, flushCaches: true)
+        let directlyApplied = (status == .directSuccess)
+        item.isApplied = directlyApplied
+        if directlyApplied {
             recordApplied(item)
         }
         try? container.mainContext.save()
@@ -840,36 +943,78 @@ final class AppModel {
         }
     }
 
-    /// Applies adaptive Modo icons to all provided `items`.
-    func applyRoundIconsToAll(_ items: [Item]) {
-        guard !items.isEmpty else { return }
-        for item in items {
-            if autoVectorizePacks && item.customImageData == nil, let vector = SimpleIconCatalog.find(for: item.title) {
-                setCustomArtwork(data: vector.svgData(), for: item)
-                item.brandHex = Int(vector.hex)
-            }
+    /// Applies the adaptive Modo icon to `item` during a pre-authorized batch pass without per-app Dock restarts.
+    @discardableResult
+    func applyRoundIconInBatch(to item: Item) -> Bool {
+        let hiRes: NSImage
+        if item.isFolder {
+            hiRes = folderIcon(for: item)
+        } else {
             let source = sourceIcon(for: item, canvasSize: 512)
-            let round = IconRenderer.renderRoundIcon(
+            hiRes = IconRenderer.renderRoundIcon(
                 sourceImage: source,
                 style: effectiveStyle(for: item),
                 fallbackHex: UInt32(clamping: item.brandHex),
                 canvasSize: 512
             )
-            let status = IconRenderer.applyIconWithDetails(round, toAppAt: item.bundlePath, allowAdminPrompt: false)
-            item.isApplied = status.isSuccess
-            if status.isSuccess {
+        }
+        let status = IconRenderer.applyIconWithDetails(hiRes, toAppAt: item.bundlePath, allowAdminPrompt: false, flushCaches: false)
+        let directlyApplied = (status == .directSuccess)
+        item.isApplied = directlyApplied
+        if directlyApplied {
+            recordApplied(item)
+        }
+        return directlyApplied
+    }
+
+    /// Applies adaptive Modo icons to all provided `items` with single-prompt batch elevation and folder support.
+    func applyRoundIconsToAll(_ items: [Item]) {
+        guard !items.isEmpty else { return }
+        let nonSystemBundles = items
+            .filter { !$0.isFolder && !$0.bundlePath.isEmpty && !$0.bundlePath.hasPrefix("/System/") }
+            .map(\.bundlePath)
+        _ = IconRenderer.requestAdminWriteAccess(forBundles: nonSystemBundles)
+
+        var appliedCount = 0
+        for item in items {
+            if item.bundlePath.hasPrefix("/System/") {
+                continue
+            }
+            let rendered: NSImage
+            if item.isFolder {
+                rendered = folderIcon(for: item)
+            } else {
+                if activePackId == IconPack.simpleIcons.id && item.customImageData == nil,
+                   let vector = SimpleIconCatalog.find(for: item.title) {
+                    setCustomArtwork(data: vector.svgData(), for: item)
+                    item.brandHex = Int(vector.hex)
+                }
+                let source = sourceIcon(for: item, canvasSize: 512)
+                rendered = IconRenderer.renderRoundIcon(
+                    sourceImage: source,
+                    style: effectiveStyle(for: item),
+                    fallbackHex: UInt32(clamping: item.brandHex),
+                    canvasSize: 512
+                )
+            }
+            let status = IconRenderer.applyIconWithDetails(rendered, toAppAt: item.bundlePath, allowAdminPrompt: false, flushCaches: false)
+            if case .directSuccess = status {
+                item.isApplied = true
                 recordApplied(item)
+                appliedCount += 1
+            } else {
+                item.isApplied = false
             }
         }
         IconRenderer.flushSystemDockAndFinder()
         try? container.mainContext.save()
         let packName = activePackName
-        statusMessage = "Applied \(packName) pack to \(items.count) apps"
+        statusMessage = "Applied \(packName) pack to \(appliedCount) item\(appliedCount == 1 ? "" : "s")"
     }
 
     /// Restores the original macOS icon for `item`.
     func restoreOriginalIcon(for item: Item) {
-        _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath)
+        _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath, flushCaches: true)
         item.isApplied = false
         forgetApplied(item)
         try? container.mainContext.save()
@@ -879,10 +1024,11 @@ final class AppModel {
     /// Restores original macOS icons for all provided `items`.
     func restoreAllOriginalIcons(_ items: [Item]) {
         for item in items {
-            _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath)
+            _ = IconRenderer.restoreOriginalIcon(at: item.bundlePath, flushCaches: false)
             item.isApplied = false
             forgetApplied(item)
         }
+        IconRenderer.flushSystemDockAndFinder()
         try? container.mainContext.save()
         statusMessage = "Restored original macOS icons for \(items.count) apps"
     }

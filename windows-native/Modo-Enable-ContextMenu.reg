@@ -2,7 +2,7 @@ Windows Registry Editor Version 5.00
 
 ; ====================================================================
 ; Modo — Windows Explorer Right-Click Context Menu Integration
-; Adds "Стилизовать в Modo..." to .exe, .lnk, and folders
+; Opens the selected .exe, .lnk, or folder directly in Modo Studio
 ; Requires no administrative rights (writes to HKEY_CURRENT_USER)
 ; ====================================================================
 
@@ -12,7 +12,7 @@ Windows Registry Editor Version 5.00
 "Icon"="\"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\",0"
 
 [HKEY_CURRENT_USER\Software\Classes\exefile\shell\ModoStyle\command]
-@="\"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\" style \"%1\""
+@="cmd.exe /c start \"\" \"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\" --open-target \"%1\""
 
 ; 2. Windows Shortcuts (.lnk)
 [HKEY_CURRENT_USER\Software\Classes\lnkfile\shell\ModoStyle]
@@ -20,7 +20,7 @@ Windows Registry Editor Version 5.00
 "Icon"="\"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\",0"
 
 [HKEY_CURRENT_USER\Software\Classes\lnkfile\shell\ModoStyle\command]
-@="\"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\" style \"%1\""
+@="cmd.exe /c start \"\" \"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\" --open-target \"%1\""
 
 ; 3. File Explorer Folders (Directory)
 [HKEY_CURRENT_USER\Software\Classes\Directory\shell\ModoFolder]
@@ -28,4 +28,4 @@ Windows Registry Editor Version 5.00
 "Icon"="\"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\",0"
 
 [HKEY_CURRENT_USER\Software\Classes\Directory\shell\ModoFolder\command]
-@="\"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\" folder \"%1\""
+@="cmd.exe /c start \"\" \"%LOCALAPPDATA%\\Programs\\Modo\\Modo.exe\" --open-target \"%1\""

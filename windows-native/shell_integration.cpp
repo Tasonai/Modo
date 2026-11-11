@@ -22,7 +22,16 @@ std::wstring GetAppDataRoot() {
     CreateDirectoryW(dir.c_str(), NULL);
     CreateDirectoryW((dir + L"\\icons").c_str(), NULL);
     CreateDirectoryW((dir + L"\\backup").c_str(), NULL);
+    CreateDirectoryW((dir + L"\\artwork").c_str(), NULL);
     return dir;
+}
+
+bool IsModoManagedIconPath(const std::wstring& path) {
+    if (path.empty()) return false;
+    std::wstring lower = path;
+    for (wchar_t& c : lower) c = (wchar_t)towlower(c);
+    return (lower.find(L"\\modo\\icons\\") != std::wstring::npos) ||
+           (lower.find(L"\\iconmaker\\icons\\") != std::wstring::npos);
 }
 
 std::wstring SanitizeFileName(const std::wstring& s) {
@@ -329,7 +338,7 @@ void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid)
                     if (fe.lnkPath.empty()) fe.lnkPath = p;
                     std::wstring t, cIcon;
                     ResolveShortcut(p, t, cIcon);
-                    if (cIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+                    if (IsModoManagedIconPath(cIcon)) fe.isApplied = true;
                 }
             }
         }
@@ -350,7 +359,7 @@ void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid)
                     if (fe.lnkPath.empty()) fe.lnkPath = p;
                     std::wstring t, cIcon;
                     ResolveShortcut(p, t, cIcon);
-                    if (cIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+                    if (IsModoManagedIconPath(cIcon)) fe.isApplied = true;
                 }
             }
         }
@@ -364,7 +373,7 @@ void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid)
                     if (fe.lnkPath.empty()) fe.lnkPath = p;
                     std::wstring t, cIcon;
                     ResolveShortcut(p, t, cIcon);
-                    if (cIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+                    if (IsModoManagedIconPath(cIcon)) fe.isApplied = true;
                 }
             }
         }
@@ -373,7 +382,7 @@ void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid)
             L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\DefaultIcon",
             NULL
         );
-        if (regCur.find(L"\\IconMaker\\icons\\") != std::wstring::npos) fe.isApplied = true;
+        if (IsModoManagedIconPath(regCur)) fe.isApplied = true;
 
         fe.origBitmap = LoadSystemDllIcon(explorerExe, 0, shell32Dll, 4, L"System_FileExplorer", pngClsid);
         apps.push_back(fe);
@@ -451,7 +460,7 @@ void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid)
 
         std::wstring regKey = std::wstring(L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\") + d.clsid + L"\\DefaultIcon";
         std::wstring curVal = GetRegistryStringValue(HKEY_CURRENT_USER, regKey, NULL);
-        if (curVal.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+        if (IsModoManagedIconPath(curVal)) {
             e.isApplied = true;
         }
         e.origBitmap = LoadSystemDllIcon(imageresDll, d.imageresNegId, shell32Dll, d.shell32FallbackIdx, d.cacheKey, pngClsid);
@@ -501,7 +510,7 @@ void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& cate
                         if (_wcsicmp(p.c_str(), fullPath.c_str()) == 0) { already = true; break; }
                     }
                     if (!already) apps[0].allLnkPaths.push_back(fullPath);
-                    if (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+                    if (IsModoManagedIconPath(customIcon)) {
                         apps[0].isApplied = true;
                     }
                     continue;
@@ -528,7 +537,7 @@ void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& cate
                         if (!pathAlreadyAdded) {
                             existing.allLnkPaths.push_back(fullPath);
                         }
-                        if (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos) {
+                        if (IsModoManagedIconPath(customIcon)) {
                             existing.isApplied = true;
                         }
                         exists = true;
@@ -541,21 +550,21 @@ void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& cate
                 entry.name = title;
                 entry.lnkPath = fullPath;
                 entry.allLnkPaths.push_back(fullPath);
-                std::wstring iconSource = (!customIcon.empty() && customIcon.find(L"\\IconMaker\\icons\\") == std::wstring::npos)
+                std::wstring iconSource = (!customIcon.empty() && !IsModoManagedIconPath(customIcon))
                     ? customIcon
                     : (target.empty() ? fullPath : target);
                 entry.targetPath = target.empty() ? iconSource : target;
                 entry.category = categoryName;
-                entry.isApplied = (customIcon.find(L"\\IconMaker\\icons\\") != std::wstring::npos);
+                entry.isApplied = IsModoManagedIconPath(customIcon);
 
-                // If shortcut already has an IconMaker icon and we have a .bak shortcut, resolve original icon from .bak
+                // If shortcut already has a Modo/IconMaker icon and we have a .bak shortcut, resolve original icon from .bak
                 std::wstring safe = SanitizeFileName(entry.name);
                 if (entry.isApplied) {
                     std::wstring bak0 = GetAppDataRoot() + L"\\backup\\" + safe + L"_0.lnk.bak";
                     if (GetFileAttributesW(bak0.c_str()) != INVALID_FILE_ATTRIBUTES) {
                         std::wstring bTarget, bIcon;
                         ResolveShortcut(bak0, bTarget, bIcon);
-                        if (!bIcon.empty() && bIcon.find(L"\\IconMaker\\icons\\") == std::wstring::npos) {
+                        if (!bIcon.empty() && !IsModoManagedIconPath(bIcon)) {
                             iconSource = bIcon;
                         } else if (!bTarget.empty()) {
                             iconSource = bTarget;
@@ -670,8 +679,7 @@ bool ApplyRoundIconToEntry(AppEntry& app, const RoundStyle& style, const CLSID* 
         const std::wstring& lnk = app.allLnkPaths[idx];
         if (lnk.empty() || GetFileAttributesW(lnk.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
 
-        wchar_t bakName[MAX_PATH];
-        wsprintfW(bakName, L"%s_%u.lnk.bak", safe.c_str(), (unsigned)idx);
+        std::wstring bakName = safe + L"_" + std::to_wstring((unsigned)idx) + L".lnk.bak";
         std::wstring backupLnk = root + L"\\backup\\" + bakName;
         if (GetFileAttributesW(backupLnk.c_str()) == INVALID_FILE_ATTRIBUTES) {
             CopyFileW(lnk.c_str(), backupLnk.c_str(), TRUE);
@@ -725,8 +733,7 @@ bool RestoreOriginalEntry(AppEntry& app) {
     std::wstring safe = SanitizeFileName(app.name);
     for (size_t idx = 0; idx < app.allLnkPaths.size(); ++idx) {
         const std::wstring& lnk = app.allLnkPaths[idx];
-        wchar_t bakName[MAX_PATH];
-        wsprintfW(bakName, L"%s_%u.lnk.bak", safe.c_str(), (unsigned)idx);
+        std::wstring bakName = safe + L"_" + std::to_wstring((unsigned)idx) + L".lnk.bak";
         std::wstring backupLnk = root + L"\\backup\\" + bakName;
         if (GetFileAttributesW(backupLnk.c_str()) != INVALID_FILE_ATTRIBUTES) {
             CopyFileW(backupLnk.c_str(), lnk.c_str(), FALSE);
@@ -747,11 +754,10 @@ bool ApplyCustomFolderIcon(const std::wstring& folderPath, const std::wstring& i
     // 1. Remove attributes if exists to allow overwrite
     SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_NORMAL);
 
-    // 2. Write desktop.ini ShellClassInfo keys
+    // 2. Write desktop.ini ShellClassInfo keys without erasing LocalizedResourceName
     WritePrivateProfileStringW(L".ShellClassInfo", L"IconResource", (icoPath + L",0").c_str(), iniPath.c_str());
     WritePrivateProfileStringW(L".ShellClassInfo", L"IconFile", icoPath.c_str(), iniPath.c_str());
     WritePrivateProfileStringW(L".ShellClassInfo", L"IconIndex", L"0", iniPath.c_str());
-    WritePrivateProfileStringW(L"ViewState", L"FolderType", L"Generic", iniPath.c_str());
 
     // 3. Mark desktop.ini as System + Hidden
     SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
@@ -770,13 +776,31 @@ bool ApplyCustomFolderIcon(const std::wstring& folderPath, const std::wstring& i
 bool RestoreFolderIcon(const std::wstring& folderPath) {
     if (folderPath.empty()) return false;
     std::wstring iniPath = folderPath + L"\\desktop.ini";
+    if (GetFileAttributesW(iniPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        return true;
+    }
 
     SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_NORMAL);
-    DeleteFileW(iniPath.c_str());
 
-    DWORD attr = GetFileAttributesW(folderPath.c_str());
-    if (attr != INVALID_FILE_ATTRIBUTES) {
-        SetFileAttributesW(folderPath.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
+    // Remove only custom icon keys so Windows localized folder names (LocalizedResourceName / CLSID) survive!
+    WritePrivateProfileStringW(L".ShellClassInfo", L"IconResource", NULL, iniPath.c_str());
+    WritePrivateProfileStringW(L".ShellClassInfo", L"IconFile", NULL, iniPath.c_str());
+    WritePrivateProfileStringW(L".ShellClassInfo", L"IconIndex", NULL, iniPath.c_str());
+
+    wchar_t locName[512] = {0};
+    wchar_t clsidVal[128] = {0};
+    GetPrivateProfileStringW(L".ShellClassInfo", L"LocalizedResourceName", L"", locName, 512, iniPath.c_str());
+    GetPrivateProfileStringW(L".ShellClassInfo", L"CLSID", L"", clsidVal, 128, iniPath.c_str());
+
+    if (locName[0] != 0 || clsidVal[0] != 0) {
+        // Keep desktop.ini and folder READONLY flag so special localized folders (Downloads/Documents/etc.) stay localized
+        SetFileAttributesW(iniPath.c_str(), FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
+    } else {
+        DeleteFileW(iniPath.c_str());
+        DWORD attr = GetFileAttributesW(folderPath.c_str());
+        if (attr != INVALID_FILE_ATTRIBUTES) {
+            SetFileAttributesW(folderPath.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
+        }
     }
 
     SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath.c_str(), NULL);
@@ -786,24 +810,23 @@ bool RestoreFolderIcon(const std::wstring& folderPath) {
 bool RegisterShellContextMenu(const std::wstring& exePath, bool enable) {
     if (enable) {
         if (exePath.empty()) return false;
-        std::wstring cmdExe = L"\"" + exePath + L"\" style \"%1\"";
-        std::wstring cmdFolder = L"\"" + exePath + L"\" folder \"%1\"";
+        std::wstring cmdOpen = L"\"" + exePath + L"\" --open-target \"%1\"";
         std::wstring iconSpec = L"\"" + exePath + L"\",0";
 
         // 1. Files: .exe
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle", L"", L"Стилизовать иконку в Modo...");
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle", L"Icon", iconSpec);
-        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle\\command", L"", cmdExe);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\exefile\\shell\\ModoStyle\\command", L"", cmdOpen);
 
         // 2. Shortcuts: .lnk
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle", L"", L"Стилизовать иконку в Modo...");
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle", L"Icon", iconSpec);
-        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle\\command", L"", cmdExe);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\lnkfile\\shell\\ModoStyle\\command", L"", cmdOpen);
 
         // 3. Folders: Directory
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder", L"", L"Изменить цвет папки в Modo...");
         SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder", L"Icon", iconSpec);
-        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder\\command", L"", cmdFolder);
+        SetRegistryStringValue(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder\\command", L"", cmdOpen);
 
         return true;
     } else {
@@ -815,6 +838,41 @@ bool RegisterShellContextMenu(const std::wstring& exePath, bool enable) {
         RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\ModoFolder");
         return true;
     }
+}
+
+void RestoreAllStyledSystemIconsForUninstall() {
+    std::vector<AppEntry> entries;
+    AddBuiltInSystemEntries(entries, nullptr);
+
+    const int csidls[] = {
+        CSIDL_DESKTOPDIRECTORY,
+        CSIDL_COMMON_DESKTOPDIRECTORY,
+        CSIDL_PROGRAMS,
+        CSIDL_COMMON_PROGRAMS
+    };
+    for (int id : csidls) {
+        wchar_t folder[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, id, NULL, 0, folder)) && folder[0]) {
+            bool isDesk = (id == CSIDL_DESKTOPDIRECTORY || id == CSIDL_COMMON_DESKTOPDIRECTORY);
+            ScanDirectoryForShortcuts(folder, L"UninstallRestore", entries, 0, isDesk);
+        }
+    }
+    wchar_t appData[MAX_PATH] = {0};
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
+        std::wstring tb = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
+        ScanDirectoryForShortcuts(tb, L"Taskbar", entries, 0, true);
+    }
+
+    for (auto& e : entries) {
+        if (e.isApplied) {
+            RestoreOriginalEntry(e);
+        }
+        if (e.origBitmap) {
+            delete e.origBitmap;
+            e.origBitmap = nullptr;
+        }
+    }
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 }
 
 void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation) {

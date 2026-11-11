@@ -61,8 +61,8 @@ struct SystemThemingWizardView: View {
         .frame(minWidth: 640, idealWidth: 700, minHeight: 520, idealHeight: 580)
         .onAppear {
             if selectedItemIDs.isEmpty {
-                // Select all apps with valid bundles by default
-                selectedItemIDs = Set(allItems.map(\.id))
+                // Exclude macOS SIP-protected /System bundles by default so Dock icons change directly
+                selectedItemIDs = Set(allItems.filter { !$0.bundlePath.hasPrefix("/System/") }.map(\.id))
             }
         }
     }
@@ -119,8 +119,8 @@ struct SystemThemingWizardView: View {
             }
 
             HStack {
-                Button("Select All") {
-                    selectedItemIDs = Set(allItems.map(\.id))
+                Button("Select Writable Apps") {
+                    selectedItemIDs = Set(allItems.filter { !$0.bundlePath.hasPrefix("/System/") }.map(\.id))
                 }
                 .controlSize(.small)
 
@@ -128,6 +128,19 @@ struct SystemThemingWizardView: View {
                     selectedItemIDs.removeAll()
                 }
                 .controlSize(.small)
+
+                if !model.recentBackups.isEmpty {
+                    Menu {
+                        ForEach(model.recentBackups) { point in
+                            Button("\(point.name) (\(point.date.formatted(date: .abbreviated, time: .shortened)))") {
+                                restoreFromBackup(point)
+                            }
+                        }
+                    } label: {
+                        Label("Restore Points (\(model.recentBackups.count))", systemImage: "clock.arrow.circlepath")
+                    }
+                    .controlSize(.small)
+                }
 
                 Spacer()
 
@@ -162,7 +175,14 @@ struct SystemThemingWizardView: View {
 
                     Spacer()
 
-                    if SimpleIconCatalog.find(for: item.title) != nil {
+                    if item.bundlePath.hasPrefix("/System/") {
+                        Text("SIP Protected")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, Space.xs)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.14), in: Capsule())
+                    } else if SimpleIconCatalog.find(for: item.title) != nil {
                         Text("Vector Available")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(Palette.accentText)
@@ -419,7 +439,7 @@ struct SystemThemingWizardView: View {
 
     private var navigationFooter: some View {
         HStack {
-            if currentStep != .completed && currentStep != .applyAndBackup {
+            if currentStep != .completed && !isProcessing {
                 Button("Cancel") {
                     dismiss()
                 }
@@ -428,6 +448,10 @@ struct SystemThemingWizardView: View {
             if currentStep == .selectTheme {
                 Button("Back") {
                     currentStep = .selectApps
+                }
+            } else if currentStep == .applyAndBackup && !isProcessing {
+                Button("Back") {
+                    currentStep = .selectTheme
                 }
             }
 
@@ -472,10 +496,16 @@ struct SystemThemingWizardView: View {
         isProcessing = true
         progressStatus = "Creating snapshot backup point…"
 
-        // 1. Create backup point
+        // 1. Create full snapshot backup point (theme style + per-app artwork & overrides)
         let targetItems = selectedItems
         let backup = model.createBackupPoint(for: targetItems, name: "Modo System Theme (\(model.activePackName))")
         self.backupPoint = backup
+
+        // 2. Pre-authorize any root-owned /Applications bundles in ONE single admin prompt
+        let nonSystemBundles = targetItems
+            .filter { !$0.isFolder && !$0.bundlePath.isEmpty && !$0.bundlePath.hasPrefix("/System/") }
+            .map(\.bundlePath)
+        _ = IconRenderer.requestAdminWriteAccess(forBundles: nonSystemBundles)
 
         Task {
             let total = Double(targetItems.count)
@@ -487,21 +517,23 @@ struct SystemThemingWizardView: View {
                     currentProgress = Double(index) / max(total, 1.0)
                 }
 
-                // If auto-match Simple Icons is enabled, assign vector if available
                 if autoMatchSimpleIcons, let vector = SimpleIconCatalog.find(for: item.title), item.customImageData == nil {
                     await MainActor.run {
                         model.setCustomArtwork(data: vector.svgData(), for: item)
                     }
                 }
 
-                // Apply round icon
                 await MainActor.run {
-                    model.applyRoundIcon(to: item)
-                    count += 1
+                    if model.applyRoundIconInBatch(to: item) {
+                        count += 1
+                    }
                 }
 
-                // Tiny yield for smooth UI animation
-                try? await Task.sleep(nanoseconds: 30_000_000)
+                try? await Task.sleep(nanoseconds: 15_000_000)
+            }
+
+            await MainActor.run {
+                try? context.save()
             }
 
             if restartDockAfterApply {
@@ -522,8 +554,7 @@ struct SystemThemingWizardView: View {
 
     private func restoreFromBackup(_ backup: SystemBackupPoint) {
         let restored = model.restoreFromBackupPoint(backup, items: allItems)
-        model.restartDock()
-        model.statusMessage = "Restored \(restored) applications back to original icons"
+        model.statusMessage = "Restored \(restored) applications from snapshot \(backup.name)"
         dismiss()
     }
 }

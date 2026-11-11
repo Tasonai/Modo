@@ -27,6 +27,7 @@ struct AIGlyphStudioView: View {
     @State private var geometricSeed: Int = 1
 
     // Tab 2: Neural AI State
+    @AppStorage("modo.allowCloudNeuralAI") private var allowCloudNeuralAI: Bool = false
     @State private var neuralPrompt: String = ""
     @State private var neuralStyle: AIImageStylePreset = .vectorLogo
     @State private var isGeneratingNeural: Bool = false
@@ -252,8 +253,15 @@ struct AIGlyphStudioView: View {
                             Label(isGeneratingNeural ? "Generating…" : "Generate AI", systemImage: "sparkles")
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(neuralPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingNeural)
+                        .disabled(!allowCloudNeuralAI || neuralPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingNeural)
                     }
+
+                    Toggle(isOn: $allowCloudNeuralAI) {
+                        Text("Send prompt text to external cloud generator (image.pollinations.ai)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, Space.xs)
                 }
 
                 // Prompt Inspiration Chips

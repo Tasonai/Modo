@@ -27,6 +27,7 @@ enum ControlID {
     IDC_WIZARD_HEADER = 1001,
     IDC_WIZARD_PATH_LABEL,
     IDC_WIZARD_PATH_EDIT,
+    IDC_WIZARD_BTN_BROWSE,
     IDC_WIZARD_CHK_DESKTOP,
     IDC_WIZARD_CHK_STARTMENU,
     IDC_WIZARD_CHK_CONTEXTMENU,
@@ -41,6 +42,7 @@ struct WizardState {
     HWND hHeader = NULL;
     HWND hPathLabel = NULL;
     HWND hPathEdit = NULL;
+    HWND hBtnBrowse = NULL;
     HWND hChkDesktop = NULL;
     HWND hChkStartMenu = NULL;
     HWND hChkContextMenu = NULL;
@@ -67,6 +69,14 @@ std::wstring GetDefaultInstallDirectory() {
 bool IsRunningFromInstalledLocation() {
     wchar_t selfPath[MAX_PATH * 2] = {0};
     if (!GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) return false;
+    std::wstring regLoc = ShellIntegration::GetRegistryStringValue(
+        HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Modo",
+        L"InstallLocation"
+    );
+    if (!regLoc.empty() && _wcsnicmp(selfPath, regLoc.c_str(), regLoc.length()) == 0) {
+        return true;
+    }
     std::wstring defaultDir = GetDefaultInstallDirectory();
     return (_wcsnicmp(selfPath, defaultDir.c_str(), defaultDir.length()) == 0);
 }
@@ -130,17 +140,32 @@ static bool RegisterUninstallEntry(const std::wstring& installedExe, const std::
     return true;
 }
 
-bool PerformInstall(HWND hParentWnd, bool desktopShortcut, bool startMenuShortcut, bool contextMenu, std::wstring& outInstalledExe) {
+static bool IsSafeDirectoryPath(const std::wstring& dir) {
+    if (dir.size() < 3) return false;
+    for (wchar_t c : dir) {
+        if (c == L'"' || c == L'&' || c == L'|' || c == L'<' || c == L'>' || c == L'^' || c == L'\r' || c == L'\n') {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool PerformInstall(HWND hParentWnd, bool desktopShortcut, bool startMenuShortcut, bool contextMenu, std::wstring& outInstalledExe, const std::wstring& customInstallDir) {
     wchar_t selfPath[MAX_PATH * 2] = {0};
     if (!GetModuleFileNameW(NULL, selfPath, MAX_PATH * 2 - 1)) return false;
 
-    std::wstring installDir = GetDefaultInstallDirectory();
-    wchar_t localAppData[MAX_PATH] = {0};
-    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
-        std::wstring progDir = std::wstring(localAppData) + L"\\Programs";
-        CreateDirectoryW(progDir.c_str(), NULL);
+    std::wstring installDir = customInstallDir.empty() ? GetDefaultInstallDirectory() : customInstallDir;
+    while (installDir.size() > 3 && (installDir.back() == L'\\' || installDir.back() == L'/')) {
+        installDir.pop_back();
     }
-    CreateDirectoryW(installDir.c_str(), NULL);
+    if (!IsSafeDirectoryPath(installDir)) {
+        if (hParentWnd) {
+            MessageBoxW(hParentWnd, L"Указан недопустимый путь папки установки.", L"Ошибка установки", MB_ICONERROR);
+        }
+        return false;
+    }
+
+    SHCreateDirectoryExW(hParentWnd, installDir.c_str(), NULL);
 
     std::wstring targetExe = installDir + L"\\Modo.exe";
     outInstalledExe = targetExe;
@@ -197,12 +222,15 @@ bool PerformUninstall(HWND hParentWnd, bool silent) {
     if (!silent) {
         int choice = MessageBoxW(
             hParentWnd,
-            L"Вы действительно хотите удалить Modo Studio и все связанные компоненты с вашего компьютера?",
+            L"Вы действительно хотите удалить Modo Studio с вашего компьютера?\n\nВсе изменённые значки Рабочего стола и ярлыки будут возвращены к стандартным системным иконкам.",
             L"Удаление Modo Studio",
             MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2
         );
         if (choice != IDYES) return false;
     }
+
+    // Restore styled system CLSIDs and shortcuts before removing Modo
+    ShellIntegration::RestoreAllStyledSystemIconsForUninstall();
 
     // Remove shortcuts
     wchar_t desktop[MAX_PATH] = {0};
@@ -220,22 +248,33 @@ bool PerformUninstall(HWND hParentWnd, bool silent) {
     // Remove Shell context menu
     ShellIntegration::RegisterShellContextMenu(L"", false);
 
+    std::wstring installDir = ShellIntegration::GetRegistryStringValue(
+        HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Modo",
+        L"InstallLocation"
+    );
+    if (installDir.empty() || !IsSafeDirectoryPath(installDir)) {
+        installDir = GetDefaultInstallDirectory();
+    }
+
     // Remove Uninstall Registry Entry
     RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Modo");
 
-    // Remove directory asynchronously after process termination
-    std::wstring installDir = GetDefaultInstallDirectory();
-    std::wstring cmd = L"cmd.exe /c timeout /t 2 /nobreak > nul & rmdir /s /q \"" + installDir + L"\"";
-    STARTUPINFOW si = { sizeof(si) };
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-    PROCESS_INFORMATION pi = {0};
-    std::vector<wchar_t> cmdBuf(cmd.begin(), cmd.end());
-    cmdBuf.push_back(L'\0');
+    // Delete only Modo.exe and remove directory only if empty (never recursive rmdir /s on user-selected folders!)
+    std::wstring targetExe = installDir + L"\\Modo.exe";
+    if (IsSafeDirectoryPath(installDir)) {
+        std::wstring cmd = L"cmd.exe /c timeout /t 2 /nobreak > nul & del /f /q \"" + targetExe + L"\" & rmdir \"" + installDir + L"\"";
+        STARTUPINFOW si = { sizeof(si) };
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+        PROCESS_INFORMATION pi = {0};
+        std::vector<wchar_t> cmdBuf(cmd.begin(), cmd.end());
+        cmdBuf.push_back(L'\0');
 
-    CreateProcessW(NULL, cmdBuf.data(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
-    if (pi.hProcess) CloseHandle(pi.hProcess);
-    if (pi.hThread) CloseHandle(pi.hThread);
+        CreateProcessW(NULL, cmdBuf.data(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+        if (pi.hProcess) CloseHandle(pi.hProcess);
+        if (pi.hThread) CloseHandle(pi.hThread);
+    }
 
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 
@@ -295,16 +334,25 @@ static LRESULT CALLBACK WizardWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             );
             SendMessageW(state->hPathLabel, WM_SETFONT, (WPARAM)state->hFontBold, TRUE);
 
-            // Path edit box
+            // Path edit box + Browse button
             std::wstring defaultDir = GetDefaultInstallDirectory();
             state->hPathEdit = CreateWindowExW(
                 WS_EX_CLIENTEDGE, L"EDIT",
                 defaultDir.c_str(),
-                WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_READONLY,
-                30, 116, 460, 26,
+                WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+                30, 116, 362, 26,
                 hwnd, (HMENU)IDC_WIZARD_PATH_EDIT, cs->hInstance, NULL
             );
             SendMessageW(state->hPathEdit, WM_SETFONT, (WPARAM)state->hFontRegular, TRUE);
+
+            state->hBtnBrowse = CreateWindowExW(
+                0, L"BUTTON",
+                L"Обзор...",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                400, 115, 90, 28,
+                hwnd, (HMENU)IDC_WIZARD_BTN_BROWSE, cs->hInstance, NULL
+            );
+            SendMessageW(state->hBtnBrowse, WM_SETFONT, (WPARAM)state->hFontRegular, TRUE);
 
             // Options Checkboxes
             state->hChkDesktop = CreateWindowExW(
@@ -398,6 +446,25 @@ static LRESULT CALLBACK WizardWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 return 0;
             }
 
+            if (wmId == IDC_WIZARD_BTN_BROWSE) {
+                BROWSEINFOW bi = {0};
+                bi.hwndOwner = hwnd;
+                bi.lpszTitle = L"Выберите папку для установки Modo Studio:";
+                bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+                PIDLIST_ABSOLUTE pidl = SHBrowseForFolderW(&bi);
+                if (pidl) {
+                    wchar_t chosen[MAX_PATH] = {0};
+                    if (SHGetPathFromIDListW(pidl, chosen) && chosen[0]) {
+                        std::wstring sub = chosen;
+                        if (sub.size() > 3 && sub.back() != L'\\') sub += L"\\Modo";
+                        else if (sub.size() <= 3) sub += L"Modo";
+                        SetWindowTextW(state->hPathEdit, sub.c_str());
+                    }
+                    CoTaskMemFree(pidl);
+                }
+                return 0;
+            }
+
             if (wmId == IDC_WIZARD_BTN_INSTALL) {
                 if (state->isFinished) {
                     bool shouldLaunch = (SendMessageW(state->hChkLaunch, BM_GETCHECK, 0, 0) == BST_CHECKED);
@@ -408,9 +475,14 @@ static LRESULT CALLBACK WizardWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     return 0;
                 }
 
+                wchar_t customDirBuf[MAX_PATH * 2] = {0};
+                GetWindowTextW(state->hPathEdit, customDirBuf, MAX_PATH * 2 - 1);
+
                 // Perform install
                 EnableWindow(state->hBtnInstall, FALSE);
                 EnableWindow(state->hBtnCancel, FALSE);
+                EnableWindow(state->hPathEdit, FALSE);
+                EnableWindow(state->hBtnBrowse, FALSE);
                 EnableWindow(state->hChkDesktop, FALSE);
                 EnableWindow(state->hChkStartMenu, FALSE);
                 EnableWindow(state->hChkContextMenu, FALSE);
@@ -429,7 +501,7 @@ static LRESULT CALLBACK WizardWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 UpdateWindow(hwnd);
 
                 std::wstring installedExe;
-                bool ok = PerformInstall(hwnd, desktop, startMenu, contextMenu, installedExe);
+                bool ok = PerformInstall(hwnd, desktop, startMenu, contextMenu, installedExe, customDirBuf);
                 state->installedExePath = installedExe;
 
                 if (ok) {
@@ -440,9 +512,14 @@ static LRESULT CALLBACK WizardWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     ShowWindow(state->hBtnCancel, SW_HIDE);
                     state->isFinished = true;
                 } else {
-                    SetWindowTextW(state->hStatus, L"Ошибка при установке. Проверьте права доступа.");
+                    SetWindowTextW(state->hStatus, L"Ошибка при установке. Проверьте путь и права доступа.");
                     EnableWindow(state->hBtnInstall, TRUE);
                     EnableWindow(state->hBtnCancel, TRUE);
+                    EnableWindow(state->hPathEdit, TRUE);
+                    EnableWindow(state->hBtnBrowse, TRUE);
+                    EnableWindow(state->hChkDesktop, TRUE);
+                    EnableWindow(state->hChkStartMenu, TRUE);
+                    EnableWindow(state->hChkContextMenu, TRUE);
                 }
                 return 0;
             }

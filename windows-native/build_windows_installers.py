@@ -168,6 +168,7 @@ def main() -> None:
             "-luser32",
             "-lgdi32",
             "-lwininet",
+            "-ladvapi32",
         ],
         check=True,
     )

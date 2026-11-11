@@ -26,5 +26,7 @@ void ScanDirectoryForShortcuts(const std::wstring& dir, const std::wstring& cate
 void AddBuiltInSystemEntries(std::vector<AppEntry>& apps, const CLSID* pngClsid);
 void InstallSelfAndShortcuts(HWND hwnd, bool showConfirmation = false);
 bool RegisterShellContextMenu(const std::wstring& exePath, bool enable);
+bool IsModoManagedIconPath(const std::wstring& path);
+void RestoreAllStyledSystemIconsForUninstall();
 
 } // namespace ShellIntegration

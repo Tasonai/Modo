@@ -97,6 +97,8 @@ nonisolated enum IconSetStore {
         if let expected = expectedSHA256, IconSetRules.sha256Hex(zipData) != expected.lowercased() {
             throw IconSetError.checksumMismatch
         }
+        try validateZipCentralDirectory(zipData)
+
         let fm = FileManager.default
         let work = fm.temporaryDirectory.appendingPathComponent("modo-iconset-\(UUID().uuidString)", isDirectory: true)
         let unpacked = work.appendingPathComponent("unpacked", isDirectory: true)
@@ -140,6 +142,72 @@ nonisolated enum IconSetStore {
         try? fm.removeItem(at: finalDir)
         try fm.moveItem(at: staging, to: finalDir)
         return InstalledIconSet(manifest: manifest, directory: finalDir)
+    }
+
+    /// Inspects the ZIP central directory in memory BEFORE invoking `ditto` so zip-slip paths,
+    /// symlinks, and zip-bombs are rejected before touching the filesystem.
+    private nonisolated static func validateZipCentralDirectory(_ data: Data) throws {
+        guard data.count >= 22 else { throw IconSetError.notAnIconSet }
+        let bytes = [UInt8](data)
+        func u16(_ idx: Int) -> Int { Int(bytes[idx]) | (Int(bytes[idx + 1]) << 8) }
+        func u32(_ idx: Int) -> Int64 {
+            Int64(bytes[idx]) | (Int64(bytes[idx + 1]) << 8) | (Int64(bytes[idx + 2]) << 16) | (Int64(bytes[idx + 3]) << 24)
+        }
+
+        // Locate End of Central Directory signature 0x06054b50 within last 65557 bytes
+        let minEOCD = max(0, bytes.count - 65557)
+        var eocdOffset: Int?
+        for i in stride(from: bytes.count - 22, through: minEOCD, by: -1) {
+            if bytes[i] == 0x50, bytes[i + 1] == 0x4b, bytes[i + 2] == 0x05, bytes[i + 3] == 0x06 {
+                eocdOffset = i
+                break
+            }
+        }
+        guard let eocd = eocdOffset else { throw IconSetError.notAnIconSet }
+        let entryCount = u16(eocd + 10)
+        let cdSize = Int(u32(eocd + 12))
+        let cdOffset = Int(u32(eocd + 16))
+        guard entryCount <= IconSetRules.maxIconsPerSet + 32 else { throw IconSetError.tooManyIcons(entryCount) }
+        guard cdOffset >= 0, cdSize >= 0, cdOffset + cdSize <= bytes.count else { throw IconSetError.notAnIconSet }
+
+        var pos = cdOffset
+        var totalUncompressed: Int64 = 0
+        for _ in 0..<entryCount {
+            guard pos + 46 <= bytes.count,
+                  bytes[pos] == 0x50, bytes[pos + 1] == 0x4b, bytes[pos + 2] == 0x01, bytes[pos + 3] == 0x02 else {
+                throw IconSetError.notAnIconSet
+            }
+            let uncompressedSize = u32(pos + 24)
+            if uncompressedSize == 0xFFFFFFFF {
+                throw IconSetError.tooLarge(maxUnpackedBytes + 1)
+            }
+            let nameLen = u16(pos + 28)
+            let extraLen = u16(pos + 30)
+            let commentLen = u16(pos + 32)
+            let externalAttr = UInt32(truncatingIfNeeded: u32(pos + 38))
+            let unixMode = (externalAttr >> 16) & 0o170000
+            if unixMode == 0o120000 {
+                throw IconSetError.unsafePath("symlink")
+            }
+
+            let nameStart = pos + 46
+            let nameEnd = nameStart + nameLen
+            guard nameEnd + extraLen + commentLen <= bytes.count else { throw IconSetError.notAnIconSet }
+            let rawName = String(decoding: bytes[nameStart..<nameEnd], as: UTF8.self)
+            if rawName.hasPrefix("/") || rawName.contains("\\") || rawName.contains("\0") {
+                throw IconSetError.unsafePath(rawName)
+            }
+            let segments = rawName.split(separator: "/", omittingEmptySubsequences: false)
+            if segments.contains("..") {
+                throw IconSetError.unsafePath(rawName)
+            }
+
+            totalUncompressed += uncompressedSize
+            if totalUncompressed > Int64(maxUnpackedBytes) {
+                throw IconSetError.tooLarge(Int(min(totalUncompressed, Int64(Int.max))))
+            }
+            pos = nameEnd + extraLen + commentLen
+        }
     }
 
     /// Refuses symlinks, anything outside the folder, too many files and zip bombs.

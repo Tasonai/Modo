@@ -82,13 +82,18 @@ extension AppModel {
                 hasIconFile: Self.hasIconFile(at: item.bundlePath)
             )
             guard needs else { continue }
-            let source = sourceIcon(for: item, canvasSize: 512)
-            let rendered = IconRenderer.renderRoundIcon(
-                sourceImage: source,
-                style: style,
-                fallbackHex: UInt32(clamping: item.brandHex),
-                canvasSize: 512
-            )
+            let rendered: NSImage
+            if item.isFolder {
+                rendered = folderIcon(for: item)
+            } else {
+                let source = sourceIcon(for: item, canvasSize: 512)
+                rendered = IconRenderer.renderRoundIcon(
+                    sourceImage: source,
+                    style: effectiveStyle(for: item),
+                    fallbackHex: UInt32(clamping: item.brandHex),
+                    canvasSize: 512
+                )
+            }
             _ = IconRenderer.applyIcon(rendered, toAppAt: item.bundlePath)
             recordApplied(item)
             count += 1

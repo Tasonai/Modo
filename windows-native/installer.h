@@ -15,7 +15,7 @@ namespace ModoInstaller {
 
 bool IsRunningFromInstalledLocation();
 std::wstring GetDefaultInstallDirectory();
-bool PerformInstall(HWND hParentWnd, bool desktopShortcut, bool startMenuShortcut, bool contextMenu, std::wstring& outInstalledExe);
+bool PerformInstall(HWND hParentWnd, bool desktopShortcut, bool startMenuShortcut, bool contextMenu, std::wstring& outInstalledExe, const std::wstring& customInstallDir = L"");
 bool PerformUninstall(HWND hParentWnd, bool silent);
 int RunSetupWizard(HINSTANCE hInstance, int nCmdShow, bool isUpdateMode = false);
 

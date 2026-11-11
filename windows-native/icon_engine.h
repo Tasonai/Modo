@@ -17,8 +17,9 @@ Bitmap* LoadHighResIcon(const std::wstring& primaryPath, const std::wstring& fal
 Bitmap* TrimTransparentEdges(Bitmap* src);
 Bitmap* RenderMonogramBitmap(const std::wstring& letters, Color primaryColor, Color secondaryColor, int size = 256, int frameStyle = 0);
 Bitmap* RenderLucideVectorBitmap(const std::wstring& iconName, Color strokeColor, int size = 256);
-Bitmap* RenderSimpleIconBitmap(const std::wstring& slugOrName, Color customColor = Color(0, 0, 0, 0), int size = 256);
+Bitmap* RenderSimpleIconBitmap(const std::wstring& slugOrName, Color customColor = Color(0, 0, 0, 0), int size = 256, bool onDarkSurface = false);
 Bitmap* RenderProceduralGeometricBitmap(int styleIdx, Color primaryColor, Color secondaryColor, int size = 256);
+Bitmap* LoadSvgOrRasterArtworkFile(const std::wstring& filePath, int size = 256);
 
 // Google Pixel & Material You Round Icon Generator
 Bitmap* RenderGoogleRoundIcon(Bitmap* sourceBitmap, const RoundStyle& style, int canvasSize = 256);

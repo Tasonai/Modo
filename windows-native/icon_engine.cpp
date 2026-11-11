@@ -2144,6 +2144,145 @@ Bitmap* RenderLucideVectorBitmap(const std::wstring& iconName, Color strokeColor
         g.DrawLine(&pen, 9.0f*s, 14.5f*s, 22.0f*s, 3.0f*s);
         g.DrawLine(&pen, 18.0f*s, 5.0f*s, 20.0f*s, 7.0f*s);
         g.DrawLine(&pen, 15.0f*s, 8.0f*s, 17.0f*s, 10.0f*s);
+    } else if (name == L"server") {
+        g.DrawRectangle(&pen, 2.0f*s, 3.0f*s, 20.0f*s, 7.0f*s);
+        g.DrawRectangle(&pen, 2.0f*s, 14.0f*s, 20.0f*s, 7.0f*s);
+        SolidBrush sb(strokeColor);
+        g.FillEllipse(&sb, 5.0f*s, 5.2f*s, 2.5f*s, 2.5f*s);
+        g.FillEllipse(&sb, 5.0f*s, 16.2f*s, 2.5f*s, 2.5f*s);
+        g.DrawLine(&pen, 11.0f*s, 6.5f*s, 18.0f*s, 6.5f*s);
+        g.DrawLine(&pen, 11.0f*s, 17.5f*s, 18.0f*s, 17.5f*s);
+    } else if (name == L"settings" || name == L"gear") {
+        g.DrawEllipse(&pen, 8.5f*s, 8.5f*s, 7.0f*s, 7.0f*s);
+        g.DrawEllipse(&pen, 5.0f*s, 5.0f*s, 14.0f*s, 14.0f*s);
+        for (int i = 0; i < 8; ++i) {
+            REAL ang = (REAL)i * 45.0f * 3.14159265f / 180.0f;
+            g.DrawLine(&pen,
+                       12.0f*s + 7.0f*s * std::cos(ang), 12.0f*s + 7.0f*s * std::sin(ang),
+                       12.0f*s + 10.2f*s * std::cos(ang), 12.0f*s + 10.2f*s * std::sin(ang));
+        }
+    } else if (name == L"cloud") {
+        GraphicsPath cp;
+        cp.AddArc(5.0f*s, 6.0f*s, 10.0f*s, 10.0f*s, 180.0f, 180.0f);
+        cp.AddArc(13.0f*s, 9.0f*s, 8.0f*s, 8.0f*s, 240.0f, 210.0f);
+        cp.AddLine(18.0f*s, 19.0f*s, 6.0f*s, 19.0f*s);
+        cp.AddArc(2.0f*s, 11.0f*s, 8.0f*s, 8.0f*s, 90.0f, 150.0f);
+        cp.CloseFigure();
+        g.DrawPath(&pen, &cp);
+    } else if (name == L"download") {
+        g.DrawLine(&pen, 12.0f*s, 3.0f*s, 12.0f*s, 15.0f*s);
+        PointF ar[3] = { {7.0f*s, 10.0f*s}, {12.0f*s, 15.0f*s}, {17.0f*s, 10.0f*s} };
+        g.DrawLines(&pen, ar, 3);
+        PointF tr[4] = { {4.0f*s, 16.0f*s}, {4.0f*s, 20.0f*s}, {20.0f*s, 20.0f*s}, {20.0f*s, 16.0f*s} };
+        g.DrawLines(&pen, tr, 4);
+    } else if (name == L"upload") {
+        g.DrawLine(&pen, 12.0f*s, 15.0f*s, 12.0f*s, 3.0f*s);
+        PointF ar[3] = { {7.0f*s, 8.0f*s}, {12.0f*s, 3.0f*s}, {17.0f*s, 8.0f*s} };
+        g.DrawLines(&pen, ar, 3);
+        PointF tr[4] = { {4.0f*s, 16.0f*s}, {4.0f*s, 20.0f*s}, {20.0f*s, 20.0f*s}, {20.0f*s, 16.0f*s} };
+        g.DrawLines(&pen, tr, 4);
+    } else if (name == L"home") {
+        PointF roof[3] = { {3.0f*s, 10.5f*s}, {12.0f*s, 3.0f*s}, {21.0f*s, 10.5f*s} };
+        g.DrawLines(&pen, roof, 3);
+        PointF walls[4] = { {5.0f*s, 9.5f*s}, {5.0f*s, 20.0f*s}, {19.0f*s, 20.0f*s}, {19.0f*s, 9.5f*s} };
+        g.DrawLines(&pen, walls, 4);
+        g.DrawRectangle(&pen, 9.5f*s, 13.5f*s, 5.0f*s, 6.5f*s);
+    } else if (name == L"user") {
+        g.DrawEllipse(&pen, 8.0f*s, 3.0f*s, 8.0f*s, 8.0f*s);
+        g.DrawArc(&pen, 4.0f*s, 14.0f*s, 16.0f*s, 12.0f*s, 180.0f, 180.0f);
+    } else if (name == L"heart") {
+        GraphicsPath hp;
+        hp.AddBezier(12.0f*s, 20.5f*s, 4.0f*s, 15.0f*s, 2.5f*s, 9.0f*s, 6.0f*s, 5.5f*s);
+        hp.AddBezier(6.0f*s, 5.5f*s, 8.5f*s, 3.5f*s, 11.0f*s, 5.0f*s, 12.0f*s, 7.0f*s);
+        hp.AddBezier(12.0f*s, 7.0f*s, 13.0f*s, 5.0f*s, 15.5f*s, 3.5f*s, 18.0f*s, 5.5f*s);
+        hp.AddBezier(18.0f*s, 5.5f*s, 21.5f*s, 9.0f*s, 20.0f*s, 15.0f*s, 12.0f*s, 20.5f*s);
+        g.DrawPath(&pen, &hp);
+    } else if (name == L"star") {
+        PointF stp[10];
+        for (int i = 0; i < 10; ++i) {
+            REAL r = (i % 2 == 0) ? 9.5f*s : 4.2f*s;
+            REAL ang = ((REAL)i * 36.0f - 90.0f) * 3.14159265f / 180.0f;
+            stp[i] = { 12.0f*s + r * std::cos(ang), 12.2f*s + r * std::sin(ang) };
+        }
+        g.DrawPolygon(&pen, stp, 10);
+    } else if (name == L"bell") {
+        g.DrawArc(&pen, 6.0f*s, 3.0f*s, 12.0f*s, 12.0f*s, 180.0f, 180.0f);
+        g.DrawLine(&pen, 6.0f*s, 9.0f*s, 4.0f*s, 17.0f*s);
+        g.DrawLine(&pen, 18.0f*s, 9.0f*s, 20.0f*s, 17.0f*s);
+        g.DrawLine(&pen, 4.0f*s, 17.0f*s, 20.0f*s, 17.0f*s);
+        g.DrawArc(&pen, 10.0f*s, 17.0f*s, 4.0f*s, 4.0f*s, 0.0f, 180.0f);
+    } else if (name == L"calendar") {
+        g.DrawRectangle(&pen, 3.0f*s, 5.0f*s, 18.0f*s, 16.0f*s);
+        g.DrawLine(&pen, 3.0f*s, 10.0f*s, 21.0f*s, 10.0f*s);
+        g.DrawLine(&pen, 8.0f*s, 2.5f*s, 8.0f*s, 6.5f*s);
+        g.DrawLine(&pen, 16.0f*s, 2.5f*s, 16.0f*s, 6.5f*s);
+    } else if (name == L"clock") {
+        g.DrawEllipse(&pen, 2.5f*s, 2.5f*s, 19.0f*s, 19.0f*s);
+        PointF hands[3] = { {12.0f*s, 6.5f*s}, {12.0f*s, 12.0f*s}, {16.0f*s, 14.5f*s} };
+        g.DrawLines(&pen, hands, 3);
+    } else if (name == L"compass") {
+        g.DrawEllipse(&pen, 2.5f*s, 2.5f*s, 19.0f*s, 19.0f*s);
+        PointF nd[4] = { {16.2f*s, 7.8f*s}, {14.0f*s, 14.0f*s}, {7.8f*s, 16.2f*s}, {10.0f*s, 10.0f*s} };
+        g.DrawPolygon(&pen, nd, 4);
+    } else if (name == L"eye") {
+        GraphicsPath ep;
+        ep.AddBezier(2.0f*s, 12.0f*s, 5.5f*s, 5.5f*s, 18.5f*s, 5.5f*s, 22.0f*s, 12.0f*s);
+        ep.AddBezier(22.0f*s, 12.0f*s, 18.5f*s, 18.5f*s, 5.5f*s, 18.5f*s, 2.0f*s, 12.0f*s);
+        g.DrawPath(&pen, &ep);
+        g.DrawEllipse(&pen, 9.0f*s, 9.0f*s, 6.0f*s, 6.0f*s);
+    } else if (name == L"file-text") {
+        PointF doc[5] = { {5.0f*s, 2.5f*s}, {14.0f*s, 2.5f*s}, {19.0f*s, 7.5f*s}, {19.0f*s, 21.5f*s}, {5.0f*s, 21.5f*s} };
+        g.DrawPolygon(&pen, doc, 5);
+        g.DrawLine(&pen, 8.5f*s, 12.0f*s, 15.5f*s, 12.0f*s);
+        g.DrawLine(&pen, 8.5f*s, 16.0f*s, 15.5f*s, 16.0f*s);
+    } else if (name == L"gamepad") {
+        g.DrawRectangle(&pen, 2.5f*s, 7.0f*s, 19.0f*s, 11.0f*s);
+        g.DrawLine(&pen, 6.0f*s, 12.5f*s, 10.0f*s, 12.5f*s);
+        g.DrawLine(&pen, 8.0f*s, 10.5f*s, 8.0f*s, 14.5f*s);
+        SolidBrush sb(strokeColor);
+        g.FillEllipse(&sb, 14.5f*s, 10.0f*s, 2.0f*s, 2.0f*s);
+        g.FillEllipse(&sb, 17.0f*s, 12.5f*s, 2.0f*s, 2.0f*s);
+    } else if (name == L"headphones") {
+        g.DrawArc(&pen, 3.0f*s, 3.0f*s, 18.0f*s, 18.0f*s, 180.0f, 180.0f);
+        g.DrawRectangle(&pen, 3.0f*s, 13.0f*s, 4.0f*s, 7.0f*s);
+        g.DrawRectangle(&pen, 17.0f*s, 13.0f*s, 4.0f*s, 7.0f*s);
+    } else if (name == L"image") {
+        g.DrawRectangle(&pen, 3.0f*s, 3.0f*s, 18.0f*s, 18.0f*s);
+        g.DrawEllipse(&pen, 7.0f*s, 7.0f*s, 3.5f*s, 3.5f*s);
+        PointF mt[3] = { {4.0f*s, 20.0f*s}, {14.0f*s, 11.0f*s}, {21.0f*s, 17.0f*s} };
+        g.DrawLines(&pen, mt, 3);
+    } else if (name == L"layers") {
+        PointF l1[4] = { {12.0f*s, 3.0f*s}, {21.0f*s, 8.0f*s}, {12.0f*s, 13.0f*s}, {3.0f*s, 8.0f*s} };
+        g.DrawPolygon(&pen, l1, 4);
+        PointF l2[3] = { {3.0f*s, 13.0f*s}, {12.0f*s, 18.0f*s}, {21.0f*s, 13.0f*s} };
+        PointF l3[3] = { {3.0f*s, 17.0f*s}, {12.0f*s, 22.0f*s}, {21.0f*s, 17.0f*s} };
+        g.DrawLines(&pen, l2, 3);
+        g.DrawLines(&pen, l3, 3);
+    } else if (name == L"package") {
+        PointF hex[6] = {
+            {12.0f*s, 2.5f*s}, {20.5f*s, 7.2f*s}, {20.5f*s, 16.8f*s},
+            {12.0f*s, 21.5f*s}, {3.5f*s, 16.8f*s}, {3.5f*s, 7.2f*s}
+        };
+        g.DrawPolygon(&pen, hex, 6);
+        PointF mid[3] = { {3.5f*s, 7.2f*s}, {12.0f*s, 12.0f*s}, {20.5f*s, 7.2f*s} };
+        g.DrawLines(&pen, mid, 3);
+        g.DrawLine(&pen, 12.0f*s, 12.0f*s, 12.0f*s, 21.5f*s);
+    } else if (name == L"play") {
+        PointF pl[3] = { {6.0f*s, 4.0f*s}, {20.0f*s, 12.0f*s}, {6.0f*s, 20.0f*s} };
+        g.DrawPolygon(&pen, pl, 3);
+    } else if (name == L"trash") {
+        g.DrawLine(&pen, 3.0f*s, 6.0f*s, 21.0f*s, 6.0f*s);
+        g.DrawRectangle(&pen, 6.0f*s, 6.0f*s, 12.0f*s, 15.0f*s);
+        g.DrawRectangle(&pen, 9.0f*s, 3.0f*s, 6.0f*s, 3.0f*s);
+    } else if (name == L"wifi") {
+        g.DrawArc(&pen, 2.0f*s, 5.0f*s, 20.0f*s, 18.0f*s, 215.0f, 110.0f);
+        g.DrawArc(&pen, 5.5f*s, 9.5f*s, 13.0f*s, 13.0f*s, 215.0f, 110.0f);
+        g.DrawArc(&pen, 9.0f*s, 14.0f*s, 6.0f*s, 6.0f*s, 215.0f, 110.0f);
+        SolidBrush sb(strokeColor);
+        g.FillEllipse(&sb, 10.8f*s, 18.5f*s, 2.4f*s, 2.4f*s);
+    } else if (name == L"wrench") {
+        g.DrawEllipse(&pen, 12.0f*s, 3.0f*s, 9.0f*s, 9.0f*s);
+        g.DrawLine(&pen, 13.5f*s, 10.5f*s, 4.0f*s, 20.0f*s);
     } else { // sparkles / ai (default)
         PointF st[9] = {
             {12.0f*s, 3.0f*s}, {10.0f*s, 9.0f*s}, {3.0f*s, 12.0f*s}, {10.0f*s, 15.0f*s},
@@ -2275,6 +2414,7 @@ static bool ParseSvgPathToGraphicsPath(const char* str, GraphicsPath& path, REAL
         while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',')) p++;
         if (!*p) break;
 
+        const char* iterStart = p;
         char c = *p;
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
             lastCmd = c;
@@ -2373,6 +2513,25 @@ static bool ParseSvgPathToGraphicsPath(const char* str, GraphicsPath& path, REAL
                 curX = x; curY = y;
                 break;
             }
+            case 'T':
+            case 't': {
+                REAL x = 0, y = 0;
+                if (!readNum(x) || !readNum(y)) break;
+                if (lastCmd == 't') { x += curX; y += curY; }
+                REAL qx = curX * 2.0f - lastCtrlX;
+                REAL qy = curY * 2.0f - lastCtrlY;
+                REAL cp1x = curX + (2.0f / 3.0f) * (qx - curX);
+                REAL cp1y = curY + (2.0f / 3.0f) * (qy - curY);
+                REAL cp2x = x + (2.0f / 3.0f) * (qx - x);
+                REAL cp2y = y + (2.0f / 3.0f) * (qy - y);
+                path.AddBezier(curX * scaleX + offX, curY * scaleY + offY,
+                               cp1x * scaleX + offX, cp1y * scaleY + offY,
+                               cp2x * scaleX + offX, cp2y * scaleY + offY,
+                               x * scaleX + offX, y * scaleY + offY);
+                lastCtrlX = qx; lastCtrlY = qy;
+                curX = x; curY = y;
+                break;
+            }
             case 'A':
             case 'a': {
                 REAL rx = 0, ry = 0, rot = 0, x = 0, y = 0;
@@ -2398,11 +2557,15 @@ static bool ParseSvgPathToGraphicsPath(const char* str, GraphicsPath& path, REAL
                 p++;
                 break;
         }
+        // Guarantee forward progress on malformed tokens to prevent any infinite loop
+        if (p == iterStart && *p) {
+            p++;
+        }
     }
     return true;
 }
 
-Bitmap* RenderSimpleIconBitmap(const std::wstring& slugOrName, Color customColor, int size) {
+Bitmap* RenderSimpleIconBitmap(const std::wstring& slugOrName, Color customColor, int size, bool onDarkSurface) {
     if (size <= 0) size = 256;
     Bitmap* bmp = new Bitmap(size, size, PixelFormat32bppARGB);
     Graphics g(bmp);
@@ -2440,13 +2603,194 @@ Bitmap* RenderSimpleIconBitmap(const std::wstring& slugOrName, Color customColor
         Color fillCol = customColor;
         if (fillCol.GetA() == 0) {
             COLORREF bCol = found->brandColor;
-            fillCol = Color(255, GetRValue(bCol), GetGValue(bCol), GetBValue(bCol));
+            BYTE r = GetRValue(bCol), gr = GetGValue(bCol), bl = GetBValue(bCol);
+            int lum = (r * 299 + gr * 587 + bl * 114) / 1000;
+            if (onDarkSurface && lum < 40) {
+                fillCol = Color(255, 248, 250, 252);
+            } else {
+                fillCol = Color(255, r, gr, bl);
+            }
         }
         SolidBrush brush(fillCol);
         g.FillPath(&brush, &path);
     }
 
     return bmp;
+}
+
+static bool ParseHexColorAttr(const std::string& tag, const char* attrName, Color& outColor) {
+    size_t pos = tag.find(attrName);
+    if (pos == std::string::npos) return false;
+    pos = tag.find('=', pos);
+    if (pos == std::string::npos) return false;
+    pos++;
+    while (pos < tag.size() && (tag[pos] == ' ' || tag[pos] == '"' || tag[pos] == '\'')) pos++;
+    if (pos >= tag.size()) return false;
+    if (tag.compare(pos, 4, "none") == 0) {
+        outColor = Color(0, 0, 0, 0);
+        return true;
+    }
+    if (tag[pos] != '#') return false;
+    pos++;
+    auto hexNib = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+        if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+        return -1;
+    };
+    if (pos + 6 <= tag.size() && hexNib(tag[pos+3]) >= 0 && hexNib(tag[pos+5]) >= 0) {
+        int r = (hexNib(tag[pos]) << 4) | hexNib(tag[pos+1]);
+        int g = (hexNib(tag[pos+2]) << 4) | hexNib(tag[pos+3]);
+        int b = (hexNib(tag[pos+4]) << 4) | hexNib(tag[pos+5]);
+        if (r >= 0 && g >= 0 && b >= 0) {
+            outColor = Color(255, (BYTE)r, (BYTE)g, (BYTE)b);
+            return true;
+        }
+    } else if (pos + 3 <= tag.size()) {
+        int r = hexNib(tag[pos]), g = hexNib(tag[pos+1]), b = hexNib(tag[pos+2]);
+        if (r >= 0 && g >= 0 && b >= 0) {
+            outColor = Color(255, (BYTE)(r * 17), (BYTE)(g * 17), (BYTE)(b * 17));
+            return true;
+        }
+    }
+    return false;
+}
+
+Bitmap* LoadSvgOrRasterArtworkFile(const std::wstring& filePath, int size) {
+    if (filePath.empty()) return nullptr;
+    if (size <= 0) size = 256;
+
+    std::wstring ext = PathFindExtensionW(filePath.c_str());
+    if (_wcsicmp(ext.c_str(), L".svg") == 0) {
+        HANDLE hFile = CreateFileW(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) return nullptr;
+        DWORD fSize = GetFileSize(hFile, NULL);
+        if (fSize == 0 || fSize == INVALID_FILE_SIZE || fSize > 2 * 1024 * 1024) {
+            CloseHandle(hFile);
+            return nullptr;
+        }
+        std::string svg(fSize, '\0');
+        DWORD rd = 0;
+        bool readOk = ReadFile(hFile, &svg[0], fSize, &rd, NULL) && rd > 0;
+        CloseHandle(hFile);
+        if (!readOk) return nullptr;
+
+        REAL vbX = 0.0f, vbY = 0.0f, vbW = 24.0f, vbH = 24.0f;
+        size_t vbPos = svg.find("viewBox");
+        if (vbPos == std::string::npos) vbPos = svg.find("viewbox");
+        if (vbPos != std::string::npos) {
+            size_t q1 = svg.find_first_of("\"'", vbPos);
+            if (q1 != std::string::npos) {
+                char qCh = svg[q1];
+                size_t q2 = svg.find(qCh, q1 + 1);
+                if (q2 != std::string::npos) {
+                    std::string vbStr = svg.substr(q1 + 1, q2 - q1 - 1);
+                    for (char& ch : vbStr) if (ch == ',') ch = ' ';
+                    float x = 0, y = 0, w = 0, h = 0;
+                    if (sscanf(vbStr.c_str(), "%f %f %f %f", &x, &y, &w, &h) == 4 && w > 0.1f && h > 0.1f) {
+                        vbX = x; vbY = y; vbW = w; vbH = h;
+                    }
+                }
+            }
+        }
+
+        Color rootFill(255, 30, 41, 59);
+        Color rootStroke(0, 0, 0, 0);
+        size_t svgTagEnd = svg.find('>');
+        if (svgTagEnd != std::string::npos) {
+            std::string rootTag = svg.substr(0, svgTagEnd + 1);
+            ParseHexColorAttr(rootTag, "fill", rootFill);
+            ParseHexColorAttr(rootTag, "stroke", rootStroke);
+        }
+
+        Bitmap* bmp = new Bitmap(size, size, PixelFormat32bppARGB);
+        Graphics g(bmp);
+        g.SetSmoothingMode(SmoothingModeAntiAlias);
+        g.Clear(Color(0, 0, 0, 0));
+
+        REAL pad = (REAL)size * 0.10f;
+        REAL usable = (REAL)size - pad * 2.0f;
+        REAL maxDim = std::max(vbW, vbH);
+        REAL scale = usable / maxDim;
+        REAL offX = pad + (usable - vbW * scale) * 0.5f - vbX * scale;
+        REAL offY = pad + (usable - vbH * scale) * 0.5f - vbY * scale;
+
+        bool drewAny = false;
+        size_t searchPos = 0;
+        while (true) {
+            size_t pTag = svg.find("<path", searchPos);
+            if (pTag == std::string::npos) break;
+            size_t pEnd = svg.find('>', pTag);
+            if (pEnd == std::string::npos) break;
+            std::string tag = svg.substr(pTag, pEnd - pTag + 1);
+            searchPos = pEnd + 1;
+
+            size_t dPos = tag.find(" d=");
+            if (dPos == std::string::npos) dPos = tag.find("\td=");
+            if (dPos == std::string::npos) dPos = tag.find("\nd=");
+            if (dPos != std::string::npos) {
+                size_t dq1 = tag.find_first_of("\"'", dPos + 2);
+                if (dq1 != std::string::npos) {
+                    char dqCh = tag[dq1];
+                    size_t dq2 = tag.find(dqCh, dq1 + 1);
+                    if (dq2 != std::string::npos) {
+                        std::string dVal = tag.substr(dq1 + 1, dq2 - dq1 - 1);
+                        GraphicsPath path;
+                        if (ParseSvgPathToGraphicsPath(dVal.c_str(), path, scale, scale, offX, offY)) {
+                            Color fillCol = rootFill;
+                            Color strokeCol = rootStroke;
+                            ParseHexColorAttr(tag, "fill", fillCol);
+                            ParseHexColorAttr(tag, "stroke", strokeCol);
+                            if (fillCol.GetA() > 0) {
+                                SolidBrush br(fillCol);
+                                g.FillPath(&br, &path);
+                                drewAny = true;
+                            }
+                            if (strokeCol.GetA() > 0) {
+                                Pen pn(strokeCol, std::max(2.0f, scale * 1.8f));
+                                pn.SetStartCap(LineCapRound);
+                                pn.SetEndCap(LineCapRound);
+                                pn.SetLineJoin(LineJoinRound);
+                                g.DrawPath(&pn, &path);
+                                drewAny = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!drewAny) {
+            delete bmp;
+            return nullptr;
+        }
+        return bmp;
+    }
+
+    if (_wcsicmp(ext.c_str(), L".ico") == 0 || _wcsicmp(ext.c_str(), L".exe") == 0) {
+        Bitmap* peBmp = ExtractDirectPeOrIco256(filePath, 0);
+        if (peBmp) return peBmp;
+    }
+
+    Bitmap* diskBmp = Bitmap::FromFile(filePath.c_str());
+    if (!diskBmp || diskBmp->GetLastStatus() != Ok || diskBmp->GetWidth() == 0 || diskBmp->GetHeight() == 0) {
+        delete diskBmp;
+        return nullptr;
+    }
+    // Clone into independent memory Bitmap so GDI+ releases the OS file lock immediately
+    int w = (int)diskBmp->GetWidth();
+    int h = (int)diskBmp->GetHeight();
+    int outW = (w > 512 || h > 512) ? size : w;
+    int outH = (w > 512 || h > 512) ? size : h;
+    Bitmap* memBmp = new Bitmap(outW, outH, PixelFormat32bppARGB);
+    {
+        Graphics g(memBmp);
+        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        g.SetSmoothingMode(SmoothingModeAntiAlias);
+        g.DrawImage(diskBmp, Rect(0, 0, outW, outH));
+    }
+    delete diskBmp;
+    return memBmp;
 }
 
 Bitmap* RenderProceduralGeometricBitmap(int styleIdx, Color pCol, Color sCol, int size) {

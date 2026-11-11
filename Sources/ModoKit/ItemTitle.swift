@@ -1,19 +1,63 @@
 import Foundation
 
-/// An immutable snapshot restore point of applied application icons.
+/// Per-application state captured inside a `SystemBackupPoint` so previous themes and artwork roll back faithfully.
+public struct AppBackupItemSnapshot: Codable, Sendable, Hashable {
+    public let bundlePath: String
+    public let wasApplied: Bool
+    public let customImageData: Data?
+    public let brandHex: Int
+    public let customScale: Double?
+    public let customOffsetX: Double?
+    public let customOffsetY: Double?
+
+    public init(
+        bundlePath: String,
+        wasApplied: Bool,
+        customImageData: Data? = nil,
+        brandHex: Int = 0,
+        customScale: Double? = nil,
+        customOffsetX: Double? = nil,
+        customOffsetY: Double? = nil
+    ) {
+        self.bundlePath = bundlePath
+        self.wasApplied = wasApplied
+        self.customImageData = customImageData
+        self.brandHex = brandHex
+        self.customScale = customScale
+        self.customOffsetX = customOffsetX
+        self.customOffsetY = customOffsetY
+    }
+}
+
+/// An immutable snapshot restore point of applied application icons, theme style, and per-app overrides.
 public struct SystemBackupPoint: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public let date: Date
     public let name: String
     public let appPaths: [String]
     public let packName: String
+    public var savedStyle: RoundIconStyle?
+    public var savedPackId: String?
+    public var itemSnapshots: [AppBackupItemSnapshot]?
 
-    public init(id: UUID = UUID(), date: Date = .now, name: String, appPaths: [String], packName: String) {
+    public init(
+        id: UUID = UUID(),
+        date: Date = .now,
+        name: String,
+        appPaths: [String],
+        packName: String,
+        savedStyle: RoundIconStyle? = nil,
+        savedPackId: String? = nil,
+        itemSnapshots: [AppBackupItemSnapshot]? = nil
+    ) {
         self.id = id
         self.date = date
         self.name = name
         self.appPaths = appPaths
         self.packName = packName
+        self.savedStyle = savedStyle
+        self.savedPackId = savedPackId
+        self.itemSnapshots = itemSnapshots
     }
 }
 

@@ -556,26 +556,39 @@ enum IconRenderer {
             }
         }
 
-        // Inform Finder to refresh its cached view for this file
-        let escaped = bundlePath.replacingOccurrences(of: "\"", with: "\\\"")
-        let finderScript = "tell application \"Finder\" to update item (POSIX file \"\(escaped)\" as alias)"
-        if let script = NSAppleScript(source: finderScript) {
-            var error: NSDictionary?
-            script.executeAndReturnError(&error)
-        }
-
         NSWorkspace.shared.noteFileSystemChanged(bundlePath)
     }
 
-    /// Requests admin privileges via AppleScript to make a root-owned /Applications bundle writable.
+    /// Requests admin privileges via AppleScript to grant write access to the current user on top-level
+    /// root-owned `/Applications/*.app` directories only (never recursive, never world-writable).
+    @discardableResult
     static func requestAdminWriteAccess(for bundlePath: String) -> Bool {
-        guard !Store.isOverridden, !bundlePath.isEmpty else { return false }
-        let escaped = bundlePath.replacingOccurrences(of: "'", with: "'\\''")
-        let script = "do shell script \"chmod -R a+w '\(escaped)'\" with administrator privileges"
+        requestAdminWriteAccess(forBundles: [bundlePath])
+    }
+
+    /// Grants current-user write permission on one or more top-level `.app` directories in a single prompt.
+    @discardableResult
+    static func requestAdminWriteAccess(forBundles bundlePaths: [String]) -> Bool {
+        guard !Store.isOverridden else { return false }
+        let fm = FileManager.default
+        let validPaths = bundlePaths.filter { path in
+            var isDir: ObjCBool = false
+            return !path.isEmpty && !path.hasPrefix("/System/") && fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue && !fm.isWritableFile(atPath: path)
+        }
+        guard !validPaths.isEmpty else { return true }
+
+        let uid = getuid()
+        // Base64 contains exclusively [A-Za-z0-9+/=], preventing any shell or AppleScript injection.
+        let encodedList = validPaths.map { Data($0.utf8).base64EncodedString() }.joined(separator: " ")
+        let shellCmd = "for b in \(encodedList); do p=$(/usr/bin/printf '%s' \"$b\" | /usr/bin/base64 -d); /usr/sbin/chown \(uid) \"$p\" && /bin/chmod u+w \"$p\"; ic=\"$p/Icon$(/usr/bin/printf '\\r')\"; if [ -e \"$ic\" ]; then /usr/sbin/chown \(uid) \"$ic\" && /bin/chmod u+w \"$ic\"; fi; done"
+        let escapedForAppleScript = shellCmd
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "do shell script \"\(escapedForAppleScript)\" with administrator privileges"
         var error: NSDictionary?
         if let appleScript = NSAppleScript(source: script) {
             appleScript.executeAndReturnError(&error)
-            return error == nil && FileManager.default.isWritableFile(atPath: bundlePath)
+            return error == nil && validPaths.allSatisfy { fm.isWritableFile(atPath: $0) }
         }
         return false
     }
@@ -590,7 +603,8 @@ enum IconRenderer {
     static func applyIconWithDetails(
         _ icon: NSImage,
         toAppAt bundlePath: String,
-        allowAdminPrompt: Bool = true
+        allowAdminPrompt: Bool = true,
+        flushCaches: Bool = true
     ) -> IconApplyStatus {
         guard !bundlePath.isEmpty, FileManager.default.fileExists(atPath: bundlePath) else {
             return .directSuccess // Seeded/virtual sample app in test store
@@ -616,7 +630,9 @@ enum IconRenderer {
             let applied = NSWorkspace.shared.setIcon(icon, forFile: bundlePath, options: [])
             if applied {
                 notifyLaunchServices(for: bundlePath)
-                flushSystemDockAndFinder()
+                if flushCaches {
+                    flushSystemDockAndFinder()
+                }
                 return .directSuccess
             }
         }
@@ -639,15 +655,30 @@ enum IconRenderer {
         return aliasPath
     }
 
-    /// Restores the original macOS icon on the target `.app` bundle.
+    /// Restores the original macOS icon on the target `.app` bundle and removes any fallback alias.
     @discardableResult
-    static func restoreOriginalIcon(at bundlePath: String) -> Bool {
+    static func restoreOriginalIcon(at bundlePath: String, flushCaches: Bool = true) -> Bool {
         guard !bundlePath.isEmpty, FileManager.default.fileExists(atPath: bundlePath) else {
             return true
         }
+        let appName = (bundlePath as NSString).lastPathComponent
+        let aliasPath = (NSHomeDirectory() as NSString).appendingPathComponent("Applications/Round Icons/\(appName)")
+        if let dest = try? FileManager.default.destinationOfSymbolicLink(atPath: aliasPath), dest == bundlePath {
+            try? FileManager.default.removeItem(atPath: aliasPath)
+        }
+
+        if bundlePath.hasPrefix("/System/") {
+            if flushCaches {
+                flushSystemDockAndFinder()
+            }
+            return true
+        }
+
         let ok = NSWorkspace.shared.setIcon(nil, forFile: bundlePath, options: [])
         notifyLaunchServices(for: bundlePath)
-        flushSystemDockAndFinder()
+        if flushCaches {
+            flushSystemDockAndFinder()
+        }
         return ok
     }
 
@@ -835,12 +866,24 @@ enum IconRenderer {
                 let top = base.materialPastel(whiteMix: 0.18)
                 return (nsColor(top), nsColor(base))
             case .wallpaperDynamic:
-                let pal = WallpaperPaletteEngine.currentWallpaperPalette()
+                let pal = cachedCurrentWallpaperPalette()
                 let pastelRGB = MaterialRGB(hex: pal.pastelHex)
                 let top = pastelRGB.materialPastel(whiteMix: 0.12)
                 return (nsColor(top), nsColor(pastelRGB))
             }
         }
+    }
+
+    private static var wallpaperPaletteCache: (palette: WallpaperPalette, timestamp: TimeInterval)?
+
+    private static func cachedCurrentWallpaperPalette() -> WallpaperPalette {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cached = wallpaperPaletteCache, (now - cached.timestamp) < 5.0 {
+            return cached.palette
+        }
+        let fresh = WallpaperPaletteEngine.currentWallpaperPalette()
+        wallpaperPaletteCache = (fresh, now)
+        return fresh
     }
 
     private static func drawSurfaceMaterial(

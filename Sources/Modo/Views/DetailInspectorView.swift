@@ -214,20 +214,38 @@ struct DetailInspectorView: View {
                     .gesture(
                         DragGesture(minimumDistance: 1)
                             .onChanged { value in
-                                let base = dragStartOffset ?? CGPoint(x: model.style.offsetX, y: model.style.offsetY)
+                                let curX = adjustThisAppOnly ? (item.customOffsetX ?? model.style.offsetX) : model.style.offsetX
+                                let curY = adjustThisAppOnly ? (item.customOffsetY ?? model.style.offsetY) : model.style.offsetY
+                                let base = dragStartOffset ?? CGPoint(x: curX, y: curY)
                                 if dragStartOffset == nil { dragStartOffset = base }
                                 let nx = min(max(base.x + Double(value.translation.width) / 48.0, -1.0), 1.0)
                                 let ny = min(max(base.y - Double(value.translation.height) / 48.0, -1.0), 1.0)
-                                model.style.offsetX = nx
-                                model.style.offsetY = ny
+                                if adjustThisAppOnly {
+                                    item.customOffsetX = nx
+                                    item.customOffsetY = ny
+                                    model.invalidateItemCache(for: item)
+                                } else {
+                                    model.style.offsetX = nx
+                                    model.style.offsetY = ny
+                                }
                             }
                             .onEnded { _ in
                                 dragStartOffset = nil
+                                if adjustThisAppOnly {
+                                    try? context.save()
+                                }
                             }
                     )
                     .onTapGesture(count: 2) {
                         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
-                        model.style.resetPosition()
+                        if adjustThisAppOnly {
+                            item.customOffsetX = 0
+                            item.customOffsetY = 0
+                            model.invalidateItemCache(for: item)
+                            try? context.save()
+                        } else {
+                            model.style.resetPosition()
+                        }
                     }
                     .help("Drag to pan icon · Double click to center")
                 Text(item.isFolder ? "macOS Tinted Folder" : model.activePackName)

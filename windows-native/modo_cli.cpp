@@ -130,6 +130,43 @@ static COLORREF ParseColorPreset(const std::wstring& name) {
     return RGB(0, 122, 255);
 }
 
+static void CollectShortcutsForExeTarget(const std::wstring& exePath, AppEntry& app) {
+    std::vector<AppEntry> scanned;
+    const int csidls[] = {
+        CSIDL_DESKTOPDIRECTORY,
+        CSIDL_COMMON_DESKTOPDIRECTORY,
+        CSIDL_PROGRAMS,
+        CSIDL_COMMON_PROGRAMS
+    };
+    for (int id : csidls) {
+        wchar_t folder[MAX_PATH] = {0};
+        if (SUCCEEDED(SHGetFolderPathW(NULL, id, NULL, 0, folder)) && folder[0]) {
+            bool isDesk = (id == CSIDL_DESKTOPDIRECTORY || id == CSIDL_COMMON_DESKTOPDIRECTORY);
+            ShellIntegration::ScanDirectoryForShortcuts(folder, L"CLI", scanned, 0, isDesk);
+        }
+    }
+    wchar_t appData[MAX_PATH] = {0};
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData)) && appData[0]) {
+        std::wstring tb = std::wstring(appData) + L"\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar";
+        ShellIntegration::ScanDirectoryForShortcuts(tb, L"Taskbar", scanned, 0, true);
+    }
+    std::wstring baseExe = PathFindFileNameW(exePath.c_str());
+    for (auto& e : scanned) {
+        std::wstring eBase = PathFindFileNameW(e.targetPath.c_str());
+        if (_wcsicmp(e.targetPath.c_str(), exePath.c_str()) == 0 ||
+            (!baseExe.empty() && _wcsicmp(eBase.c_str(), baseExe.c_str()) == 0)) {
+            for (const auto& lnk : e.allLnkPaths) {
+                app.allLnkPaths.push_back(lnk);
+                if (app.lnkPath.empty()) app.lnkPath = lnk;
+            }
+        }
+        if (e.origBitmap) {
+            delete e.origBitmap;
+            e.origBitmap = nullptr;
+        }
+    }
+}
+
 static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
     if (argc < 1 || argv[0][0] == L'-') {
         wprintf(L"Error: Missing target app path. Usage: modo style <app_path> [options]\n");
@@ -148,8 +185,13 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
     style.scale = 0.68;
     style.material = MATERIAL_SMOOTH;
 
+    bool restartExplorer = false;
     for (int i = 1; i < argc; ++i) {
         std::wstring opt = ToLower(argv[i]);
+        if (opt == L"--restart-explorer") {
+            restartExplorer = true;
+            continue;
+        }
         if (opt == L"--shape" && i + 1 < argc) {
             std::wstring val = ToLower(argv[++i]);
             if (val == L"circle") style.shape = SHAPE_CIRCLE;
@@ -243,6 +285,7 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
             if (app.targetPath.empty()) app.targetPath = targetPath;
         } else {
             app.targetPath = targetPath;
+            CollectShortcutsForExeTarget(targetPath, app);
         }
         app.category = L"Приложения";
         app.origBitmap = IconEngine::LoadHighResIcon(app.targetPath, app.lnkPath, L"", pngClsid);
@@ -250,8 +293,12 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
 
     uint32_t rev = (uint32_t)(GetTickCount() & 0xFFFF);
     bool needsAdmin = false;
-    if (ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin)) {
-        ShellIntegration::RefreshWindowsExplorerIconCache(true);
+    bool applied = ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin);
+    delete app.origBitmap;
+    app.origBitmap = nullptr;
+
+    if (applied) {
+        ShellIntegration::RefreshWindowsExplorerIconCache(restartExplorer);
         wprintf(L"[+] Successfully styled %ls\n", app.name.c_str());
         wprintf(L"    Shape: %ls, Scale: %d%%\n",
                 (style.shape == SHAPE_CIRCLE ? L"Circle" : style.shape == SHAPE_SQUIRCLE ? L"Squircle" :
@@ -260,7 +307,8 @@ static int HandleStyle(int argc, wchar_t* argv[], const CLSID* pngClsid) {
         return 0;
     } else {
         wprintf(L"[-] Failed to apply icon to %ls. %ls\n", targetPath.c_str(),
-                needsAdmin ? L"Administrator elevation required for this shortcut." : L"Ensure you have write permissions.");
+                needsAdmin ? L"Administrator elevation required for this shortcut." :
+                (app.allLnkPaths.empty() && !app.isFolder ? L"No Desktop or Start Menu shortcut found for this .exe." : L"Ensure you have write permissions."));
         return 1;
     }
 }
@@ -359,6 +407,7 @@ static int HandleMonogram(int argc, wchar_t* argv[], const CLSID* pngClsid) {
         if (app.targetPath.empty()) app.targetPath = targetPath;
     } else {
         app.targetPath = targetPath;
+        CollectShortcutsForExeTarget(targetPath, app);
     }
 
     Color pCol(255, GetRValue(primaryColorRef), GetGValue(primaryColorRef), GetBValue(primaryColorRef));
@@ -368,8 +417,12 @@ static int HandleMonogram(int argc, wchar_t* argv[], const CLSID* pngClsid) {
 
     uint32_t rev = (uint32_t)(GetTickCount() & 0xFFFF);
     bool needsAdmin = false;
-    if (ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin)) {
-        ShellIntegration::RefreshWindowsExplorerIconCache(true);
+    bool applied = ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin);
+    delete app.origBitmap;
+    app.origBitmap = nullptr;
+
+    if (applied) {
+        ShellIntegration::RefreshWindowsExplorerIconCache(false);
         wprintf(L"[+] Successfully applied monogram '%ls' to %ls\n", textLetters.c_str(), app.name.c_str());
         return 0;
     } else {
@@ -460,6 +513,8 @@ static int HandleLucide(int argc, wchar_t* argv[], const CLSID* pngClsid) {
     if (_wcsicmp(PathFindExtensionW(targetPath.c_str()), L".lnk") == 0) {
         app.lnkPath = targetPath;
         app.allLnkPaths.push_back(targetPath);
+    } else {
+        CollectShortcutsForExeTarget(targetPath, app);
     }
     app.category = L"Приложения";
 
@@ -468,8 +523,12 @@ static int HandleLucide(int argc, wchar_t* argv[], const CLSID* pngClsid) {
 
     uint32_t rev = (uint32_t)(GetTickCount() & 0xFFFF);
     bool needsAdmin = false;
-    if (ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin)) {
-        ShellIntegration::RefreshWindowsExplorerIconCache(true);
+    bool applied = ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev, &needsAdmin);
+    delete app.origBitmap;
+    app.origBitmap = nullptr;
+
+    if (applied) {
+        ShellIntegration::RefreshWindowsExplorerIconCache(false);
         wprintf(L"[+] Successfully applied Lucide vector '%ls' to %ls\n", iconName.c_str(), app.name.c_str());
         return 0;
     } else {
@@ -497,13 +556,20 @@ static int HandleRestore(int argc, wchar_t* argv[]) {
     } else {
         AppEntry app;
         app.targetPath = path;
-        app.lnkPath = path;
-        app.name = PathFindFileNameW(path.c_str());
+        std::wstring fname = PathFindFileNameW(path.c_str());
+        size_t dot = fname.find_last_of(L'.');
+        app.name = (dot != std::wstring::npos) ? fname.substr(0, dot) : fname;
+        if (_wcsicmp(PathFindExtensionW(path.c_str()), L".lnk") == 0) {
+            app.lnkPath = path;
+            app.allLnkPaths.push_back(path);
+        } else {
+            CollectShortcutsForExeTarget(path, app);
+        }
         ok = ShellIntegration::RestoreOriginalEntry(app);
     }
 
     if (ok) {
-        ShellIntegration::RefreshWindowsExplorerIconCache(true);
+        ShellIntegration::RefreshWindowsExplorerIconCache(false);
         wprintf(L"[+] Restored original icon for %ls\n", path.c_str());
         return 0;
     } else {
@@ -544,7 +610,10 @@ static int HandleFolder(int argc, wchar_t* argv[], const CLSID* pngClsid) {
     app.origBitmap = IconEngine::LoadHighResIcon(folderPath, L"", L"", pngClsid);
 
     uint32_t rev = (uint32_t)(GetTickCount() & 0xFFFF);
-    if (ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev)) {
+    bool applied = ShellIntegration::ApplyRoundIconToEntry(app, style, pngClsid, rev);
+    delete app.origBitmap;
+    app.origBitmap = nullptr;
+    if (applied) {
         ShellIntegration::RefreshWindowsExplorerIconCache(false);
         wprintf(L"[+] Styled folder %ls with custom desktop.ini palette\n", folderPath.c_str());
         return 0;
